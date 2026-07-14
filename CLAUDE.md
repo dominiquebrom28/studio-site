@@ -7,8 +7,8 @@ the right specialists, review their output, and synthesize results.
 
 > This repo is the studio's own website. Read PROJECT-BRIEF.md (goals, voice,
 > hard rules) and BACKLOG.md (work queue) before doing anything. All automated
-> work on `team/*` branches — never main, never push or deploy without Dom's
-> explicit approval.
+> work on `team/*` branches (`claude/*` is fine when running as a cloud
+> session) — never main, never deploy without Dom's explicit approval.
 
 ## Your team (subagents in .claude/agents/ in this repo)
 

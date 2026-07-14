@@ -43,8 +43,8 @@ Avoid the generic AI-app look; the designer agent sets a distinctive direction.
 
 ## Hard rules for the team
 
-- All work happens on `team/*` branches. **Never commit to main** — Dom
-  reviews and merges.
+- All work happens on `team/*` branches (`claude/*` when running as a cloud
+  session). **Never commit to main** — Dom reviews and merges.
 - Never push, deploy, or publish anything without Dom's explicit approval.
 - Every run ends with a report in `reports/` (see BACKLOG.md for format).
 - Blog posts describe what actually happened — check the repos and reports;
