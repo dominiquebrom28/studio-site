@@ -6,9 +6,10 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 
 ## Items
 
-- [ ] **Architecture spec** — architect: right-size a spec for this site
+- [x] **Architecture spec** — architect: right-size a spec for this site
       (routing, content model for projects + blog posts as markdown,
       component breakdown). Save as `docs/spec.md`. No code yet.
+      _(2026-07-15, team/2026-07-15-architecture-spec — PASS 91, round 1.)_
 - [ ] **Design brief** — designer: visual direction, layout per page (home,
       projects, project detail, blog, post), palette, type, states. Save as
       `docs/design-brief.md`.
