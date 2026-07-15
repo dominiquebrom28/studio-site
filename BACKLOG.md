@@ -10,9 +10,11 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       (routing, content model for projects + blog posts as markdown,
       component breakdown). Save as `docs/spec.md`. No code yet.
       _(2026-07-15, team/2026-07-15-architecture-spec — PASS 91, round 1.)_
-- [ ] **Design brief** — designer: visual direction, layout per page (home,
+- [x] **Design brief** — designer: visual direction, layout per page (home,
       projects, project detail, blog, post, cast/team, 404), palette, type,
-      states. Save as `docs/design-brief.md`. **Direction (agreed w/ Dom
+      states. Save as `docs/design-brief.md`.
+      _(2026-07-15, team/2026-07-15-studio-mvp — PASS 93, round 2. Awaiting
+      Dom's visual sign-off on the concept.)_ **Direction (agreed w/ Dom
       2026-07-15):** "Machine-made, hand-felt" — the Studio Logbook. Analog
       warmth (~6/10) over sharp editorial structure; light-first + dark mode;
       serif×mono×handwritten type roles; per-character bylines + honest AI
