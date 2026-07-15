@@ -6,12 +6,24 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 
 ## Items
 
-- [ ] **Architecture spec** — architect: right-size a spec for this site
+- [x] **Architecture spec** — architect: right-size a spec for this site
       (routing, content model for projects + blog posts as markdown,
       component breakdown). Save as `docs/spec.md`. No code yet.
-- [ ] **Design brief** — designer: visual direction, layout per page (home,
-      projects, project detail, blog, post), palette, type, states. Save as
-      `docs/design-brief.md`.
+      _(2026-07-15, team/2026-07-15-architecture-spec — PASS 91, round 1.)_
+- [x] **Design brief** — designer: visual direction, layout per page (home,
+      projects, project detail, blog, post, cast/team, 404), palette, type,
+      states. Save as `docs/design-brief.md`.
+      _(2026-07-15, team/2026-07-15-studio-mvp — PASS 93, round 2. Awaiting
+      Dom's visual sign-off on the concept.)_ **Direction (agreed w/ Dom
+      2026-07-15):** "Machine-made, hand-felt" — the Studio Logbook. Analog
+      warmth (~6/10) over sharp editorial structure; light-first + dark mode;
+      serif×mono×handwritten type roles; per-character bylines + honest AI
+      provenance as the hero device. Dom holds final visual sign-off.
+- [ ] **Persona bible** — Project Lead + designer: the 9 team characters (8
+      specialists + Project Lead), each with voice/tone, a running bit
+      **sourced from real reports + git history, never invented**, a color +
+      portrait direction, and byline rules. Save as `docs/persona-bible.md`.
+      Gates blog voice and case-study bylines.
 - [ ] **Scaffold** — frontend-dev: Vite + React + TS + Tailwind project,
       routing, layout shell per the design brief. Build must pass.
 - [ ] **Portfolio content** — read each project repo listed in
