@@ -19,13 +19,21 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       warmth (~6/10) over sharp editorial structure; light-first + dark mode;
       serif×mono×handwritten type roles; per-character bylines + honest AI
       provenance as the hero device. Dom holds final visual sign-off.
-- [ ] **Persona bible** — Project Lead + designer: the 9 team characters (8
+- [x] **Persona bible** — Project Lead + designer: the 9 team characters (8
       specialists + Project Lead), each with voice/tone, a running bit
       **sourced from real reports + git history, never invented**, a color +
       portrait direction, and byline rules. Save as `docs/persona-bible.md`.
       Gates blog voice and case-study bylines.
-- [ ] **Scaffold** — frontend-dev: Vite + React + TS + Tailwind project,
+      _(2026-07-15, team/2026-07-15-persona-and-build — Judge loop. Every running
+      bit cited to agent defs / reports / git; backend-dev, devops, marketer,
+      qa-tester honestly flagged standing-rule-only, no invented incidents.)_
+- [x] **Scaffold** — frontend-dev: Vite + React + TS + Tailwind project,
       routing, layout shell per the design brief. Build must pass.
+      _(2026-07-15, team/2026-07-15-persona-and-build — built with Dom's live
+      go-ahead; concept implemented, not just a shell. Build green; qa-tester
+      added a 56-test loader suite + found 3 bugs; a hero design-token collision
+      was caught in browser verification. All 4 fixed in a consolidated
+      frontend-dev round, re-verified in the browser before merge.)_
 - [ ] **Portfolio content** — read each project repo listed in
       PROJECT-BRIEF.md; write one honest markdown write-up per project in
       `content/projects/`.

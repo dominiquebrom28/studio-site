@@ -24,8 +24,11 @@ Client-side routing with `react-router-dom` — **pin to latest stable at scaffo
 | `/projects/:slug` | Project detail | One project write-up (rendered markdown) |
 | `/blog` | Blog index | Reverse-chronological list of posts |
 | `/blog/:slug` | Blog post | One rendered post |
+| `/cast` | Cast / Team | The 9 characters (8 specialists + Project Lead): byline provenance page |
 | `/about` | About (optional, phase 2) | The studio / how it works |
 | `*` | NotFound (404) | Fallback for unknown slugs |
+
+**`/cast` data source (resolves the design-brief §1 handoff):** static, not a content collection. The nine characters are defined in `docs/persona-bible.md` and rendered from a single typed module (`src/content/cast.ts`) — they are fixed studio identities, not markdown files writers add to, so a collection would be over-engineering. Cards are informational/non-interactive in v1 (no per-character filtered post view — deferred per §8).
 
 URL rules:
 - `:slug` is the filename stem of the markdown file (e.g. `content/projects/soulforge.md` → `/projects/soulforge`). Slugs are lowercase kebab-case, validated at build time (see §3).
