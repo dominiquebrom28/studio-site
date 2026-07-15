@@ -1,0 +1,106 @@
+/* Design tokens — design-brief §2, §3, §4.
+   Light is the default; dark is an explicit "ink-on-slate" system, not an
+   inverted afterthought. Toggled via [data-theme="dark"] on <html>
+   (see src/lib/theme.ts) — never relies on prefers-color-scheme alone so a
+   user's explicit choice always wins and persists. */
+
+/* Spacing scale (design-brief §4, 4px base unit) — deliberately declared as
+   PLAIN custom properties, not inside a Tailwind `@theme` block.
+   Root-cause note: Tailwind v4 unifies named-size resolution across several
+   utility categories (width/height/max-width/gap/padding/margin/inset) that
+   share the reserved size names xs/sm/md/lg/xl/2xl/3xl/4xl. Defining
+   `--spacing-2xl` etc. inside `@theme` clobbered the value `max-w-2xl`
+   resolves to (verified: it collapsed to 48px, one word per line on the
+   Home hero). Since Tailwind's own default numeric spacing scale already
+   satisfies this exact 4px-base scale (p-1=4px ... p-24=96px) and nothing
+   in this codebase uses `p-xl`/`gap-2xl`-style named classes, these are
+   kept only as documented, inert reference values — safe to use via
+   `var(--space-xl)` in an arbitrary-value utility, but never registered
+   into Tailwind's theme/utility-generation namespace. */
+:root {
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+}
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --paper: #f6f1e7;
+  --paper-raised: #fbf7ee;
+  --ink: #211b14;
+  --ink-muted: #5b5346;
+  --marker-700: #9a380b;
+  --marker-600: #c1440e;
+  --success: #2f6b3a;
+  --error: #b3261e;
+  --warning: #985f12;
+  --hairline: #dcd3c1;
+
+  /* dark-mode primary-button label rule (design-brief §2/§6) needs the dark
+     --paper value available even in light mode for the token to exist as a
+     single reference; it is only *used* under [data-theme="dark"]. */
+  --button-primary-label: #ffffff;
+
+  /* per-character tints — light */
+  --tint-lead: #3b5169;
+  --tint-architect: #3f5d45;
+  --tint-designer: #a6791f;
+  --tint-frontend: #2c6e8c;
+  --tint-backend: #5b3a6b;
+  --tint-devops: #4a5a63;
+  --tint-security: #a6241a;
+  --tint-qa: #c97a1a;
+  --tint-marketer: #a83d6b;
+
+  --shadow-card: 3px 3px 0 rgba(33, 27, 20, 0.14);
+  --shadow-card-hover: 5px 5px 0 rgba(33, 27, 20, 0.18);
+  --shadow-card-active: 1px 1px 0 rgba(33, 27, 20, 0.14);
+
+  --grain-opacity: 0.03;
+  --grain-blend: multiply;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --paper: #1b1712;
+  --paper-raised: #241f18;
+  --ink: #ede6d8;
+  --ink-muted: #b7ac97;
+  --marker-700: #ff8a5c;
+  --marker-600: #ff6b4a;
+  --success: #5fae6e;
+  --error: #e2564b;
+  --warning: #e0a23a;
+  --hairline: #3a342a;
+
+  /* dark-mode primary button label = --paper (near-black), NOT white/--ink
+     (design-brief §2 self-caught fix: white=2.82:1, --ink=2.27:1, both fail;
+     --paper on --marker-600 = 6.33:1). */
+  --button-primary-label: #1b1712;
+
+  /* per-character tints — dark (lightened ~15%) */
+  --tint-lead: #6c86a0;
+  --tint-architect: #6e9077;
+  --tint-designer: #c6a050;
+  --tint-frontend: #5c9cb8;
+  --tint-backend: #8a67a0;
+  --tint-devops: #7a8991;
+  --tint-security: #d2564b;
+  --tint-qa: #e0a650;
+  --tint-marketer: #d06e97;
+
+  --shadow-card: 3px 3px 0 rgba(0, 0, 0, 0.5);
+  --shadow-card-hover: 5px 5px 0 rgba(0, 0, 0, 0.55);
+  --shadow-card-active: 1px 1px 0 rgba(0, 0, 0, 0.5);
+
+  --grain-opacity: 0.025;
+  --grain-blend: overlay;
+}

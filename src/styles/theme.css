@@ -1,0 +1,46 @@
+/* Tailwind v4 CSS-first theme — maps the design-brief tokens (tokens.css) to
+   utility classes. Values are `var(...)` indirections on purpose: they must
+   keep resolving against whichever [data-theme] scope is active, and against
+   the light-defined default when no data-theme has been set yet. */
+@theme {
+  --font-serif: 'Fraunces Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --font-hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
+
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-marker-700: var(--marker-700);
+  --color-marker-600: var(--marker-600);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --color-hairline: var(--hairline);
+  --color-button-primary-label: var(--button-primary-label);
+
+  --color-tint-lead: var(--tint-lead);
+  --color-tint-architect: var(--tint-architect);
+  --color-tint-designer: var(--tint-designer);
+  --color-tint-frontend: var(--tint-frontend);
+  --color-tint-backend: var(--tint-backend);
+  --color-tint-devops: var(--tint-devops);
+  --color-tint-security: var(--tint-security);
+  --color-tint-qa: var(--tint-qa);
+  --color-tint-marketer: var(--tint-marketer);
+
+  /* radii — deliberately mostly sharp (design-brief §4) */
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-full: 999px;
+
+  /* elevation — hard-edged flat offsets only, never blurred */
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-card-active: var(--shadow-card-active);
+
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+}
