@@ -48,12 +48,12 @@ export function Header() {
       }`}
     >
       <Container className="flex h-16 items-center justify-between">
-        {/* Placeholder wordmark — no studio name exists yet (design-brief §1). Swap before launch. */}
+        {/* Working name (Dom, 2026-07-16) — the team may coin a better one once we find our groove. */}
         <Link
           to="/"
           className="font-mono text-sm font-semibold uppercase tracking-[0.06em] text-ink"
         >
-          [ studio name tbd ]
+          Dom&rsquo;s AI Studio
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">

@@ -26,7 +26,7 @@ export default function ProjectDetail() {
           <img src={project.cover} alt={`${project.title} cover`} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
-            [ studio name tbd ] — no cover yet
+            Dom&rsquo;s AI Studio — no cover yet
           </div>
         )}
       </div>
