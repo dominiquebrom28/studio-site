@@ -34,9 +34,12 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       added a 56-test loader suite + found 3 bugs; a hero design-token collision
       was caught in browser verification. All 4 fixed in a consolidated
       frontend-dev round, re-verified in the browser before merge.)_
-- [ ] **Portfolio content** — read each project repo listed in
+- [x] **Portfolio content** — read each project repo listed in
       PROJECT-BRIEF.md; write one honest markdown write-up per project in
       `content/projects/`.
+      _(2026-07-16, team/2026-07-16-portfolio-content — 6 research agents read
+      the actual repos in parallel; marketer wrote all 6 from verified dossiers
+      only. 57 tests + build green.)_
 - [ ] **Projects pages** — render the portfolio content: index + detail pages.
 - [ ] **Blog engine** — markdown posts in `content/posts/` rendered to blog
       index + post pages.
