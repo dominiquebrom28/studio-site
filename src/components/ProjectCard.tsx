@@ -1,18 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Project } from '@/content';
+import { statusLabel, statusToneClass } from '@/content/status';
 import { Chip } from './ui/Badge';
-
-const statusLabel: Record<Project['status'], string> = {
-  shipped: 'Shipped',
-  'in-progress': 'In progress',
-  archived: 'Archived',
-};
-
-const statusToneClass: Record<Project['status'], string> = {
-  shipped: 'text-success',
-  'in-progress': 'text-warning',
-  archived: 'text-ink-muted',
-};
 
 export function ProjectCard({
   project,
