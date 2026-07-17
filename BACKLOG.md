@@ -48,6 +48,20 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       mobile footer nav) via new `getMoreProjects` helper. frontend-dev →
       qa-tester (5 new tests, 62 total green) → browser-verified desktop +
       mobile. Provenance strip deliberately NOT added — see report.)_
+- [x] **Auto-merge infrastructure** — devops: GitHub-native CI
+      (`.github/workflows/ci.yml`, build/typecheck/test on every PR → `CI / build`
+      check) + label-based auto-merge (`.github/workflows/auto-merge.yml`) that
+      merges `safe-auto`-labeled PRs only after CI passes and a path guard confirms
+      they touch only safe files (content/docs/tests/reports/root-md). Lets the team
+      ship a higher daily volume without burying Dom in reviews.
+      _(2026-07-17, team/2026-07-17-auto-merge-infra — devops built + YAML-validated;
+      lead-reviewed the guard/label logic. INERT until Dom does the one-time repo
+      config: enable Allow auto-merge, branch-protect `main` requiring `CI / build`,
+      create the `safe-auto` label, `gh auth login`. Steps in
+      `.github/AUTO-MERGE-SETUP.md`.)_
+- [ ] **CI: add `npm audit` gate** — extend `ci.yml` to fail on high/critical
+      vulnerabilities, per the studio security checklist (devops flagged this while
+      building the auto-merge infra).
 - [ ] **Blog engine** — markdown posts in `content/posts/` rendered to blog
       index + post pages.
 - [ ] **First blog post** — "I gave Claude a dev team": how the studio was
