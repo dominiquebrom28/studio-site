@@ -40,7 +40,14 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       _(2026-07-16, team/2026-07-16-portfolio-content — 6 research agents read
       the actual repos in parallel; marketer wrote all 6 from verified dossiers
       only. 57 tests + build green.)_
-- [ ] **Projects pages** — render the portfolio content: index + detail pages.
+- [x] **Projects pages** — render the portfolio content: index + detail pages.
+      _(2026-07-17, team/2026-07-17-projects-pages — index was already on-brief
+      from the scaffold; detail page polished to design-brief §5: mobile meta
+      strip under H1 (fixed a real mobile reading-order gap where status/stack
+      sat after the whole body) + "More projects" mini-list (desktop rail +
+      mobile footer nav) via new `getMoreProjects` helper. frontend-dev →
+      qa-tester (5 new tests, 62 total green) → browser-verified desktop +
+      mobile. Provenance strip deliberately NOT added — see report.)_
 - [ ] **Blog engine** — markdown posts in `content/posts/` rendered to blog
       index + post pages.
 - [ ] **First blog post** — "I gave Claude a dev team": how the studio was
