@@ -32,14 +32,14 @@ export function CastStrip() {
                 aria-hidden="true"
                 className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-sm border border-hairline bg-paper-raised px-2 py-1 font-mono text-[11px] text-ink opacity-0 shadow-[var(--shadow-card)] transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
               >
-                {member.name} · {member.role}
+                {member.firstName} · {member.name}
               </span>
             </Link>
           </li>
         ))}
       </ul>
       <p className="mt-4 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
-        9 characters, 0 ghostwriting
+        10 characters, 0 ghostwriting
       </p>
     </div>
   );

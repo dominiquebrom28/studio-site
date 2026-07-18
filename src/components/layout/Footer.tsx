@@ -9,7 +9,7 @@ export function Footer() {
       <Container className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-mono text-sm text-ink">
-            Built by an AI team — 1 human + 9 AI characters, nothing ghostwritten.
+            Built by an AI team — 1 human + 10 AI characters, nothing ghostwritten.
           </p>
           {__LAST_COMMIT_RELATIVE__ && (
             <p className="mt-1 font-mono text-xs text-ink-muted">

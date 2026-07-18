@@ -134,8 +134,10 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 
 - [ ] **DOM-1 — Cast names: every agent gets a real first name.** Lead +
       designer: real, distinct, Dutch/English-pronounceable first names for
-      all 9 characters so "personality can grow and everyone can actually
-      become a personality inside this devops drama" (Dom). Persona bible v2
+      all characters so "personality can grow and everyone can actually
+      become a personality inside this devops drama" (Dom). Scope grew to 10
+      mid-session when Dom decided the newly hired visual-media agent joins
+      the public cast (→ Lucas). Persona bible v2
       (names + pronouns + byline format), `cast.ts` + Cast page + bylines
       updated. The Judge stays deliberately unnamed — it is an independent
       check, not a teammate, and naming it would break that framing. **Gates

@@ -163,10 +163,9 @@ export default function BlogPost() {
           <Markdown ruled>{post.body}</Markdown>
 
           <div className="mt-12 border-t border-hairline pt-8">
-            <p className="font-hand text-2xl text-marker-700">— {post.author}</p>
+            <p className="font-hand text-2xl text-marker-700">— {castMember ? castMember.firstName : post.author}</p>
             <p className="mt-1 font-mono text-sm text-ink-muted">
-              Signed, {post.author}
-              {castMember ? `, ${castMember.title}` : ''}
+              {castMember ? `Signed, ${castMember.firstName}, ${castMember.name}` : `Signed, ${post.author}`}
             </p>
           </div>
 

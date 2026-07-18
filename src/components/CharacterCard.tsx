@@ -10,6 +10,13 @@ import { Badge } from './ui/Badge';
  * latent heading-skip bug waiting for the page to grow a heading above the
  * grid (see .card-title comment in index.css for why the tag varies by
  * call site, WCAG heading order).
+ *
+ * Names v2 (2026-07-18, docs/persona-bible.md "Names (v2)"): `firstName` is
+ * now the prominent Fraunces heading; `name` (the discipline string, e.g.
+ * "designer") moved into the mono eyebrow directly beneath it. The full
+ * `role` sentence (job description) still ships, now as a plain-text line
+ * under that eyebrow rather than as the eyebrow itself — glyphs, tints, and
+ * citations are unchanged.
  */
 export function CharacterCard({
   member,
@@ -39,15 +46,16 @@ export function CharacterCard({
         />
       </div>
       <div>
-        <p className="mb-1 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">{member.role}</p>
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Heading className="card-title">{member.name}</Heading>
+          <Heading className="card-title">{member.firstName}</Heading>
           {lead && (
             <Badge tone="tint" tintVar={member.tintVar}>
               Leads
             </Badge>
           )}
         </div>
+        <p className="mb-1 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">{member.name}</p>
+        <p className="mb-3 text-sm text-ink-muted">{member.role}</p>
         <p className="mb-3 font-mono text-xs uppercase tracking-[0.06em] text-ink">{member.voiceTag}</p>
         <p className="mb-3 text-sm text-ink-muted">{member.runningBit}</p>
         <p className="font-mono text-[11px] text-ink-muted">sourced: {member.citation}</p>

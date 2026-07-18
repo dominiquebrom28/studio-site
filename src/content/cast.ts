@@ -1,5 +1,5 @@
 /**
- * The nine studio characters.
+ * The ten studio characters.
  *
  * Kept as ONE small typed module, not a markdown content collection — these
  * are fixed studio identities, not files writers add to (spec §2 /cast note).
@@ -10,6 +10,16 @@
  * (backend-dev, devops, security-auditor, qa-tester, marketer haven't
  * shipped studio-site work yet, since v1 is static with no backend/auth/
  * deploy pipeline), that caveat is kept here too rather than invented around.
+ * visual-media is thin for a different reason: it was only hired the same
+ * evening this roster grew to ten (reports/2026-07-18-visual-media-hire.md)
+ * — one evening of real history, honestly flagged rather than padded.
+ *
+ * Names (v2, 2026-07-18): every entry also carries a `firstName` and
+ * `pronouns` — designer-proposed, Dom-approved in person the same evening
+ * (docs/persona-bible.md, "Names (v2, 2026-07-18)"). The existing `name`
+ * field is untouched on purpose: it holds the discipline string ("designer",
+ * "qa-tester", "Project Lead") that citations and running bits are written
+ * against, and byline copy now reads `{firstName}, {name}`.
  */
 
 export type CharacterId =
@@ -21,12 +31,22 @@ export type CharacterId =
   | 'devops'
   | 'security'
   | 'qa'
-  | 'marketer';
+  | 'marketer'
+  | 'visual-media';
 
 export interface CharacterEntry {
   id: CharacterId;
   /** Display name as it appears in copy. */
   name: string;
+  /**
+   * First name — designer-proposed, Dom-approved 2026-07-18 (persona-bible
+   * "Names (v2)"). Real-person register, on purpose: bylines read
+   * `{firstName}, {name}` (comma apposition, newsroom style), never
+   * `{firstName} said` — the name licenses "characteristically", not quotes.
+   */
+  firstName: string;
+  /** Pronouns — set alongside `firstName` in the same v2 naming pass. */
+  pronouns: string;
   /**
    * Short title (2-4 words) for space-constrained, byline-adjacent contexts
    * (post byline, signature block: design-brief §5 "Signed, {Character},
@@ -54,6 +74,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'lead',
     name: 'Project Lead',
+    firstName: 'Nora',
+    pronouns: 'she/her',
     title: 'Delegates and reviews',
     role: 'Understands the request, breaks it into tasks, deploys specialists, reviews and synthesizes the result',
     tintVar: 'tint-lead',
@@ -66,6 +88,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'architect',
     name: 'architect',
+    firstName: 'Theo',
+    pronouns: 'he/him',
     title: 'Specs, not code',
     role: 'New features, tech-stack decisions, data models, refactor plans — output is always a spec, never code',
     tintVar: 'tint-architect',
@@ -78,6 +102,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'designer',
     name: 'designer',
+    firstName: 'Vera',
+    pronouns: 'she/her',
     title: 'UX and visual direction',
     role: 'UX flows, wireframes, visual direction, design critique, component design',
     tintVar: 'tint-designer',
@@ -90,6 +116,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'frontend',
     name: 'frontend-dev',
+    firstName: 'Milo',
+    pronouns: 'he/him',
     title: 'UI implementation',
     role: 'React/UI implementation, styling, client-side state, Phaser scenes',
     tintVar: 'tint-frontend',
@@ -102,6 +130,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'backend',
     name: 'backend-dev',
+    firstName: 'Bram',
+    pronouns: 'he/him',
     title: 'APIs and Supabase',
     role: 'APIs, Supabase schema/RLS, business logic, integrations, auth',
     tintVar: 'tint-backend',
@@ -114,6 +144,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'devops',
     name: 'devops',
+    firstName: 'Otto',
+    pronouns: 'they/them',
     title: 'Deployment & CI/CD',
     role: 'Deployment (Vercel), CI/CD, environments, monitoring, performance infra',
     tintVar: 'tint-devops',
@@ -126,6 +158,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'security',
     name: 'security-auditor',
+    firstName: 'Karin',
+    pronouns: 'she/her',
     title: 'Pre-deploy security review',
     role: 'Pre-deploy reviews, auth changes, anything handling user data or payments — read-only, reports never fixes',
     tintVar: 'tint-security',
@@ -138,6 +172,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'qa',
     name: 'qa-tester',
+    firstName: 'Iris',
+    pronouns: 'she/her',
     title: 'QA and testing',
     role: 'Test plans, writing tests, edge-case hunting, bug reproduction',
     tintVar: 'tint-qa',
@@ -150,6 +186,8 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'marketer',
     name: 'marketer',
+    firstName: 'Sanne',
+    pronouns: 'she/her',
     title: 'Marketing and copy',
     role: 'Landing copy, launch plans, positioning, SEO, App Store / product descriptions',
     tintVar: 'tint-marketer',
@@ -157,6 +195,20 @@ export const cast: readonly CharacterEntry[] = [
     runningBit:
       '"Never fabricate testimonials, user counts, or claims the product can’t back up — placeholder slots are fine, fake proof is not" is its own literal rule. No studio-site launch has happened yet to cite an incident from — stated honestly rather than invented.',
     citation: '.claude/agents/marketer.md',
+    isLead: false,
+  },
+  {
+    id: 'visual-media',
+    name: 'visual-media',
+    firstName: 'Lucas',
+    pronouns: 'he/him',
+    title: 'Capture & verification',
+    role: 'Screenshots, GIFs, and browser-based verification of real product states — the only agent with capture tooling, and the only one that works from what it sees rather than a spec or code',
+    tintVar: 'tint-visual-media',
+    voiceTag: 'observational, never evaluative',
+    runningBit:
+      'Its own brief’s settle-before-shooting rule is sourced from a real incident, not a guess: the Project Lead’s own pre-hire test shot fired mid-animation and caught the portfolio hero half-faded, so the first attempt at the studio’s newest capability produced the studio’s newest process rule.',
+    citation: 'reports/2026-07-18-visual-media-hire.md, .claude/agents/visual-media.md',
     isLead: false,
   },
 ];
@@ -170,7 +222,7 @@ export function getCastMember(id: CharacterId): CharacterEntry {
 /**
  * Case-insensitive, whitespace-tolerant lookup by display name — used to
  * source the plain-text role line in a blog post's signature block
- * (design-brief §5 blog post: "Signed, {Character}, {role}") and the post
+ * (byline format v2: "Signed, {firstName}, {name}") and the post
  * byline/provenance rail, without hand-maintaining a second name→role
  * mapping. Trims before comparing: frontmatter `author:` values come from
  * hand-edited YAML, where a stray leading/trailing space (e.g.
@@ -178,7 +230,7 @@ export function getCastMember(id: CharacterId): CharacterEntry {
  * the real cast member, not silently degrade to "no role" the way a
  * genuinely unrecognized author correctly does.
  *
- * Returns `undefined`, on purpose, for an author who isn't one of the nine
+ * Returns `undefined`, on purpose, for an author who isn't one of the ten
  * characters (e.g. "Dom", the human) — callers must handle that case by
  * omitting the role, never by inventing one.
  */
