@@ -27,7 +27,16 @@ export interface CharacterEntry {
   id: CharacterId;
   /** Display name as it appears in copy. */
   name: string;
-  /** Short role/voice line. */
+  /**
+   * Short title (2-4 words) for space-constrained, byline-adjacent contexts
+   * (post byline, signature block: design-brief §5 "Signed, {Character},
+   * {role}"). A faithful compression of `role` below — same words/concepts,
+   * never a new descriptive claim about the character. `role`'s full
+   * sentence stays reserved for the Cast page (`CharacterCard`'s mono
+   * eyebrow), where the longer form belongs.
+   */
+  title: string;
+  /** Full role/voice description — the Cast page's mono eyebrow line. */
   role: string;
   /** CSS custom-property name (without the leading --) for this character's tint. */
   tintVar: string;
@@ -45,6 +54,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'lead',
     name: 'Project Lead',
+    title: 'Delegates and reviews',
     role: 'Understands the request, breaks it into tasks, deploys specialists, reviews and synthesizes the result',
     tintVar: 'tint-lead',
     voiceTag: 'measured, decisive, dry',
@@ -56,6 +66,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'architect',
     name: 'architect',
+    title: 'Specs, not code',
     role: 'New features, tech-stack decisions, data models, refactor plans — output is always a spec, never code',
     tintVar: 'tint-architect',
     voiceTag: 'precise, allergic to gold-plating',
@@ -67,6 +78,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'designer',
     name: 'designer',
+    title: 'UX and visual direction',
     role: 'UX flows, wireframes, visual direction, design critique, component design',
     tintVar: 'tint-designer',
     voiceTag: 'opinionated, editorial',
@@ -78,6 +90,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'frontend',
     name: 'frontend-dev',
+    title: 'UI implementation',
     role: 'React/UI implementation, styling, client-side state, Phaser scenes',
     tintVar: 'tint-frontend',
     voiceTag: 'implementation-literal, reports only what was verified',
@@ -89,6 +102,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'backend',
     name: 'backend-dev',
+    title: 'APIs and Supabase',
     role: 'APIs, Supabase schema/RLS, business logic, integrations, auth',
     tintVar: 'tint-backend',
     voiceTag: 'terse, rules-first',
@@ -100,6 +114,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'devops',
     name: 'devops',
+    title: 'Deployment & CI/CD',
     role: 'Deployment (Vercel), CI/CD, environments, monitoring, performance infra',
     tintVar: 'tint-devops',
     voiceTag: 'boring on purpose, twice-careful',
@@ -111,6 +126,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'security',
     name: 'security-auditor',
+    title: 'Pre-deploy security review',
     role: 'Pre-deploy reviews, auth changes, anything handling user data or payments — read-only, reports never fixes',
     tintVar: 'tint-security',
     voiceTag: 'blunt, unhedged',
@@ -122,6 +138,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'qa',
     name: 'qa-tester',
+    title: 'QA and testing',
     role: 'Test plans, writing tests, edge-case hunting, bug reproduction',
     tintVar: 'tint-qa',
     voiceTag: 'adversarial by design',
@@ -133,6 +150,7 @@ export const cast: readonly CharacterEntry[] = [
   {
     id: 'marketer',
     name: 'marketer',
+    title: 'Marketing and copy',
     role: 'Landing copy, launch plans, positioning, SEO, App Store / product descriptions',
     tintVar: 'tint-marketer',
     voiceTag: 'plain-spoken, allergic to hype',
@@ -147,6 +165,26 @@ export function getCastMember(id: CharacterId): CharacterEntry {
   const entry = cast.find((member) => member.id === id);
   if (!entry) throw new Error(`Unknown cast member id: ${id}`);
   return entry;
+}
+
+/**
+ * Case-insensitive, whitespace-tolerant lookup by display name — used to
+ * source the plain-text role line in a blog post's signature block
+ * (design-brief §5 blog post: "Signed, {Character}, {role}") and the post
+ * byline/provenance rail, without hand-maintaining a second name→role
+ * mapping. Trims before comparing: frontmatter `author:` values come from
+ * hand-edited YAML, where a stray leading/trailing space (e.g.
+ * `author: "architect "`) is an easy typo — that should still resolve to
+ * the real cast member, not silently degrade to "no role" the way a
+ * genuinely unrecognized author correctly does.
+ *
+ * Returns `undefined`, on purpose, for an author who isn't one of the nine
+ * characters (e.g. "Dom", the human) — callers must handle that case by
+ * omitting the role, never by inventing one.
+ */
+export function getCastMemberByName(name: string): CharacterEntry | undefined {
+  const normalized = name.trim().toLowerCase();
+  return cast.find((member) => member.name.toLowerCase() === normalized);
 }
 
 export const specialists = cast.filter((member) => !member.isLead);

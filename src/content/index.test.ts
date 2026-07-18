@@ -7,7 +7,10 @@ import {
   getFeaturedProjects,
   getLatestPosts,
   getMoreProjects,
+  getAdjacentPosts,
+  getAdjacentPostsFrom,
 } from './index';
+import type { Post } from './schemas';
 
 /**
  * Integration sanity check against the REAL content/ directory in this repo
@@ -114,6 +117,102 @@ describe('content loader — real repo content', () => {
           seenSlugs.add(p.slug);
         }
       }
+    });
+  });
+
+  describe('getAdjacentPosts', () => {
+    it('the newest post (index 0) has no newer post — dead-ends, does not wrap', () => {
+      const all = getAllPosts();
+      const newest = all[0];
+      const { newer, older } = getAdjacentPosts(newest.slug);
+      expect(newer).toBeUndefined();
+      // Only assert "has an older post" when a second post actually exists —
+      // stays correct even if the content set ever shrinks to one post.
+      if (all.length > 1) {
+        expect(older?.slug).toBe(all[1].slug);
+      }
+    });
+
+    it('the oldest post (last index) has no older post — dead-ends, does not wrap', () => {
+      const all = getAllPosts();
+      const oldest = all[all.length - 1];
+      const { newer, older } = getAdjacentPosts(oldest.slug);
+      expect(older).toBeUndefined();
+      if (all.length > 1) {
+        expect(newer?.slug).toBe(all[all.length - 2].slug);
+      }
+    });
+
+    it('a post in the middle gets both a newer and an older neighbor, matching sorted order', () => {
+      const all = getAllPosts();
+      if (all.length < 3) return; // needs a real middle post to be meaningful
+      const middleIndex = Math.floor(all.length / 2);
+      const middle = all[middleIndex];
+      const { newer, older } = getAdjacentPosts(middle.slug);
+      expect(newer?.slug).toBe(all[middleIndex - 1].slug);
+      expect(older?.slug).toBe(all[middleIndex + 1].slug);
+    });
+
+    it('returns both undefined for an unknown slug (no fallback list, unlike getMoreProjects)', () => {
+      expect(getAdjacentPosts('this-post-does-not-exist')).toEqual({ newer: undefined, older: undefined });
+    });
+  });
+});
+
+/**
+ * `getAdjacentPostsFrom` — the pure, parameterized core of `getAdjacentPosts`
+ * — exercised against synthetic data so edge cases that don't naturally
+ * exist in the real (currently 3-post) content set can be asserted directly:
+ * a single-post corpus, draft exclusion, and identical-date tie-break order.
+ */
+describe('getAdjacentPostsFrom', () => {
+  function post(slug: string, date: string): Post {
+    return { slug, date } as unknown as Post;
+  }
+
+  it('a single-post corpus has neither a newer nor an older neighbor', () => {
+    const only = [post('solo', '2026-01-01')];
+    expect(getAdjacentPostsFrom(only, 'solo')).toEqual({ newer: undefined, older: undefined });
+  });
+
+  it('returns both undefined for an unknown slug, even against a non-empty corpus', () => {
+    const posts = [post('a', '2026-01-03'), post('b', '2026-01-01')];
+    expect(getAdjacentPostsFrom(posts, 'does-not-exist')).toEqual({ newer: undefined, older: undefined });
+  });
+
+  it('returns both undefined for an empty corpus', () => {
+    expect(getAdjacentPostsFrom([], 'anything')).toEqual({ newer: undefined, older: undefined });
+  });
+
+  it('never resolves a draft as a neighbor, because drafts are excluded before this function ever sees the array', () => {
+    // Simulates the real pipeline: loader.ts calls filterVisiblePosts (which
+    // drops drafts) BEFORE sortPosts, so `posts` — and therefore whatever
+    // array reaches this function — never contains a draft in production.
+    // A draft slug passed in here (as if it had leaked through) correctly
+    // resolves as "unknown", proving there's no fallback path that could
+    // surface one as a neighbor.
+    const published = [post('newest', '2026-01-03'), post('oldest', '2026-01-01')];
+    // 'secret-draft' was excluded upstream and never makes it into `published`.
+    expect(getAdjacentPostsFrom(published, 'secret-draft')).toEqual({ newer: undefined, older: undefined });
+    // And the published posts on either side of where a draft WOULD have sat
+    // still resolve to each other directly, not to the (absent) draft.
+    expect(getAdjacentPostsFrom(published, 'newest').older?.slug).toBe('oldest');
+    expect(getAdjacentPostsFrom(published, 'oldest').newer?.slug).toBe('newest');
+  });
+
+  it('posts sharing an identical date get a stable, deterministic order (input order preserved — Array.sort is stable)', () => {
+    // Two posts with the exact same date: whichever comes first in the
+    // caller-supplied (already-sorted) array is treated as "newer" — the
+    // function does no secondary tie-break of its own, it trusts index order.
+    const posts = [post('first', '2026-01-01'), post('second', '2026-01-01'), post('third', '2025-12-01')];
+    expect(getAdjacentPostsFrom(posts, 'second')).toEqual({
+      newer: posts[0],
+      older: posts[2],
+    });
+    // Re-running against the identically-ordered array is deterministic.
+    expect(getAdjacentPostsFrom(posts, 'second')).toEqual({
+      newer: posts[0],
+      older: posts[2],
     });
   });
 });
