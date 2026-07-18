@@ -58,6 +58,7 @@
   --tint-security: #a6241a;
   --tint-qa: #c97a1a;
   --tint-marketer: #a83d6b;
+  --tint-visual-media: #565656;
 
   --shadow-card: 3px 3px 0 rgba(33, 27, 20, 0.14);
   --shadow-card-hover: 5px 5px 0 rgba(33, 27, 20, 0.18);
@@ -96,6 +97,7 @@
   --tint-security: #d2564b;
   --tint-qa: #e0a650;
   --tint-marketer: #d06e97;
+  --tint-visual-media: #9a9a9a;
 
   --shadow-card: 3px 3px 0 rgba(0, 0, 0, 0.5);
   --shadow-card-hover: 5px 5px 0 rgba(0, 0, 0, 0.55);

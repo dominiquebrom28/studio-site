@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { getCastMemberByName } from '@/content/cast';
 
 /**
  * ProvenanceStrip (design-brief §6) — the transparency device: full-width
@@ -11,6 +12,12 @@ import type { ReactNode } from 'react';
  * fabricating a round number or commit hash per post (PROJECT-BRIEF.md:
  * "never invent results"). Fields are additive — wire them up once the
  * content schema/authoring pipeline carries them.
+ *
+ * Names v2 (2026-07-18): resolves `author` (the raw frontmatter value, e.g.
+ * "designer") against the cast itself and renders "Written by {firstName},
+ * {name}" (comma apposition) when it matches a real character. An
+ * unresolved author (e.g. "Dom", the human) degrades exactly as before —
+ * the raw string, no fabricated identity.
  */
 export function ProvenanceStrip({
   author,
@@ -23,7 +30,8 @@ export function ProvenanceStrip({
   commitUrl?: string;
   commitLabel?: string;
 }) {
-  const fields: ReactNode[] = [`Written by ${author}`];
+  const member = getCastMemberByName(author);
+  const fields: ReactNode[] = [member ? `Written by ${member.firstName}, ${member.name}` : `Written by ${author}`];
   if (reviewedBy) fields.push(reviewedBy);
   if (commitUrl && commitLabel) {
     fields.push(

@@ -15,14 +15,14 @@ export default function Home() {
     <>
       <Seo
         title="Studio Logbook"
-        description="1 human + 9 AI characters building software in the open. Portfolio and process, written down as it happens."
+        description="1 human + 10 AI characters building software in the open. Portfolio and process, written down as it happens."
       />
 
       <section className="border-b border-hairline">
         <Container className="grid gap-10 py-12 sm:py-16 lg:grid-cols-[60%_40%] lg:items-center lg:py-24">
           <div>
             <p className="mb-4 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
-              Studio logbook — 1 human + 9 AI characters
+              Studio logbook — 1 human + 10 AI characters
             </p>
             <h1 className="mb-4 max-w-2xl">
               An AI dev team builds software in public, and writes down what actually happened.

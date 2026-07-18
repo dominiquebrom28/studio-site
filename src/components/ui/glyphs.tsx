@@ -116,6 +116,20 @@ function MarketerGlyph(props: GlyphProps) {
   );
 }
 
+function VisualMediaGlyph(props: GlyphProps) {
+  // open viewfinder: four unrotated corner-brackets (crop marks) around
+  // empty space — deliberately not a camera body/lens (not a mascot icon)
+  // and not an aperture/iris (no radial blades), per design-brief §7 v2.
+  return (
+    <svg {...shared} {...props}>
+      <path d="M5 8V5h3" />
+      <path d="M16 5h3v3" />
+      <path d="M19 16v3h-3" />
+      <path d="M8 19H5v-3" />
+    </svg>
+  );
+}
+
 export const glyphs: Record<CharacterId, (props: GlyphProps) => React.JSX.Element> = {
   lead: LeadGlyph,
   architect: ArchitectGlyph,
@@ -126,4 +140,5 @@ export const glyphs: Record<CharacterId, (props: GlyphProps) => React.JSX.Elemen
   security: SecurityGlyph,
   qa: QaGlyph,
   marketer: MarketerGlyph,
+  'visual-media': VisualMediaGlyph,
 };

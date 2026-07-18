@@ -28,6 +28,7 @@
   --color-tint-security: var(--tint-security);
   --color-tint-qa: var(--tint-qa);
   --color-tint-marketer: var(--tint-marketer);
+  --color-tint-visual-media: var(--tint-visual-media);
 
   /* radii — deliberately mostly sharp (design-brief §4) */
   --radius-none: 0px;

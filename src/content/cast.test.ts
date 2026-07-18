@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { cast, getCastMember, getCastMemberByName, specialists, projectLead } from './cast';
 
 describe('cast', () => {
-  it('has exactly nine characters (1 human + 9 AI characters framing, design-brief §7)', () => {
-    expect(cast.length).toBe(9);
+  it('has exactly ten characters (1 human + 10 AI characters framing, names v2)', () => {
+    expect(cast.length).toBe(10);
   });
 
   it('has exactly one Project Lead entry', () => {
@@ -13,12 +13,41 @@ describe('cast', () => {
 
   it('specialists excludes the lead', () => {
     expect(specialists.every((member) => !member.isLead)).toBe(true);
-    expect(specialists.length).toBe(8);
+    expect(specialists.length).toBe(9);
   });
 
   it('every member has a non-empty citation (the transparency device, never omitted)', () => {
     for (const member of cast) {
       expect(member.citation.length).toBeGreaterThan(0);
+    }
+  });
+
+  // Names v2 (2026-07-18, docs/persona-bible.md "Names (v2)"): every cast
+  // member gets a real first name + pronouns, distinct enough that a
+  // byline never gets mistaken for another character or for Dom (the human,
+  // deliberately not in this list).
+  it('every member has a non-empty firstName and pronouns', () => {
+    for (const member of cast) {
+      expect(member.firstName.length).toBeGreaterThan(0);
+      expect(member.pronouns.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('all firstNames are unique', () => {
+    const names = cast.map((member) => member.firstName);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('all firstNames start with a distinct letter (N,T,V,M,B,O,K,I,S,L)', () => {
+    const initials = cast.map((member) => member.firstName[0]);
+    expect(new Set(initials).size).toBe(initials.length);
+    expect(new Set(initials)).toEqual(new Set(['N', 'T', 'V', 'M', 'B', 'O', 'K', 'I', 'S', 'L']));
+  });
+
+  it('no firstName equals or is confusable with "Dom" (the human, never a cast member)', () => {
+    for (const member of cast) {
+      expect(member.firstName.trim().toLowerCase()).not.toBe('dom');
+      expect(member.firstName.toLowerCase()).not.toContain('dom');
     }
   });
 
@@ -70,7 +99,7 @@ describe('getCastMemberByName', () => {
     expect(getCastMemberByName('  Project Lead  ')?.id).toBe('lead');
   });
 
-  it('returns undefined for an author who is not one of the nine characters, rather than inventing a match', () => {
+  it('returns undefined for an author who is not one of the ten characters, rather than inventing a match', () => {
     expect(getCastMemberByName('Dom')).toBeUndefined();
     expect(getCastMemberByName('Someone Else')).toBeUndefined();
   });
