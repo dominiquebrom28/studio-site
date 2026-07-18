@@ -67,14 +67,77 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 - [ ] **First blog post** — "I gave Claude a dev team": how the studio was
       set up (agents, Project Lead, scheduled runs), sourced from
       the claude-dev-company repo and early `reports/`.
-- [ ] **Home page** — hero, featured projects, latest posts, the pitch from
+- [x] **Home page** — hero, featured projects, latest posts, the pitch from
       PROJECT-BRIEF.md.
+      _(2026-07-18, verified in-browser by the Project Lead, **no code change
+      written on purpose**. The scaffold already built Home to design-brief §5:
+      mono eyebrow with the agreed "1 human + 9 AI characters" framing, Fraunces
+      H1 pitch, two CTAs, cast strip with the "9 characters, 0 ghostwriting"
+      caption, 3 featured projects, 3 latest posts, correct heading hierarchy,
+      no content duplicated across breakpoints. The only literal deviation is
+      that desktop shows all 9 avatar stamps where §5 says "3–4" — 9 is the
+      better call because it matches the caption's own claim. Re-skinning a
+      correct page would be churn, so this is checked off as verified rather
+      than rebuilt.)_
 - [ ] **QA pass** — qa-tester: all states, responsive, accessibility;
       fix findings.
 - [ ] **Second blog post** — distill learnings from `reports/` so far: what
       the autonomous runs got right and wrong.
 - [ ] **Pre-launch review** — security-auditor + designer critique; fix
       findings. Then STOP and ask Dom about deployment.
+
+### Added 2026-07-18 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Browser-level smoke test in CI.** devops + qa-tester: add a
+      minimal real-DOM check (jsdom Vitest project, or Playwright on the built
+      `dist/`) covering a handful of load-bearing invariants — every in-page
+      anchor resolves, exactly one `<h1>` per route, no console errors, key
+      routes render. _Source: this run. A P0 shipped past typecheck, lint, 99
+      unit tests AND a `renderToStaticMarkup` QA harness: every blog TOC anchor
+      was dead, because a render-time mutation only misbehaves under React
+      StrictMode's double-invoke, which single-pass static rendering cannot
+      reproduce. Three separate runs have now had their most serious bug caught
+      only by a human opening a browser (2026-07-15 hero token collision,
+      2026-07-17 mobile reading order, 2026-07-18 dead anchors). That is a
+      pattern, not bad luck — it deserves a gate. qa-tester independently
+      flagged the same coverage gap._
+- [ ] **HIGH — Provenance content model.** architect: design real frontmatter
+      (or a generated sidecar fed from `reports/`) carrying reviewer, Judge
+      verdict/round/score, commit hash and token cost, then wire
+      `ProvenanceStrip` to render it. _Source: PROJECT-BRIEF goal 3 + design
+      brief §5/§6, where honest AI provenance is the **hero device**. It is
+      currently under-delivered: `ProvenanceStrip` only ever renders "Written
+      by X" because no other field exists, and its own doc comment says to wire
+      the rest up "once the content schema carries them." Two consecutive runs
+      have now deliberately omitted a brief-specified provenance element rather
+      than fabricate it (2026-07-17 projects, 2026-07-18 posts). The honest fix
+      is real data, not a smaller strip._
+- [ ] **MEDIUM — `MarginNote` component.** designer → frontend-dev: the design
+      brief specifies margin notes on project detail and blog post (desktop:
+      anchored into the rail at their true vertical position; mobile: inline
+      sticky-note blocks under their anchor paragraph, per §9 never hidden).
+      _Source: design-brief §5 + §6 component inventory. The component does not
+      exist anywhere in `src/` — flagged by frontend-dev during the blog-engine
+      pass as a whole undelivered piece of the design system, not a blog gap._
+- [ ] **MEDIUM — Cover images for projects and posts.** `cover` is already in
+      both frontmatter schemas (spec §3.1/§3.2), is rendered by nothing, and is
+      set by no content file — all 6 projects show "no cover yet" placeholders.
+      Decide whether to source real images or drop the field. _Source: named
+      product gap; flagged in reports/2026-07-17.md and again by frontend-dev
+      this run._
+- [ ] **MEDIUM — RSS/Atom feed + `sitemap.xml`.** The site is a blog with no
+      feed and no sitemap. _Source: Google Search Central recommends sites use
+      **both** — a sitemap to describe the full URL set and an RSS/Atom feed to
+      describe recent changes — for optimal crawling
+      (developers.google.com/search/blog/2014/10/best-practices-for-xml-sitemaps-rssatom).
+      Both are cheap to generate at build time from the existing loader, and a
+      feed is table stakes for a developer logbook that wants readers._
+- [ ] **LOW — Non-ASCII heading slugs collapse.** `slugifyHeading` strips
+      non-Latin characters entirely (`Über café ñ 中文标题` → `ber-caf`), so two
+      headings differing only in non-Latin content collide before de-dup runs.
+      Not a live bug — TOC and DOM agree, and no current post has such a
+      heading — and ASCII-only URLs may well be intentional. _Source:
+      qa-tester, blog-engine pass. Logged so the decision is explicit._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
