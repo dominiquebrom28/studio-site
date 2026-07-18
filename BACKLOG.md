@@ -59,9 +59,15 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       config: enable Allow auto-merge, branch-protect `main` requiring `CI / build`,
       create the `safe-auto` label, `gh auth login`. Steps in
       `.github/AUTO-MERGE-SETUP.md`.)_
-- [ ] **CI: add `npm audit` gate** — extend `ci.yml` to fail on high/critical
+- [x] **CI: add `npm audit` gate** — extend `ci.yml` to fail on high/critical
       vulnerabilities, per the studio security checklist (devops flagged this while
       building the auto-merge infra).
+      _(2026-07-18, team/2026-07-18-ci-audit-gate — devops added a single
+      `npm audit --audit-level=high` step after `npm ci`. Repo audits clean at
+      every severity (0 vulns, prod and dev), so the gate is not born failing and
+      was deliberately NOT scoped to `--omit=dev` — narrowing it would have hidden
+      dev/build-tool supply-chain advisories for no benefit. `CI / build` check
+      name preserved, so the auto-merge branch protection is unaffected.)_
 - [ ] **Blog engine** — markdown posts in `content/posts/` rendered to blog
       index + post pages.
 - [ ] **First blog post** — "I gave Claude a dev team": how the studio was
