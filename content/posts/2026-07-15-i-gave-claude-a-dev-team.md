@@ -1,12 +1,16 @@
 ---
 title: "I gave Claude a dev team"
 slug: "i-gave-claude-a-dev-team"
-date: "2026-07-18"
+date: "2026-07-15"
 summary: "How the studio was set up: a Project Lead orchestrating eight specialist agents."
 tags: ["process", "agents"]
 author: "Dom"
 draft: false
 ---
+
+*Dated to the day the studio's site went up; actually written 2026-07-18.
+A placeholder sat at this address for the three days in between — the posts
+that follow it chronologically were written first. Details in the post.*
 
 I didn't hire anyone. On 2026-07-14 I put a Project Lead and eight specialist
 agents into my Claude Code config and told it to run like a small dev studio.

@@ -96,8 +96,11 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       on disk** — marketer searched and reported it rather than inventing its
       contents; sourced from `~/.claude/CLAUDE.md`, `~/.claude/agents/*.md` (the
       current versions, not the older vendored in-repo copies) and the early
-      reports instead, and says so in the post. **Re-dated 2026-07-15 →
-      2026-07-18** — see report; one-line revert if Dom prefers chronology.)_
+      reports instead, and says so in the post. Initially re-dated to
+      2026-07-18 (the day it was written); **Dom chose chronology on review**,
+      so it is dated 2026-07-15 with an explicit up-front note that it was
+      written on the 18th and a placeholder sat there in between — order
+      restored, nothing hidden (team/2026-07-18-founding-post-date).)_
 - [x] **Home page** — hero, featured projects, latest posts, the pitch from
       PROJECT-BRIEF.md.
       _(2026-07-18, verified in-browser by the Project Lead, **no code change
