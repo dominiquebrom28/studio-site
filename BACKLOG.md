@@ -64,9 +64,19 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       building the auto-merge infra).
 - [ ] **Blog engine** — markdown posts in `content/posts/` rendered to blog
       index + post pages.
-- [ ] **First blog post** — "I gave Claude a dev team": how the studio was
+- [x] **First blog post** — "I gave Claude a dev team": how the studio was
       set up (agents, Project Lead, scheduled runs), sourced from
       the claude-dev-company repo and early `reports/`.
+      _(2026-07-18, team/2026-07-18-first-post — this item was NOT unbuilt-but-
+      empty: a 104-word placeholder whose body read "the honest write-up lands in
+      a later run" had been live on the blog index with `draft: false` since
+      2026-07-15. Replaced with the real ~990-word post in Dom's first-person
+      voice. **The `claude-dev-company` repo named in this item no longer exists
+      on disk** — marketer searched and reported it rather than inventing its
+      contents; sourced from `~/.claude/CLAUDE.md`, `~/.claude/agents/*.md` (the
+      current versions, not the older vendored in-repo copies) and the early
+      reports instead, and says so in the post. **Re-dated 2026-07-15 →
+      2026-07-18** — see report; one-line revert if Dom prefers chronology.)_
 - [ ] **Home page** — hero, featured projects, latest posts, the pitch from
       PROJECT-BRIEF.md.
 - [ ] **QA pass** — qa-tester: all states, responsive, accessibility;
