@@ -16,11 +16,12 @@ follow-up; until then they ship as inert assets.
   CTAs stacked full-width." Caption: Portfolio homepage, mobile hero.
 - **portfolio-flow.gif** — alt: "Scrolling through the portfolio: hero,
   stats bar, 'What I do' expertise cards, selected work case studies, and
-  closing contact CTA." Caption: 8-frame, 8s honest scroll-through of the
-  real page content. (Known artifact: the sticky-nav content bleed-through
-  visible mid-scroll is a REAL bug in the portfolio site, reported
-  separately — not a capture flaw. House rule: flaws get captured and
-  reported, not cropped.)
+  closing contact CTA, with an opaque dark nav bar that stays solid over
+  content at every scroll position." Caption: 8-frame, 8s honest
+  scroll-through of the real page content at 1280x800. (Re-shot 2026-07-18
+  after the portfolio's sticky-nav bleed-through bug was fixed upstream —
+  the artifact visible in the first capture is gone; all mid-scroll frames
+  verified with content clipped behind a solid nav band.)
 
 ## chart-token-playground/
 
