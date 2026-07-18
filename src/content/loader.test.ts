@@ -188,6 +188,32 @@ describe('sortPosts', () => {
     const sorted = sortPosts(posts);
     expect(sorted.map((p) => p.slug)).toEqual(['newest', 'middle', 'oldest']);
   });
+
+  // `Array.prototype.sort` has been a stable sort per spec since ES2019, so
+  // posts sharing an identical date keep their original relative order
+  // rather than landing in engine-dependent or run-to-run-inconsistent
+  // positions — that determinism is what `getAdjacentPosts` (content/index.ts)
+  // relies on for a well-defined "newer"/"older" neighbor when two posts
+  // share a date.
+  it('preserves input order for posts sharing an identical date (stable sort)', () => {
+    const posts = [
+      { slug: 'same-date-a', date: '2026-01-01' },
+      { slug: 'same-date-b', date: '2026-01-01' },
+      { slug: 'same-date-c', date: '2026-01-01' },
+    ] as unknown as Post[];
+    const sorted = sortPosts(posts);
+    expect(sorted.map((p) => p.slug)).toEqual(['same-date-a', 'same-date-b', 'same-date-c']);
+  });
+
+  it('does not mutate the input array', () => {
+    const posts = [
+      { slug: 'a', date: '2020-01-01' },
+      { slug: 'b', date: '2026-01-01' },
+    ] as unknown as Post[];
+    const original = [...posts];
+    sortPosts(posts);
+    expect(posts).toEqual(original);
+  });
 });
 
 describe('filterVisiblePosts — draft gating on PROD', () => {

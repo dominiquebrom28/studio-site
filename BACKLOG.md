@@ -62,8 +62,23 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 - [ ] **CI: add `npm audit` gate** — extend `ci.yml` to fail on high/critical
       vulnerabilities, per the studio security checklist (devops flagged this while
       building the auto-merge infra).
-- [ ] **Blog engine** — markdown posts in `content/posts/` rendered to blog
+- [x] **Blog engine** — markdown posts in `content/posts/` rendered to blog
       index + post pages.
+      _(2026-07-18, team/2026-07-18-blog-engine — like the projects-pages item,
+      this was a "renders → on-brief" pass, not a from-zero build. frontend-dev
+      closed 5 design-brief §5 gaps on the post page: prev/next nav (new
+      `getAdjacentPosts`, deliberately does NOT wrap — a dated logbook asserting
+      false chronological adjacency reads as a bug), mailto+copy-link share with
+      an `aria-live` toast, `Signed, {name}, {title}` signature, desktop 68/32
+      sticky rail, and the §5 mobile element order. Blog index was already
+      on-brief and left alone. qa-tester PASS 88/100, fixed 3 real bugs.
+      **Browser verification then caught a P0 all four gates missed:** every TOC
+      anchor was dead (`#the-cleanup-sweep` vs rendered id `the-cleanup-sweep-1`)
+      because `Markdown.tsx` mutated a heading-id Map during render and
+      StrictMode's double-invoke made pass 2 de-dup against pass 1. Fixed by
+      precomputing ids from the markdown source (`headingIdsByLine`) so TOC/DOM
+      parity is structural. Also fixed a duplicated "Written by" line and a
+      signature that printed a whole job description. 104 tests green.)_
 - [ ] **First blog post** — "I gave Claude a dev team": how the studio was
       set up (agents, Project Lead, scheduled runs), sourced from
       the claude-dev-company repo and early `reports/`.

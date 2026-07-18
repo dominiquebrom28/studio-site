@@ -1,0 +1,157 @@
+export interface TocEntry {
+  id: string;
+  text: string;
+}
+
+/**
+ * Strip a small, deliberately limited set of inline markdown syntax (bold,
+ * italic, inline code, links, images, reference-style links) so a heading's
+ * slug/id is stable even when the heading itself uses that formatting. This
+ * is not a full markdown parser — it only needs to approximate what
+ * `react-markdown` has already reduced a heading down to by the time
+ * `Markdown.tsx`'s heading-id logic sees it.
+ *
+ * Order matters: images are stripped to nothing (`img` elements render with
+ * no text children — an image's alt text never appears in the rendered
+ * heading's text content, so it must not appear in the id either) *before*
+ * the inline-link pass runs, otherwise the link regex would match the
+ * `[alt](url)` tail of an image and leave a stray `!`. Reference-style links
+ * (`[text][ref]`) are collapsed to their link text the same way inline links
+ * are, since react-markdown resolves them to the same `<a>` text content.
+ */
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    .trim();
+}
+
+/** Lowercase-kebab slug for a heading — the base id before de-duplication. */
+export function slugifyHeading(text: string): string {
+  return stripInlineMarkdown(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Given a candidate base id and a running `seen` count map, returns a unique
+ * id — the first occurrence of a base slug gets the bare slug, every repeat
+ * gets a numeric suffix (`-1`, `-2`, ...). Used internally by `scanH2Headings`
+ * below (the single source of truth both `extractTableOfContents` and
+ * `headingIdsByLine` read from), and kept exported because `toc.test.ts`
+ * exercises the de-duplication rule directly.
+ */
+export function nextUniqueId(base: string, seen: Map<string, number>): string {
+  const safeBase = base || 'section';
+  const count = seen.get(safeBase) ?? 0;
+  seen.set(safeBase, count + 1);
+  return count === 0 ? safeBase : `${safeBase}-${count}`;
+}
+
+interface ScannedHeading {
+  /** 1-based line number in the source, matching hast/unist `Position.start.line`. */
+  line: number;
+  text: string;
+  id: string;
+}
+
+/**
+ * The single, pure scan of a markdown body's H2 headings — in document
+ * order, skipping fenced code blocks, with a fresh de-dup `seen` map created
+ * and consumed entirely *inside* this one call (never shared or mutated
+ * across calls). Calling this twice with the same `body` always produces two
+ * identical arrays: it reads only its `body` argument and returns a new
+ * result every time, no closures over external state. `extractTableOfContents`
+ * and `headingIdsByLine` are both thin projections of this one scan, so they
+ * can never drift out of sync with each other.
+ */
+function scanH2Headings(body: string): ScannedHeading[] {
+  const seen = new Map<string, number>();
+  const headings: ScannedHeading[] = [];
+  let inFence = false;
+  const lines = body.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const match = /^##\s+(.+?)\s*$/.exec(line);
+    if (!match) continue;
+
+    const text = stripInlineMarkdown(match[1]);
+    if (!text) continue;
+
+    headings.push({ line: i + 1, text, id: nextUniqueId(slugifyHeading(text), seen) });
+  }
+
+  return headings;
+}
+
+/**
+ * Auto-generated table of contents (design-brief §5 blog-post desktop rail:
+ * "auto-generated table of contents if the post has 3+ H2s"). Parses the raw
+ * markdown body for level-2 headings only — H1 is the post title rendered by
+ * page chrome, never part of the body; H3+ is too granular for a rail TOC —
+ * in document order.
+ *
+ * Callers decide the "3+ H2s" gate (`entries.length >= 3`) — this function
+ * only extracts what's really there; it never pads or fabricates entries.
+ *
+ * Pure: same `body` in, same `TocEntry[]` out, every time (see
+ * `scanH2Headings`) — no shared/mutated state survives past a single call.
+ */
+export function extractTableOfContents(body: string): TocEntry[] {
+  return scanH2Headings(body).map(({ id, text }) => ({ id, text }));
+}
+
+/**
+ * Maps each H2's 1-based source line number to its precomputed, de-duplicated
+ * id — the fix for the "every TOC link is dead" bug (React StrictMode
+ * double-render pass, 2026-07-18 QA browser verification).
+ *
+ * The bug: `Markdown.tsx`'s `h2` renderer used to own a `Map` created once
+ * per `Markdown` component render and then *mutate it during the render
+ * itself* (incrementing a de-dup counter each time an `h2` was rendered).
+ * That's a side effect inside render, which React StrictMode deliberately
+ * double-invokes to catch — the second pass saw every heading as "already
+ * seen" and appended a spurious `-1` to every id, while `extractTableOfContents`
+ * (a genuinely pure function, called once against the raw string, not
+ * re-invoked by React) kept producing the un-suffixed id. Two paths that
+ * happened to agree on a single render pass and silently diverged on a
+ * double one — every TOC anchor 404'd.
+ *
+ * The fix: `Markdown.tsx` calls this function *once*, before rendering
+ * anything, to get a complete `line → id` map computed purely from the
+ * `body` string. Its `h2` renderer then does a **read-only lookup** by the
+ * heading's real source line number (from the hast node react-markdown
+ * passes via `node.position.start.line`) instead of accumulating a counter
+ * during render. A lookup is idempotent by construction: calling this
+ * function N times against the same `body` (exactly what StrictMode's
+ * double-render does to whatever computes `Markdown`'s local state) always
+ * returns a `Map` with the same line→id entries — there's no shared counter
+ * left to double-increment. See `toc.test.ts`'s idempotency test for the
+ * regression coverage.
+ *
+ * Text-keyed lookup alone would not be enough: two headings with identical
+ * text (a real, tested case — see "de-duplicates identical heading text")
+ * must still resolve to their own distinct ids. Line number is a
+ * deterministic, source-derived key that's unique per heading occurrence
+ * without needing any incrementing counter at lookup time.
+ */
+export function headingIdsByLine(body: string): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const heading of scanH2Headings(body)) {
+    map.set(heading.line, heading.id);
+  }
+  return map;
+}
