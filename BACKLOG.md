@@ -129,6 +129,60 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 - [ ] **Pre-launch review** — security-auditor + designer critique; fix
       findings. Then STOP and ask Dom about deployment.
 
+### Dom's directives 2026-07-18 evening (in person, verbatim priorities —
+### these outrank the machine-generated items below)
+
+- [ ] **DOM-1 — Cast names: every agent gets a real first name.** Lead +
+      designer: real, distinct, Dutch/English-pronounceable first names for
+      all 9 characters so "personality can grow and everyone can actually
+      become a personality inside this devops drama" (Dom). Persona bible v2
+      (names + pronouns + byline format), `cast.ts` + Cast page + bylines
+      updated. The Judge stays deliberately unnamed — it is an independent
+      check, not a teammate, and naming it would break that framing. **Gates
+      DOM-2 and DOM-3.** _(Started same evening — designer proposal in
+      flight.)_
+- [ ] **DOM-2 — Blog format v2: layered, scannable, multi-voice.** Dom:
+      "a loooot of text… bullets, visuals, layered information; labels on
+      which backlog items got worked on or completed; let multiple team
+      members tell the part of the story that's their expertise." designer
+      spec first, then frontend-dev: scannable post anatomy (TL;DR block,
+      bullets, callouts, pull-quotes), **per-section bylines** (schema change:
+      posts need multi-author support — `author` today is one string), and
+      **backlog-item chips** on posts ("worked on: Blog engine ✓ completed")
+      linking the narrative to the actual backlog. Guardrail: personality and
+      banter are free; **events must be real** (never-invent applies to facts,
+      not voice).
+- [ ] **DOM-3 — Agent-interaction storytelling.** Dom: "create a story about
+      the multiple agents interacting with each other, how they work together
+      on tasks." The reports already contain real drama (QA passing a harness
+      that measured the wrong thing, browser verification overruling four
+      green gates, a hard rule overruling the design brief) — write posts and
+      cast-page copy that dramatize REAL events in the named characters'
+      voices, with the same event-sourcing discipline as the persona bible.
+      Needs DOM-1 (names) and benefits from DOM-2 (multi-voice format).
+- [ ] **DOM-4 — Project visuals: screenshots + short animations.** Dom: the
+      project pages are "a wall of text… create screenshots, but preferably
+      short animations — that's what works best in the market." Market
+      research agrees: short walkthrough video/GIF measurably outperforms
+      static screenshots for engagement (hybrid approach — motion first,
+      annotated stills as support; techtimes.com 2026 tech-portfolio guide,
+      influenceflow.io case-study guide). Pipeline: run each project locally
+      (launch.json configs exist for portfolio, chart-token-playground,
+      travel-planner, token-impact-mapper, sollie-process-presentation +
+      SoulForge), capture screenshots + screen-recorded GIFs of core flows,
+      store under `public/images/projects/<slug>/`, render cover + media
+      gallery on ProjectCard/ProjectDetail. **Supersedes the old "Cover
+      images" item.** PizzaParty/MensApp/LoveDiary need their dev servers
+      checked first.
+- [ ] **DOM-5 — Hire a visual-media agent.** Dom: "if we need a new
+      visual-design agent, you have all freedom to hire one on your own —
+      document this process." Decision: yes — no existing agent has browser/
+      capture tools (frontend-dev, designer et al. are code/spec agents;
+      every browser verification so far has been done by the lead by hand,
+      and DOM-4 is exactly this skill set). Write the agent definition,
+      vendor a copy in-repo, announce the hire in a report + logbook post
+      (the hire itself is a real studio event — good DOM-3 material).
+
 ### Added 2026-07-18 (impact-ranked; slot above "Pre-launch review")
 
 - [ ] **HIGH — Browser-level smoke test in CI.** devops + qa-tester: add a
@@ -181,7 +235,9 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       _Source: design-brief §5 + §6 component inventory. The component does not
       exist anywhere in `src/` — flagged by frontend-dev during the blog-engine
       pass as a whole undelivered piece of the design system, not a blog gap._
-- [ ] **MEDIUM — Cover images for projects and posts.** `cover` is already in
+- [ ] ~~**MEDIUM — Cover images for projects and posts.**~~ **SUPERSEDED by
+      DOM-4** (2026-07-18 evening) — covers become the still-frame subset of
+      the full visuals pipeline. Original text kept for context: `cover` is already in
       both frontmatter schemas (spec §3.1/§3.2), is rendered by nothing, and is
       set by no content file — all 6 projects show "no cover yet" placeholders.
       Decide whether to source real images or drop the field. _Source: named
