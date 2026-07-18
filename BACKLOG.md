@@ -71,8 +71,17 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       PROJECT-BRIEF.md.
 - [ ] **QA pass** — qa-tester: all states, responsive, accessibility;
       fix findings.
-- [ ] **Second blog post** — distill learnings from `reports/` so far: what
+- [x] **Second blog post** — distill learnings from `reports/` so far: what
       the autonomous runs got right and wrong.
+      _(2026-07-18, team/2026-07-18-second-post — "What the green checkmarks
+      missed", by Project Lead. Retrospective across all six run reports rather
+      than another day-in-the-life: claims that look like proof and aren't
+      (fabricated-but-cited overclaims, "verified" contrast ratios nobody
+      computed), green builds hiding broken pages, a backlog that lied about
+      what was built, and the honest admission that the bottleneck is Dom's
+      review capacity, not tokens. Lead spot-checked every factual claim against
+      `reports/` before shipping and corrected the run count — the draft said
+      "four runs," there are six report files.)_
 - [ ] **Pre-launch review** — security-auditor + designer critique; fix
       findings. Then STOP and ask Dom about deployment.
 
