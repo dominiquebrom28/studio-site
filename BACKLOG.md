@@ -143,7 +143,26 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       only by a human opening a browser (2026-07-15 hero token collision,
       2026-07-17 mobile reading order, 2026-07-18 dead anchors). That is a
       pattern, not bad luck — it deserves a gate. qa-tester independently
-      flagged the same coverage gap._
+      flagged the same coverage gap. **Scope raised 2026-07-18 evening: the
+      check must ALSO run against the deployed URL (Vercel preview), not only
+      a local server.** The same day a 4th browser-only bug shipped: every
+      route except `/` returned 404 in production (SPA with no rewrite rule,
+      `vercel.json` added in PR #9) while localhost worked perfectly, because
+      Vite's dev server does the SPA fallback silently. A local-only smoke
+      test would have stayed green through it._
+- [ ] **HIGH — Content-validation gate in CI.** qa-tester: a build-time check
+      over `content/` frontmatter — post `date` must match the filename's
+      `YYYY-MM-DD` prefix; slugs unique; no two posts sharing a `date` (forces
+      an explicit decision instead of an arbitrary sort tie-break deciding
+      public reading order); summaries ≤200 chars; `author` resolves to a cast
+      member or "Dom". _Source: 2026-07-18 evening — Dom caught the blog
+      rendering in the wrong order live. Root cause was a date decision, plus
+      a filename/date mismatch and a two-posts-one-date tie no gate flagged.
+      Dom asked "do we need a database as fallback?" — answer: no, git already
+      keeps every version of every post (the deleted placeholder was recovered
+      from history the same day as proof), and a database would store a wrong
+      date just as faithfully while moving posts out of PR review. The fix for
+      decision-level mistakes is a gate at decision time, which is this item._
 - [ ] **HIGH — Provenance content model.** architect: design real frontmatter
       (or a generated sidecar fed from `reports/`) carrying reviewer, Judge
       verdict/round/score, commit hash and token cost, then wire
