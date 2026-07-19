@@ -65,7 +65,7 @@ process:
       to: "2026-05-05"
       title: "The ambition spike"
       narrative: |-
-        One commit adds +2,316/−469 lines in a single sitting — a team creator, a timer, and an entire pub-quiz system with a live host mode. A second lands the next day, then nothing. Two single-commit days carrying that much weight read like someone building against a real date on the calendar.
+        One commit adds +2,316/-469 lines in a single sitting — a team creator, a timer, and an entire pub-quiz system with a live host mode. A second lands the next day, then nothing. Two single-commit days carrying that much weight read like someone building against a real date on the calendar.
       tone: build
     - from: "2026-07-16"
       to: "2026-07-16"

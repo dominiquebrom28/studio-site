@@ -19,7 +19,7 @@ brief:
         Honestly, there's no discernible brief here beyond "make the fun part work."
       source: not-stated
     - text: |-
-        A commercial layer was sketched into the data model and never built: all 42 pizzas carry `coupon: null` and an empty `partnerRestaurants` array, and while eight real Maastricht restaurants were added with genuine detail, each one's `website` is null.
+        A commercial layer was sketched into the data model and never built: all 42 pizzas carry a null coupon and an empty partner-restaurants array, and while eight real Maastricht restaurants were added with genuine detail, every one of their website fields is null.
       source: not-stated
     - text: |-
         The shape of a business was laid out and then left empty.
