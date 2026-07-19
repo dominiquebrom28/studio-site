@@ -398,6 +398,22 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       from real git chronology (green-checkmarks added 10:34, hire post 21:35).
       _(2026-07-19, team/2026-07-19-same-day-post-order.)_
 
+- [ ] **MEDIUM — The route smoke suite failed once and could not be
+      reproduced.** Immediately after PRs #20/#22/#24 landed on `main`, a
+      health check of the merged tree returned `1 failed | 15 passed (16)` from
+      `npm run test:smoke`. Seven subsequent runs — five standalone, two
+      replaying the exact command sequence — all returned 16/16, and the
+      failure output was not captured before it vanished. **Logged deliberately
+      rather than dismissed:** a gate that fails once without explanation is
+      either a real intermittent bug (plausible — these are async
+      `withSuspense` route mounts in jsdom, and a missing `await`/`findBy`
+      somewhere would look exactly like this) or a flaky gate. Both are worth
+      fixing, because the second one is arguably worse: a gate people learn to
+      re-run until it's green stops being a gate. Next step is not to hunt it
+      blind — it is to make failures capturable (retain vitest output in CI,
+      consider `--retry=0` plus an explicit repeat run) so the next occurrence
+      is diagnosable. _Source: lead health check of `main`, 2026-07-19._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
