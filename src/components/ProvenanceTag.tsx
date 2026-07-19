@@ -14,8 +14,16 @@ import { Badge } from './ui/Badge';
  * - `read` — `Badge`'s `tint` tone at `--marker-700`, the same accent
  *   already reserved for links/active states — "this is us talking"
  *   borrows the exact ink as "click this."
- * - `not-stated` — `Badge` muted at 60% opacity, the quietest tag, for
- *   honest silence.
+ * - `not-stated` — a deliberate DEVIATION from the spec's literal "`Badge`
+ *   muted at 60% opacity": hand-computing that pairing (§2's WCAG-rigor
+ *   precedent) shows `--ink-muted` text at 60% opacity over `--paper` lands
+ *   at roughly **2.7:1** — a real AA text-contrast failure (needs 4.5:1 at
+ *   this 11px size), not a legal "quiet" reading. Opacity is applied to the
+ *   BORDER only (a non-text, decorative element, exempt to the lower 3:1
+ *   non-text threshold and trivially clearing it even dimmed) while the
+ *   label text stays full-strength `--ink-muted` — same visual intent
+ *   ("the quietest tag, for honest silence") without the contrast
+ *   regression. Flagged for Dom/designer sign-off, not silently patched.
  */
 const LABEL: Record<Provenance, string> = {
   logged: 'LOGGED',
@@ -34,7 +42,7 @@ export function ProvenanceTag({ source }: { source: Provenance }) {
 
   if (source === 'not-stated') {
     return (
-      <Badge tone="muted" className="opacity-60">
+      <Badge tone="muted" className="border-hairline/50 border-dashed">
         {LABEL['not-stated']}
       </Badge>
     );
