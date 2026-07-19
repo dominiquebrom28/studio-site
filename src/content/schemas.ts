@@ -21,24 +21,39 @@ const isoDate = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
 // `width`/`height` are the real intrinsic pixel dimensions of `src` — required
 // (not inferred) so every gallery image can reserve its box up front and
 // never shifts layout (design-brief §9 perf/CLS gate).
-export const ProjectMediaItemSchema = z.object({
-  src: z.string().min(1),
-  alt: z.string().min(1),
-  caption: z.string().min(1),
-  kind: z.enum(['still', 'animation']),
-  viewport: z.enum(['desktop', 'mobile']),
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
-  // Static first-paint frame for an `animation` item (design-brief §9 /
-  // DOM-4: a GIF autoplays the moment it loads and can't be paused after the
-  // fact, which is motion the reader never consented to and a real LCP risk.
-  // The gallery shows this poster and only swaps to `src` on an explicit
-  // click — see `GalleryItem` in ProjectDetail.tsx). Required in practice for
-  // `kind: "animation"` items but left optional at the schema level rather
-  // than a conditional-required refinement, so a still-only project never
-  // has to think about it.
-  poster: z.string().optional(),
-});
+export const ProjectMediaItemSchema = z
+  .object({
+    src: z.string().min(1),
+    alt: z.string().min(1),
+    caption: z.string().min(1),
+    kind: z.enum(['still', 'animation']),
+    viewport: z.enum(['desktop', 'mobile']),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    // Static first-paint frame for an `animation` item (design-brief §9 /
+    // DOM-4: a GIF autoplays the moment it loads and can't be paused after
+    // the fact, which is motion the reader never consented to and a real LCP
+    // risk. The gallery shows this poster and only swaps to `src` on an
+    // explicit click — see `GalleryItem` in ProjectDetail.tsx).
+    poster: z.string().optional(),
+  })
+  // `poster` is enforced as required for `kind: "animation"` here (rather
+  // than left as a soft convention) because `GalleryItem`'s fallback is
+  // `item.poster ?? item.src`: if `poster` is missing, the component falls
+  // straight back to rendering the real animated `src` on first paint —
+  // silently defeating the whole no-uninvited-motion guarantee the poster
+  // exists for. QA (DOM-4 verification) found this reachable because the
+  // schema originally allowed it. Still-only items are unaffected — the
+  // check only fires for `kind: "animation"`.
+  .superRefine((item, ctx) => {
+    if (item.kind === 'animation' && !item.poster) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a `poster` frame is required for kind: "animation" (prevents autoplay-on-load)',
+        path: ['poster'],
+      });
+    }
+  });
 
 export type ProjectMediaItem = z.infer<typeof ProjectMediaItemSchema>;
 

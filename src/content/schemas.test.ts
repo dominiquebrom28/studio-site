@@ -146,8 +146,12 @@ describe('ProjectFrontmatterSchema', () => {
     expect(result.poster).toBe('/images/projects/example/example-flow-poster.jpg');
   });
 
-  it('accepts an `animation` media item without a `poster` (optional, not required at the schema level)', () => {
-    expect(() => ProjectMediaItemSchema.parse({ ...validMediaItem, kind: 'animation' })).not.toThrow();
+  it('rejects an `animation` media item without a `poster` (a poster-less animation falls back to rendering the real, autoplaying src on first paint — see GalleryItem`s `item.poster ?? item.src`, so this must fail validation, not silently degrade)', () => {
+    expect(() => ProjectMediaItemSchema.parse({ ...validMediaItem, kind: 'animation' })).toThrow();
+  });
+
+  it('does not require `poster` on a `still` item (the refinement only fires for kind: "animation")', () => {
+    expect(() => ProjectMediaItemSchema.parse({ ...validMediaItem, kind: 'still' })).not.toThrow();
   });
 });
 
