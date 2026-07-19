@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import type { Project } from '@/content';
 import { Chip } from './ui/Badge';
 import { statusLabel, statusToneClass } from '@/content/status';
@@ -59,31 +59,31 @@ export function ProjectHero({ project }: { project: Project }) {
 
   return (
     <div className="mb-10">
-      <motion.div className="mb-3 flex flex-wrap items-center gap-2" {...eyebrowMotion}>
-        <motion.span
+      <m.div className="mb-3 flex flex-wrap items-center gap-2" {...eyebrowMotion}>
+        <m.span
           {...stampMotion(0)}
           className="inline-flex items-center rounded-full border border-hairline bg-paper-raised px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted"
         >
           {eyebrowLabel}
-        </motion.span>
-        <motion.span
+        </m.span>
+        <m.span
           {...stampMotion(1)}
           className={`font-mono text-[11px] font-semibold uppercase tracking-[0.06em] ${statusToneClass[project.status]}`}
         >
           ● {statusLabel[project.status]}
-        </motion.span>
+        </m.span>
         <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{project.date}</span>
-      </motion.div>
+      </m.div>
 
-      <motion.h1 className="mb-4" {...titleMotion}>
+      <m.h1 className="mb-4" {...titleMotion}>
         {project.title}
-      </motion.h1>
+      </m.h1>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {project.stack.map((tech, index) => (
-          <motion.span key={tech} {...stampMotion(index + 2)}>
+          <m.span key={tech} {...stampMotion(index + 2)}>
             <Chip>{tech}</Chip>
-          </motion.span>
+          </m.span>
         ))}
       </div>
 
@@ -113,9 +113,9 @@ export function ProjectHero({ project }: { project: Project }) {
       )}
 
       <div ref={coverWrapperRef} className="aspect-[16/9] w-full overflow-hidden rounded-sm bg-paper-raised">
-        <motion.div className="h-full w-full" style={prefersReducedMotion ? undefined : { y: parallaxY }}>
+        <m.div className="h-full w-full" style={prefersReducedMotion ? undefined : { y: parallaxY }}>
           {project.cover ? (
-            <motion.img
+            <m.img
               src={project.cover}
               alt={`${project.title} cover`}
               className="h-full w-full object-cover"
@@ -127,16 +127,16 @@ export function ProjectHero({ project }: { project: Project }) {
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.7, ease: SETTLE_EASE }}
             />
           ) : (
-            <motion.div
+            <m.div
               className="flex h-full w-full items-center justify-center font-mono text-xs uppercase tracking-[0.06em] text-ink-muted"
               initial={prefersReducedMotion ? { scale: 1, y: 0 } : { scale: 1.04, y: 4 }}
               animate={{ scale: 1, y: 0 }}
               transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.7, ease: SETTLE_EASE }}
             >
               Dom&rsquo;s AI Studio — no cover yet
-            </motion.div>
+            </m.div>
           )}
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );

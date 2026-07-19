@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
+import { m, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
 import { buildTimelineScaffold, positionForDate, type TimelineScaffold, type TimelineTick } from '@/lib/timeline';
 
@@ -45,7 +45,8 @@ export function BuildTimeline({
   // specific "framer" feeling Dom named: the rule advances AND reverses
   // with scroll direction. Always called (rules-of-hooks) even under
   // reduced motion; its output is simply never read into a style value in
-  // that branch (see `drawStyle` below), which is cheaper and safer than
+  // that branch (see each child's `reduced ? ... : ...` `ruleStyle`/
+  // `reveal` branching below), which is cheaper and safer than
   // conditionally skipping the hook.
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start 0.8', 'end 0.3'] });
 
@@ -119,24 +120,27 @@ function DesktopTimeline({
   const ruleStyle = reduced ? { scaleX: 1 } : { scaleX: progress };
 
   return (
-    <div className="relative mb-6 hidden pt-24 pb-24 lg:block" aria-hidden={false}>
+    <div className="relative mb-6 hidden pt-24 pb-24 pr-24 lg:block">
       {/* Decorative scaffold — rule, ticks, connectors. Real content (phase
-          captions) lives outside this aria-hidden wrapper below. */}
+          captions) lives outside this aria-hidden wrapper below. The extra
+          `pr-24` on the outer container reserves room for the "still open"
+          terminus label so it never bleeds past the column's right edge —
+          it's positioned at the rule's end (100%), inside that reserved
+          space, never outside the component's own box. */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
-        <motion.div className="h-px w-full origin-left bg-ink/30" style={ruleStyle} />
+        <m.div className="h-px w-full origin-left bg-ink/30" style={ruleStyle} />
         {scaffold.ticks.map((tick) => (
           <DesktopTickDot key={tick.date} tick={tick} progress={progress} reduced={reduced} />
         ))}
         {scaffold.isOpenEnded && (
           <span
-            className="absolute top-1/2 -translate-y-1/2 translate-x-2 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
-            style={{ left: '100%' }}
+            className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
           >
             → still open
           </span>
         )}
         {scaffold.gaps.map((gap) => (
-          <GapLabel key={gap.position} gap={gap} progress={progress} reduced={reduced} axis="x" />
+          <GapLabel key={gap.position} gap={gap} progress={progress} reduced={reduced} />
         ))}
       </div>
 
@@ -163,7 +167,7 @@ function DesktopTickDot({
   const size = tick.count > 4 ? 14 : tick.count > 1 ? 11 : 8;
 
   return (
-    <motion.div
+    <m.div
       className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center"
       style={{ left: `${tick.position * 100}%`, opacity: reveal.opacity, scale: reveal.scale }}
     >
@@ -171,34 +175,33 @@ function DesktopTickDot({
         className={`rounded-full border-2 border-paper ${tick.isCleanupSweep ? 'bg-marker-700' : 'bg-ink'}`}
         style={{ width: size, height: size }}
       />
-    </motion.div>
+    </m.div>
   );
 }
 
+/** Desktop-only — positioned along the horizontal rule at the gap's real
+ * midpoint. Mobile's equivalent is `MobileGapRow`, a plain flow row (no
+ * absolute positioning needed once the rail is vertical and already in
+ * document order). */
 function GapLabel({
   gap,
   progress,
   reduced,
-  axis,
 }: {
   gap: { position: number; days: number };
   progress: MotionValue<number>;
   reduced: boolean;
-  axis: 'x' | 'y';
 }) {
   const reveal = useRevealAtPosition(progress, gap.position, reduced);
-  const positionStyle = axis === 'x' ? { left: `${gap.position * 100}%` } : { top: `${gap.position * 100}%` };
 
   return (
-    <motion.span
-      className={`absolute whitespace-nowrap font-mono text-[11px] text-ink-muted ${
-        axis === 'x' ? 'top-4 -translate-x-1/2' : 'left-8 -translate-y-1/2'
-      }`}
-      style={{ ...positionStyle, opacity: reveal.opacity }}
+    <m.span
+      className="absolute top-4 -translate-x-1/2 whitespace-nowrap font-mono text-[11px] text-ink-muted"
+      style={{ left: `${gap.position * 100}%`, opacity: reveal.opacity }}
       transition={reduced ? undefined : { duration: 0.5, delay: 0.15 }}
     >
       {gap.days} days
-    </motion.span>
+    </m.span>
   );
 }
 
@@ -225,7 +228,7 @@ function DesktopPhaseCaption({
       };
 
   return (
-    <motion.div
+    <m.div
       className={`absolute w-56 -translate-x-1/2 text-center ${above ? 'bottom-[calc(50%+28px)]' : 'top-[calc(50%+28px)]'}`}
       style={{ left: `${position * 100}%` }}
       {...motionProps}
@@ -243,7 +246,7 @@ function DesktopPhaseCaption({
       </svg>
       <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{TONE_LABEL[phase.tone]}</p>
       <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -264,29 +267,37 @@ function MobileTimeline({
 }) {
   const ruleStyle = reduced ? { scaleY: 1 } : { scaleY: progress };
 
-  // Interleave ticks and phases into one date-ordered flow so a phase
-  // caption reads directly after the commit(s) it's describing (spec §2.2:
-  // "Mobile: inline below their anchor... never a separate tab stop").
-  type Row = { position: number; kind: 'tick'; tick: TimelineTick } | { position: number; kind: 'phase'; phase: ProcessPhase };
+  // Interleave ticks, gaps, and phases into one date-ordered flow so a
+  // phase caption reads directly after the commit(s) it's describing
+  // (spec §2.2: "Mobile: inline below their anchor... never a separate tab
+  // stop") and a gap's duration is stamped in the same honest position it
+  // occupies on the desktop rule, not silently dropped on mobile.
+  type Row =
+    | { position: number; kind: 'tick'; tick: TimelineTick }
+    | { position: number; kind: 'phase'; phase: ProcessPhase }
+    | { position: number; kind: 'gap'; gap: { position: number; days: number } };
   const rows: Row[] = [
     ...scaffold.ticks.map((tick): Row => ({ position: tick.position, kind: 'tick', tick })),
     ...phases.map((phase): Row => ({ position: phaseAnchorPosition(phase, scaffold), kind: 'phase', phase })),
+    ...scaffold.gaps.map((gap): Row => ({ position: gap.position, kind: 'gap', gap })),
   ].sort((a, b) => a.position - b.position);
 
   return (
     <div className="relative pl-8 lg:hidden">
       <div className="pointer-events-none absolute inset-y-0 left-[15px] w-px" aria-hidden="true">
-        <motion.div className="h-full w-px origin-top bg-ink/30" style={ruleStyle} />
+        <m.div className="h-full w-px origin-top bg-ink/30" style={ruleStyle} />
       </div>
 
       <div className="flex flex-col gap-4">
-        {rows.map((row, index) =>
-          row.kind === 'tick' ? (
-            <MobileTickRow key={`tick-${row.tick.date}-${index}`} tick={row.tick} progress={progress} reduced={reduced} />
-          ) : (
-            <MobilePhaseRow key={`phase-${row.phase.from}-${row.phase.title}`} phase={row.phase} />
-          ),
-        )}
+        {rows.map((row, index) => {
+          if (row.kind === 'tick') {
+            return <MobileTickRow key={`tick-${row.tick.date}-${index}`} tick={row.tick} progress={progress} reduced={reduced} />;
+          }
+          if (row.kind === 'gap') {
+            return <MobileGapRow key={`gap-${row.gap.position}`} gap={row.gap} progress={progress} reduced={reduced} />;
+          }
+          return <MobilePhaseRow key={`phase-${row.phase.from}-${row.phase.title}`} phase={row.phase} />;
+        })}
         {scaffold.isOpenEnded && (
           <p className="relative font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
             <span aria-hidden="true" className="absolute -left-8 top-1 h-2 w-2 rounded-full border-2 border-ink/40" />
@@ -310,7 +321,7 @@ function MobileTickRow({
   const reveal = useRevealAtPosition(progress, tick.position, reduced);
 
   return (
-    <motion.p
+    <m.p
       className="relative font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
       style={{ opacity: reveal.opacity }}
     >
@@ -321,7 +332,33 @@ function MobileTickRow({
       {tick.date}
       <CommitCountBadge count={tick.count} />
       {tick.isCleanupSweep && <SweepFlag />}
-    </motion.p>
+    </m.p>
+  );
+}
+
+/** The mobile-flow equivalent of `GapLabel` — a plain flow row (no absolute
+ * positioning needed; the vertical rail is already reading order), so a
+ * ≥14-day silence gets its duration stamped on mobile exactly as it does on
+ * the desktop rule, not silently dropped. */
+function MobileGapRow({
+  gap,
+  progress,
+  reduced,
+}: {
+  gap: { position: number; days: number };
+  progress: MotionValue<number>;
+  reduced: boolean;
+}) {
+  const reveal = useRevealAtPosition(progress, gap.position, reduced);
+
+  return (
+    <m.p
+      className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
+      style={{ opacity: reveal.opacity }}
+      transition={reduced ? undefined : { duration: 0.5, delay: 0.15 }}
+    >
+      {gap.days} days of silence
+    </m.p>
   );
 }
 
@@ -337,10 +374,10 @@ function MobilePhaseRow({ phase }: { phase: ProcessPhase }) {
       };
 
   return (
-    <motion.div className="pl-1" {...motionProps}>
+    <m.div className="pl-1" {...motionProps}>
       <p className="mb-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{TONE_LABEL[phase.tone]}</p>
       <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
-    </motion.div>
+    </m.div>
   );
 }
 

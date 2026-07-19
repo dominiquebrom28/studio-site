@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import type { ProjectMediaItem } from '@/content/schemas';
 import { sortForGallery } from '@/content/media';
 
@@ -136,7 +136,7 @@ function GalleryItem({ item, index }: { item: ProjectMediaItem; index: number })
       };
 
   return (
-    <motion.figure
+    <m.figure
       className={`overflow-hidden rounded-sm border shadow-[var(--shadow-card)] ${
         isMobileCapture ? 'border-2 border-hairline sm:w-56 lg:w-56' : 'border-hairline lg:w-80'
       } bg-paper-raised`}
@@ -178,18 +178,18 @@ function GalleryItem({ item, index }: { item: ProjectMediaItem; index: number })
                 <StopGlyph />
               ) : (
                 <>
-                  <motion.span
+                  <m.span
                     className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-ink/25 bg-paper-raised pl-1 text-ink shadow-[var(--shadow-card)]"
                     // A single non-looping pulse the first time this item
                     // enters the viewport (spec §4.2/§5.2) — an invitation,
-                    // never ambient/repeating motion. Disabled entirely
-                    // under reduced motion.
+                    // never ambient/repeating m. Disabled entirely
+                    // under reduced m.
                     whileInView={prefersReducedMotion ? undefined : { scale: [1, 1.06, 1] }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, ease: 'easeOut' }}
                   >
                     <PlayGlyph />
-                  </motion.span>
+                  </m.span>
                   <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-ink" aria-hidden="true">
                     Play animation
                   </span>
@@ -212,6 +212,6 @@ function GalleryItem({ item, index }: { item: ProjectMediaItem; index: number })
           <p className="text-sm text-ink-muted">{item.caption}</p>
         </figcaption>
       </div>
-    </motion.figure>
+    </m.figure>
   );
 }

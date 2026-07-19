@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
+import { LazyMotion, m, useReducedMotion } from 'framer-motion';
 import type { Project } from '@/content';
 import { Container } from '@/components/ui/Container';
 import { Markdown } from '@/components/Markdown';
@@ -20,6 +20,11 @@ import NotFound from './NotFound';
  * it's "illustrative, not final" — the *mechanism* is what's binding). */
 const PROCESS_FURNITURE_LINE =
   'Commit dates and counts below are logged straight from git history. Anything written as "probably" or "likely" is our reading of them, in italics — not verified fact. Tell us where it’s wrong.';
+
+/** Loaded lazily (never a static import) so the animation engine itself
+ * lands in its own chunk, fetched only once this route mounts — see
+ * `src/lib/motionFeatures.ts`. */
+const loadMotionFeatures = () => import('@/lib/motionFeatures').then((res) => res.default);
 
 /** Mono eyebrow label + up to `limit` text links to other projects (design
  * brief §5 "more projects mini-list at rail bottom" / mobile footer nav). */
@@ -52,11 +57,11 @@ function BackLink() {
     : { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35, ease: 'easeOut' as const } };
 
   return (
-    <motion.div {...motionProps}>
+    <m.div {...motionProps}>
       <Link to="/projects" className="mb-6 inline-block font-mono text-sm text-ink-muted hover:text-ink hover:underline">
         ← All projects
       </Link>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -163,17 +168,19 @@ export default function ProjectDetail() {
   const moreProjects = getMoreProjects(project.slug, 3);
 
   return (
-    <Container className="py-12 sm:py-16">
-      <Seo title={project.title} description={project.summary} />
-      <BackLink />
+    <LazyMotion features={loadMotionFeatures} strict>
+      <Container className="py-12 sm:py-16">
+        <Seo title={project.title} description={project.summary} />
+        <BackLink />
 
-      <div className="mx-auto max-w-[720px]">
-        {project.template === 'single-sitting' ? (
-          <SingleSittingTemplate project={project} moreProjects={moreProjects} />
-        ) : (
-          <StandardTemplate project={project} moreProjects={moreProjects} />
-        )}
-      </div>
-    </Container>
+        <div className="mx-auto max-w-[720px]">
+          {project.template === 'single-sitting' ? (
+            <SingleSittingTemplate project={project} moreProjects={moreProjects} />
+          ) : (
+            <StandardTemplate project={project} moreProjects={moreProjects} />
+          )}
+        </div>
+      </Container>
+    </LazyMotion>
   );
 }

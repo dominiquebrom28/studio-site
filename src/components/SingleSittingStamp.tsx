@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 
 /**
  * `SingleSittingStamp` (docs/project-page-v2.md §2.4/§7) — the entire
@@ -37,7 +37,7 @@ export function SingleSittingStamp({
       };
 
   return (
-    <motion.div
+    <m.div
       className="mx-auto w-fit rounded-sm border border-hairline bg-paper-raised px-8 py-6 text-center shadow-[var(--shadow-card)]"
       {...motionProps}
     >
@@ -54,6 +54,6 @@ export function SingleSittingStamp({
           {sessionsNote} — from file timestamps, not commits
         </p>
       )}
-    </motion.div>
+    </m.div>
   );
 }

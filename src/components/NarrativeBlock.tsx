@@ -1,5 +1,5 @@
 import { type ReactNode, useRef } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import type { NarrativeField, Provenance } from '@/content/schemas';
 import { ProvenanceTag } from './ProvenanceTag';
 
@@ -72,10 +72,10 @@ export function NarrativeBlock({ eyebrow, source, heading, children, variant = '
       };
 
   const header = (
-    <motion.div ref={ref} className="mb-3 flex items-center gap-2" {...eyebrowMotion}>
+    <m.div ref={ref} className="mb-3 flex items-center gap-2" {...eyebrowMotion}>
       <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{eyebrow}</p>
       <ProvenanceTag source={source} />
-    </motion.div>
+    </m.div>
   );
 
   if (variant === 'card') {
@@ -83,7 +83,7 @@ export function NarrativeBlock({ eyebrow, source, heading, children, variant = '
       <section className="mb-10 rounded-sm border border-hairline bg-paper-raised p-6 shadow-[var(--shadow-card)]">
         {header}
         <h2 className="mb-3">{heading}</h2>
-        <motion.div {...bodyMotion}>{children}</motion.div>
+        <m.div {...bodyMotion}>{children}</m.div>
       </section>
     );
   }
@@ -92,9 +92,9 @@ export function NarrativeBlock({ eyebrow, source, heading, children, variant = '
     <section className="mb-10">
       {header}
       <h2 className="mb-3">{heading}</h2>
-      <motion.p className={narrativeTextClass(source)} {...bodyMotion}>
+      <m.p className={narrativeTextClass(source)} {...bodyMotion}>
         {children}
-      </motion.p>
+      </m.p>
     </section>
   );
 }
