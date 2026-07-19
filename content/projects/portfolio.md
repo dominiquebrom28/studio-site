@@ -4,6 +4,30 @@ slug: "portfolio"
 summary: "Dom's own portfolio, rebuilt as five switchable design directions — including a playable RPG version of itself."
 stack: ["React", "react-router", "framer-motion", "Vite", "TypeScript"]
 status: "in-progress"
+cover: "/images/projects/portfolio/portfolio-hero-desktop.png"
+media:
+  - src: "/images/projects/portfolio/portfolio-flow.gif"
+    poster: "/images/projects/portfolio/portfolio-flow-poster.jpg"
+    alt: "Scrolling through the portfolio: hero, stats bar, 'What I do' expertise cards, selected work case studies, and closing contact CTA, with an opaque dark nav bar that stays solid over content at every scroll position."
+    caption: "8-frame, 8s honest scroll-through of the real page content at 1280x800."
+    kind: "animation"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/portfolio/portfolio-hero-desktop.png"
+    alt: "Dominique van den Brom portfolio hero: 'I design systems' headline over a dark grid background, with stats (7+ years, 9 brands, 50+ components, 8 UI libraries)."
+    caption: "Portfolio homepage, fully settled desktop hero."
+    kind: "still"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/portfolio/portfolio-hero-mobile.png"
+    alt: "Portfolio hero on mobile: condensed nav, 'I design systems' headline, intro paragraph and two CTAs stacked full-width."
+    caption: "Portfolio homepage, mobile hero."
+    kind: "still"
+    viewport: "mobile"
+    width: 375
+    height: 812
 featured: true
 order: 2
 date: "2026-07-06"

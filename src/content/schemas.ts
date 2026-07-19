@@ -14,6 +14,34 @@ const isoDate = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: 'must be a valid ISO date string (e.g. "2026-07-15")',
 });
 
+// Project media gallery item (DOM-4: screenshots + short animations).
+// `kind` distinguishes a still screenshot from a captured animation (GIF);
+// `viewport` records which breakpoint the capture represents so the gallery
+// can label it honestly instead of implying a single canonical view.
+// `width`/`height` are the real intrinsic pixel dimensions of `src` — required
+// (not inferred) so every gallery image can reserve its box up front and
+// never shifts layout (design-brief §9 perf/CLS gate).
+export const ProjectMediaItemSchema = z.object({
+  src: z.string().min(1),
+  alt: z.string().min(1),
+  caption: z.string().min(1),
+  kind: z.enum(['still', 'animation']),
+  viewport: z.enum(['desktop', 'mobile']),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  // Static first-paint frame for an `animation` item (design-brief §9 /
+  // DOM-4: a GIF autoplays the moment it loads and can't be paused after the
+  // fact, which is motion the reader never consented to and a real LCP risk.
+  // The gallery shows this poster and only swaps to `src` on an explicit
+  // click — see `GalleryItem` in ProjectDetail.tsx). Required in practice for
+  // `kind: "animation"` items but left optional at the schema level rather
+  // than a conditional-required refinement, so a still-only project never
+  // has to think about it.
+  poster: z.string().optional(),
+});
+
+export type ProjectMediaItem = z.infer<typeof ProjectMediaItemSchema>;
+
 export const ProjectFrontmatterSchema = z.object({
   title: z.string().min(1),
   slug: z
@@ -26,6 +54,10 @@ export const ProjectFrontmatterSchema = z.object({
   repo: urlOrEmpty,
   liveUrl: urlOrEmpty,
   cover: z.string().optional(),
+  // Gallery is optional and defaults to empty so all six existing project
+  // files (none of which set it yet) keep parsing unchanged (spec §3.1
+  // backward-compatibility requirement).
+  media: z.array(ProjectMediaItemSchema).default([]),
   featured: z.boolean().default(false),
   order: z.number().optional(),
   date: isoDate,

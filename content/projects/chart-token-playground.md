@@ -4,6 +4,30 @@ slug: "chart-token-playground"
 summary: "A semantic chart-token workbench for the Sollie design system, shipped as a single self-contained HTML file."
 stack: ["React", "Zustand", "TypeScript", "Vite", "Tailwind CSS"]
 status: "shipped"
+cover: "/images/projects/chart-token-playground/ctp-hero-desktop.png"
+media:
+  - src: "/images/projects/chart-token-playground/ctp-flow.gif"
+    poster: "/images/projects/chart-token-playground/ctp-flow-poster.jpg"
+    alt: "Chart Token Playground flow: switching from ABP to BPF Bouw brand, opening multi-brand Compare view, then simulating Protanopia and Deuteranopia color-blindness on the same charts."
+    caption: "6-frame, 8s real-state walkthrough of brand switching, compare mode, and accessibility simulation."
+    kind: "animation"
+    viewport: "desktop"
+    width: 1000
+    height: 625
+  - src: "/images/projects/chart-token-playground/ctp-hero-desktop.png"
+    alt: "Chart Token Playground desktop view: brand list, chart-token mapping panel, and a live preview grid of 6 chart types for the ABP brand, all checks passing."
+    caption: "Chart Token Playground default workspace."
+    kind: "still"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/chart-token-playground/ctp-hero-mobile.png"
+    alt: "Chart Token Playground mobile view: tabbed Brands/Tokens/Preview layout showing the categorical and sequential token mapping list."
+    caption: "Chart Token Playground, responsive mobile layout."
+    kind: "still"
+    viewport: "mobile"
+    width: 375
+    height: 812
 featured: true
 order: 3
 date: "2026-06-24"

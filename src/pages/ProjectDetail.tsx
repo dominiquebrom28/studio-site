@@ -3,6 +3,7 @@ import type { Project } from '@/content';
 import { Container } from '@/components/ui/Container';
 import { Chip } from '@/components/ui/Badge';
 import { Markdown } from '@/components/Markdown';
+import { MediaGallery } from '@/components/MediaGallery';
 import { Seo } from '@/components/Seo';
 import { getProjectBySlug, getMoreProjects } from '@/content';
 import { statusLabel, statusToneClass } from '@/content/status';
@@ -49,7 +50,15 @@ export default function ProjectDetail() {
 
       <div className="mb-8 aspect-[16/9] w-full overflow-hidden rounded-sm bg-paper-raised">
         {project.cover ? (
-          <img src={project.cover} alt={`${project.title} cover`} className="h-full w-full object-cover" />
+          <img
+            src={project.cover}
+            alt={`${project.title} cover`}
+            className="h-full w-full object-cover"
+            // Likely the page's LCP element (large, above the fold) — never
+            // lazy, and hinted high-priority so the gallery below (which IS
+            // lazy-loaded) never contends with it.
+            fetchPriority="high"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
             Dom&rsquo;s AI Studio — no cover yet
@@ -60,6 +69,8 @@ export default function ProjectDetail() {
       <div className="grid gap-10 lg:grid-cols-[68%_32%]">
         <div>
           <h1 className="mb-4">{project.title}</h1>
+
+          <MediaGallery items={project.media} />
 
           {/* Mobile/tablet meta strip — brief §5 mobile flow is H1 → status
               badge + stack chips → meta row (date) before the body. The
