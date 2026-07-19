@@ -271,16 +271,17 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       from history the same day as proof), and a database would store a wrong
       date just as faithfully while moving posts out of PR review. The fix for
       decision-level mistakes is a gate at decision time, which is this item._
-      _(2026-07-19, team/2026-07-19-ci-gates, PR #20 — awaiting Dom, grouped
-      with the smoke test because both edit `ci.yml`. **The gate is born RED
-      and was deliberately not made green**: `2026-07-18-we-hired-someone-to-
-      look-at-the-page.md` and `2026-07-18-what-the-green-checkmarks-missed.md`
-      share `date: "2026-07-18"`, so a sort tie-break is deciding public
-      reading order right now. Fixing that changes what readers see, and Dom
-      has already ruled on this exact class once (chronology for the founding
-      post) — so it is escalated, not silently patched. Kept out of `npm test`
-      and non-blocking in CI so nothing goes green by pretending. **Open
-      decision for Dom.**)_
+      _(2026-07-19, team/2026-07-19-ci-gates, merged as PR #20, grouped with
+      the smoke test because both edit `ci.yml`. Shipped deliberately RED on
+      one rule — and **that rule turned out to be wrong.** It forbade two posts
+      sharing a date; Dom corrected it the same day, and it also contradicted
+      the standing "multiple posts per day are fine" policy. Escalating rather
+      than silently rewriting his content was still the right call — it put the
+      question in front of the one person who could see the rule was
+      mis-specified. Rule replaced in
+      team/2026-07-19-same-day-post-order; see that item.
+      **Lesson: a gate that fails should be suspected as hard as the content it
+      fails on.**)_
 - [x] **HIGH — Provenance content model.** architect: design real frontmatter
       (or a generated sidecar fed from `reports/`) carrying reviewer, Judge
       verdict/round/score, commit hash and token cost, then wire
@@ -379,10 +380,23 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       Google's Core Web Vitals (developers.google.com/search/docs/appearance/
       core-web-vitals); INP is the most-failed metric on the 2026 web, which is
       an argument for measuring rather than assuming._
-- [ ] **LOW — Two published posts share a date (`2026-07-18`).** A sort
-      tie-break currently decides their public reading order. **Blocked on
-      Dom's decision** — see the content-validation gate item above. Listed
-      separately so it does not get lost when that gate is merged.
+- [x] **HIGH — Same-day post ordering: the gate rule was wrong, not the
+      content.** The content-validation gate shipped with a rule "no two posts
+      may share a date." **Dom corrected it the same day:** _"one of the checks
+      gave an error because 2 blog posts had the same date. but this IS
+      possible on days we worked more than usual."_ He is right, and the rule
+      also contradicted a standing studio policy already recorded on
+      2026-07-18 — _"multiple posts per day are fine for significant events."_
+      The rule punished exactly the productive days it should celebrate.
+      The real defect was never the shared date: `sortPosts` sorted on date
+      alone, so same-date posts fell back to `import.meta.glob` order —
+      **public reading order was being decided by filename spelling.** Fix:
+      optional `order` frontmatter, a fully deterministic
+      date→order→slug sort, and the gate rule rewritten to "same-date posts
+      must each declare a distinct `order`." Sharing a date is legal; leaving
+      the resulting order to chance is not. `order` set on the two 07-18 posts
+      from real git chronology (green-checkmarks added 10:34, hire post 21:35).
+      _(2026-07-19, team/2026-07-19-same-day-post-order.)_
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
