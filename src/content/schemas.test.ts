@@ -4,7 +4,94 @@ import {
   ProjectMediaItemSchema,
   PostFrontmatterSchema,
   BacklogRefSchema,
+  ProvenanceSchema,
+  NarrativeFieldSchema,
+  NarrativeCardFieldSchema,
+  ProcessPhaseSchema,
+  CommitBurstSchema,
+  ProjectProcessSchema,
 } from './schemas';
+import { parseFrontmatter } from './frontmatter';
+
+// Frozen snapshots of each of the six real `content/projects/*.md` files'
+// FRONTMATTER, as committed at the time this v2 schema landed (2026-07-19) —
+// deliberately NOT a live `import.meta.glob` read of `content/projects/*.md`.
+// A parallel content-authoring pass is actively adding `goal`/`brief`/
+// `process`/`template` to these same six files while this schema is being
+// built (see the task brief), so a live read would make this exact
+// backward-compatibility regression test flaky/racy against work happening
+// in a different file at the same time. A frozen fixture is the correct
+// tool here: it proves the SCHEMA change itself is additive against what
+// those six files looked like before any v2 field existed, independent of
+// whatever the content pass lands afterward. Ongoing "does the real content
+// still validate" coverage for the CURRENT file contents is a separate,
+// live concern (parseable by construction via `loader.ts`'s module-level
+// parse, which every test importing `content/index.ts` already exercises).
+const FROZEN_PROJECT_FRONTMATTER: Record<string, string> = {
+  'soulforge.md': `title: "SoulForge"
+slug: "soulforge"
+summary: "A life-RPG habit tracker in pixel-art — one intense build day, then the plan outran the code."
+stack: ["Vite", "React", "TypeScript", "Phaser", "Zustand", "Supabase"]
+status: "in-progress"
+repo: "https://github.com/dominiquebrom28/soulforge"
+featured: true
+order: 1
+date: "2026-06-15"`,
+  'chart-token-playground.md': `title: "Chart Token Playground"
+slug: "chart-token-playground"
+summary: "A semantic chart-token workbench for the Sollie design system, shipped as a single self-contained HTML file."
+stack: ["React", "Zustand", "TypeScript", "Vite", "Tailwind CSS"]
+status: "shipped"
+cover: "/images/projects/chart-token-playground/ctp-hero-desktop.png"
+media:
+  - src: "/images/projects/chart-token-playground/ctp-flow.gif"
+    poster: "/images/projects/chart-token-playground/ctp-flow-poster.jpg"
+    alt: "placeholder alt"
+    caption: "placeholder caption"
+    kind: "animation"
+    viewport: "desktop"
+    width: 1000
+    height: 625
+featured: true
+order: 3
+date: "2026-06-24"`,
+  'portfolio.md': `title: "Portfolio"
+slug: "portfolio"
+summary: "Dom's own portfolio, rebuilt as five switchable design directions — including a playable RPG version of itself."
+stack: ["React", "react-router", "framer-motion", "Vite", "TypeScript"]
+status: "in-progress"
+cover: "/images/projects/portfolio/portfolio-hero-desktop.png"
+featured: true
+order: 2
+date: "2026-07-06"`,
+  'mensapp.md': `title: "MensApp"
+slug: "mensapp"
+summary: "A friend-group event app — polls, a live pub quiz, and a beer-crate counter — actually used for the real event."
+stack: ["React", "Vite", "Supabase"]
+status: "shipped"
+repo: "https://github.com/dominiquebrom28/mensapp"
+featured: false
+order: 4
+date: "2026-04-29"`,
+  'lovediary.md': `title: "LoveDiary"
+slug: "lovediary"
+summary: "A couples' timeline app for logging relationship moments — polished single-player, but its partner sync is UI-only fake."
+stack: ["Next.js", "React", "TypeScript", "Tailwind CSS", "Zustand", "framer-motion"]
+status: "in-progress"
+repo: "https://github.com/dominiquebrom28/lovediary"
+featured: false
+order: 5
+date: "2026-05-03"`,
+  'pizzaparty.md': `title: "PizzaParty"
+slug: "pizzaparty"
+summary: "Spin the wheel, eat the pizza — a polished demo whose coupon/partner features were scaffolded and never built."
+stack: ["HTML", "JavaScript", "Tailwind CSS", "Canvas API"]
+status: "archived"
+repo: "https://github.com/dominiquebrom28/pizzaparty"
+featured: false
+order: 6
+date: "2026-05-01"`,
+};
 
 const validProject = {
   title: 'SoulForge',
@@ -157,6 +244,188 @@ describe('ProjectFrontmatterSchema', () => {
 
   it('does not require `poster` on a `still` item (the refinement only fires for kind: "animation")', () => {
     expect(() => ProjectMediaItemSchema.parse({ ...validMediaItem, kind: 'still' })).not.toThrow();
+  });
+
+  describe('v2 fields (docs/project-page-v2.md §10) — additive, all optional', () => {
+    it('defaults `template` to "standard" when absent', () => {
+      expect(ProjectFrontmatterSchema.parse(validProject).template).toBe('standard');
+    });
+
+    it('leaves `goal`, `brief`, `process` undefined when absent', () => {
+      const result = ProjectFrontmatterSchema.parse(validProject);
+      expect(result.goal).toBeUndefined();
+      expect(result.brief).toBeUndefined();
+      expect(result.process).toBeUndefined();
+    });
+
+    it('accepts an explicit `template: "single-sitting"`', () => {
+      expect(ProjectFrontmatterSchema.parse({ ...validProject, template: 'single-sitting' }).template).toBe(
+        'single-sitting',
+      );
+    });
+
+    it('rejects an invalid `template` value', () => {
+      expect(() => ProjectFrontmatterSchema.parse({ ...validProject, template: 'extended' })).toThrow();
+    });
+
+    it('accepts a populated `goal` field', () => {
+      const result = ProjectFrontmatterSchema.parse({
+        ...validProject,
+        goal: { text: 'One intense build day, then the plan outran the code.', source: 'read' },
+      });
+      expect(result.goal).toEqual({ text: 'One intense build day, then the plan outran the code.', source: 'read' });
+    });
+
+    it('accepts a populated `brief` card with 2-4 bullets, one `not-stated`', () => {
+      const result = ProjectFrontmatterSchema.parse({
+        ...validProject,
+        brief: {
+          source: 'read',
+          bullets: [
+            { text: 'Make the fun part work.', source: 'read' },
+            { text: 'No explicit written brief exists for this project.', source: 'not-stated' },
+          ],
+        },
+      });
+      expect(result.brief?.bullets).toHaveLength(2);
+      expect(result.brief?.bullets[1].source).toBe('not-stated');
+    });
+
+    it('rejects a `brief` with only 1 bullet (min 2)', () => {
+      expect(() =>
+        ProjectFrontmatterSchema.parse({
+          ...validProject,
+          brief: { source: 'read', bullets: [{ text: 'Only one.', source: 'read' }] },
+        }),
+      ).toThrow();
+    });
+
+    it('rejects a `brief` with more than 4 bullets (max 4)', () => {
+      expect(() =>
+        ProjectFrontmatterSchema.parse({
+          ...validProject,
+          brief: {
+            source: 'read',
+            bullets: Array.from({ length: 5 }, (_, i) => ({ text: `Bullet ${i}`, source: 'read' as const })),
+          },
+        }),
+      ).toThrow();
+    });
+
+    it('accepts a populated `process` block with commits, phases, and a cleanup sweep flag', () => {
+      const result = ProjectFrontmatterSchema.parse({
+        ...validProject,
+        process: {
+          commits: [
+            { date: '2026-06-15', count: 9 },
+            { date: '2026-07-16', count: 1, isCleanupSweep: true },
+          ],
+          phases: [
+            {
+              from: '2026-06-15',
+              title: 'The build day',
+              narrative: 'This cluster reads like getting the world walkable in one sitting.',
+              tone: 'build',
+            },
+          ],
+        },
+      });
+      expect(result.process?.commits).toHaveLength(2);
+      expect(result.process?.commits[1].isCleanupSweep).toBe(true);
+      expect(result.process?.phases).toHaveLength(1);
+    });
+
+    it('defaults a commit`s `isCleanupSweep` to false when absent', () => {
+      const result = ProjectProcessSchema.parse({ commits: [{ date: '2026-06-15', count: 9 }] });
+      expect(result.commits[0].isCleanupSweep).toBe(false);
+    });
+
+    it('defaults `process.phases` to an empty array when absent', () => {
+      const result = ProjectProcessSchema.parse({ commits: [{ date: '2026-06-15', count: 9 }] });
+      expect(result.phases).toEqual([]);
+    });
+
+    it('rejects a `process` with zero commits (min 1 — a project with nothing to scaffold uses `template: "single-sitting"` instead, not an empty `process`)', () => {
+      expect(() => ProjectProcessSchema.parse({ commits: [] })).toThrow();
+    });
+
+    it('rejects a commit with a non-positive count', () => {
+      expect(() => CommitBurstSchema.parse({ date: '2026-06-15', count: 0 })).toThrow();
+    });
+
+    it('rejects a commit with an invalid date', () => {
+      expect(() => CommitBurstSchema.parse({ date: 'not-a-date', count: 1 })).toThrow();
+    });
+
+    it('accepts a process phase with only `from` (a single-point event, `to` omitted)', () => {
+      expect(() =>
+        ProcessPhaseSchema.parse({
+          from: '2026-07-16',
+          title: 'Cleanup sweep',
+          narrative: 'The day five stalled repos got rescued at once.',
+          tone: 'cleanup',
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects a process phase with an invalid `tone`', () => {
+      expect(() =>
+        ProcessPhaseSchema.parse({
+          from: '2026-07-16',
+          title: 'x',
+          narrative: 'x',
+          tone: 'triumph',
+        }),
+      ).toThrow();
+    });
+
+    it('rejects an empty `NarrativeField` text', () => {
+      expect(() => NarrativeFieldSchema.parse({ text: '', source: 'read' })).toThrow();
+    });
+
+    it('rejects an invalid `Provenance` value', () => {
+      expect(() => ProvenanceSchema.parse('guessed')).toThrow();
+    });
+
+    it('accepts every valid `Provenance` value', () => {
+      for (const source of ['logged', 'read', 'not-stated'] as const) {
+        expect(ProvenanceSchema.parse(source)).toBe(source);
+      }
+    });
+
+    it('rejects a `NarrativeCardField` missing `source`', () => {
+      expect(() =>
+        NarrativeCardFieldSchema.parse({
+          bullets: [
+            { text: 'a', source: 'read' },
+            { text: 'b', source: 'read' },
+          ],
+        }),
+      ).toThrow();
+    });
+
+    describe('backward compatibility — all six pre-v2 project frontmatter snapshots still parse untouched', () => {
+      const entries = Object.entries(FROZEN_PROJECT_FRONTMATTER);
+
+      it('has exactly six frozen snapshots to validate', () => {
+        expect(entries.length).toBe(6);
+      });
+
+      for (const [filename, yaml] of entries) {
+        it(`${filename}`, () => {
+          const { data } = parseFrontmatter(`---\n${yaml}\n---\n\nBody.`);
+          expect(() => ProjectFrontmatterSchema.parse(data)).not.toThrow();
+          const result = ProjectFrontmatterSchema.parse(data);
+          // None of these pre-v2 snapshots authors any v2 field — this is the
+          // literal "still parse untouched" bar the spec sets, not just
+          // "doesn't throw".
+          expect(result.goal).toBeUndefined();
+          expect(result.brief).toBeUndefined();
+          expect(result.process).toBeUndefined();
+          expect(result.template).toBe('standard');
+        });
+      }
+    });
   });
 });
 

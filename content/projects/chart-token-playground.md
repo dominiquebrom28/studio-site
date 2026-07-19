@@ -31,6 +31,23 @@ media:
 featured: true
 order: 3
 date: "2026-06-24"
+template: single-sitting
+goal:
+  text: |-
+    Chart Token Playground answers one specific design-systems problem for the Sollie design system: how do you keep every chart's colours traceable to real tokens — and re-colour instantly per brand — instead of hardcoding hex values into each chart. The README pitches it as "Figma Variables × Token Studio × Storybook, focused on one job."
+  source: logged
+brief:
+  source: logged
+  bullets:
+    - text: |-
+        Define chart colour as brand-independent semantic tokens (chart.categorical.1, chart.sequential.300) instead of wiring charts straight to brand hex values.
+      source: logged
+    - text: |-
+        No charting library — every chart type is hand-rolled SVG, specifically so the token-to-pixel mapping stays transparent and colour-blindness simulation stays trivial to get right.
+      source: logged
+    - text: |-
+        Ship it as one self-contained HTML file that opens straight from file://, no dev server, no npm install — so it can be handed to anyone, not just people with a dev environment.
+      source: logged
 ---
 
 Chart Token Playground is a multi-brand semantic chart-token workbench built for the Sollie design system — the README describes it as "Figma Variables × Token Studio × Storybook, focused on one job: defining, validating and comparing chart colors across brands." Instead of wiring chart colors directly to brand colors, you define brand-independent semantic tokens — `chart.categorical.1`, `chart.sequential.300`, `chart.diverging.positive`, and so on — map them per brand, and every chart consumes the tokens. Switch brands and everything re-colors at once.
