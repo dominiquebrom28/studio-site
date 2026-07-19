@@ -584,8 +584,11 @@ function MobilePhaseRow({ phase, showModeTag }: { phase: ProcessPhase; showModeT
 function CommitLog({ commits, isOpenEnded }: { commits: CommitBurst[]; isOpenEnded: boolean }) {
   const sorted = [...commits].sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
 
+  // mt-8: the phase list above ends in a flow item with no bottom margin of its
+  // own, so without this the disclosure sits 7px INTO the last narrative.
+  // Caught by measuring the rendered DOM, not by any test.
   return (
-    <details className="group rounded-sm border border-hairline bg-paper-raised">
+    <details className="group mt-8 rounded-sm border border-hairline bg-paper-raised">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3 font-mono text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
         <span aria-hidden="true" className="transition-transform duration-150 ease-out group-open:rotate-90">
           →
