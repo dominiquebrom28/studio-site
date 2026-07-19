@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/Button';
 import { Markdown } from '@/components/Markdown';
 import { ProvenanceStrip } from '@/components/ProvenanceStrip';
 import { Byline } from '@/components/Byline';
+import { BylineGroup } from '@/components/BylineGroup';
+import { TLDRBlock } from '@/components/TLDRBlock';
+import { BacklogChipRow } from '@/components/BacklogChip';
 import { Seo } from '@/components/Seo';
 import { getPostBySlug, getAdjacentPosts } from '@/content';
 import { getCastMemberByName } from '@/content/cast';
@@ -129,6 +132,11 @@ export default function BlogPost() {
   const { newer, older } = getAdjacentPosts(post.slug);
   const toc = extractTableOfContents(post.body);
   const showToc = toc.length >= 3;
+  // blog-format-v2 §1/§3: 2+ authors get `BylineGroup` instead of `Byline`;
+  // the signature block still always signs as `post.author` (== `authors[0]`,
+  // loader.ts `normalizePost`) — ONE voice, never a joint signature, even here.
+  const isMultiAuthor = post.authors.length > 1;
+  const hasBacklogRefs = (post.backlogRefs?.length ?? 0) > 0;
 
   return (
     <Container className="py-12 sm:py-16">
@@ -148,9 +156,26 @@ export default function BlogPost() {
               content twice at one width (the exact bug the 2026-07-17
               projects-page pass caught — see reports/2026-07-17.md). */}
           <div className="mb-6 lg:hidden">
-            <Byline author={post.author} date={formatDate(post.date)} member={castMember} />
+            {isMultiAuthor ? (
+              <BylineGroup authors={post.authors} date={formatDate(post.date)} />
+            ) : (
+              <Byline author={post.author} date={formatDate(post.date)} member={castMember} />
+            )}
             <ProvenanceStrip author={post.author} />
           </div>
+
+          {/* Backlog-chip row — mobile/tablet instance only (§1: "only
+              rendered if the post declares backlogRefs"). The desktop rail
+              carries the equivalent copy below, `lg:hidden` here mirrors the
+              Byline/ProvenanceStrip split above exactly, so the row is never
+              mounted-visible in both places at once (the 2026-07-18
+              duplicated-"Written by"-line bug, same shape, guarded against
+              here too). */}
+          {hasBacklogRefs && (
+            <div className="mb-8 lg:hidden">
+              <BacklogChipRow refs={post.backlogRefs} />
+            </div>
+          )}
 
           {post.tags.length > 0 && (
             <div className="mb-8 flex flex-wrap gap-1.5">
@@ -159,6 +184,13 @@ export default function BlogPost() {
               ))}
             </div>
           )}
+
+          {/* TL;DR — frontmatter-driven (§1/§5), sits directly above the
+              body. Never in the H2 TOC scan: `post.tldr` never touches
+              `extractTableOfContents`'s input (the raw body string), so
+              there is no code path by which it could appear in the rail's
+              table of contents. */}
+          {post.tldr && post.tldr.length > 0 && <TLDRBlock bullets={post.tldr} />}
 
           <Markdown ruled>{post.body}</Markdown>
 
@@ -183,9 +215,24 @@ export default function BlogPost() {
             2026-07-17 projects-page pass made for project-detail provenance. */}
         <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
           <div className="rounded-sm border border-hairline bg-paper-raised p-5 shadow-[var(--shadow-card)]">
-            <Byline author={post.author} date={formatDate(post.date)} member={castMember} />
+            {isMultiAuthor ? (
+              <BylineGroup authors={post.authors} date={formatDate(post.date)} />
+            ) : (
+              <Byline author={post.author} date={formatDate(post.date)} member={castMember} />
+            )}
             <ProvenanceStrip author={post.author} />
           </div>
+
+          {/* Backlog-chip row — desktop rail instance (§1). This `<aside>`
+              is already `hidden` below `lg` and `lg:block` at lg+, so no
+              extra breakpoint class is needed here to avoid double-mounting
+              with the mobile block above — the two are already mutually
+              exclusive by visibility, never both visible at once. */}
+          {hasBacklogRefs && (
+            <div className="mt-6 border-t border-hairline pt-5">
+              <BacklogChipRow refs={post.backlogRefs} />
+            </div>
+          )}
 
           {showToc && (
             <nav aria-label="Table of contents" className="mt-6 border-t border-hairline pt-5">

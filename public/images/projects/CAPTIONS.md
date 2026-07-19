@@ -50,3 +50,13 @@ follow-up; until then they ship as inert assets.
 - Toolchain gap: no pngquant on this machine; palette-reducing the dark
   portfolio hero introduced banding, so it ships at 866KB rather than
   degraded. Add pngquant for future runs.
+
+## Addendum — DOM-4 rendering pass (2026-07-19, frontend-dev)
+
+- **`portfolio-flow-poster.jpg` / `ctp-flow-poster.jpg`** — not new captures.
+  Each is `ffmpeg`-extracted frame 0 of the adjacent `*-flow.gif`, same pixel
+  dimensions, re-encoded as JPEG for a smaller first-paint payload. Used only
+  as the static poster in the gallery's click-to-play GIF treatment (see
+  `MediaGallery`/`GalleryItem` in `src/pages/ProjectDetail.tsx`) — it carries
+  no information the GIF doesn't already show, so it reuses the GIF's alt
+  text rather than inventing a new description.

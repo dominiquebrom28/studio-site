@@ -14,6 +14,49 @@ const isoDate = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: 'must be a valid ISO date string (e.g. "2026-07-15")',
 });
 
+// Project media gallery item (DOM-4: screenshots + short animations).
+// `kind` distinguishes a still screenshot from a captured animation (GIF);
+// `viewport` records which breakpoint the capture represents so the gallery
+// can label it honestly instead of implying a single canonical view.
+// `width`/`height` are the real intrinsic pixel dimensions of `src` — required
+// (not inferred) so every gallery image can reserve its box up front and
+// never shifts layout (design-brief §9 perf/CLS gate).
+export const ProjectMediaItemSchema = z
+  .object({
+    src: z.string().min(1),
+    alt: z.string().min(1),
+    caption: z.string().min(1),
+    kind: z.enum(['still', 'animation']),
+    viewport: z.enum(['desktop', 'mobile']),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    // Static first-paint frame for an `animation` item (design-brief §9 /
+    // DOM-4: a GIF autoplays the moment it loads and can't be paused after
+    // the fact, which is motion the reader never consented to and a real LCP
+    // risk. The gallery shows this poster and only swaps to `src` on an
+    // explicit click — see `GalleryItem` in ProjectDetail.tsx).
+    poster: z.string().optional(),
+  })
+  // `poster` is enforced as required for `kind: "animation"` here (rather
+  // than left as a soft convention) because `GalleryItem`'s fallback is
+  // `item.poster ?? item.src`: if `poster` is missing, the component falls
+  // straight back to rendering the real animated `src` on first paint —
+  // silently defeating the whole no-uninvited-motion guarantee the poster
+  // exists for. QA (DOM-4 verification) found this reachable because the
+  // schema originally allowed it. Still-only items are unaffected — the
+  // check only fires for `kind: "animation"`.
+  .superRefine((item, ctx) => {
+    if (item.kind === 'animation' && !item.poster) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a `poster` frame is required for kind: "animation" (prevents autoplay-on-load)',
+        path: ['poster'],
+      });
+    }
+  });
+
+export type ProjectMediaItem = z.infer<typeof ProjectMediaItemSchema>;
+
 export const ProjectFrontmatterSchema = z.object({
   title: z.string().min(1),
   slug: z
@@ -26,6 +69,10 @@ export const ProjectFrontmatterSchema = z.object({
   repo: urlOrEmpty,
   liveUrl: urlOrEmpty,
   cover: z.string().optional(),
+  // Gallery is optional and defaults to empty so all six existing project
+  // files (none of which set it yet) keep parsing unchanged (spec §3.1
+  // backward-compatibility requirement).
+  media: z.array(ProjectMediaItemSchema).default([]),
   featured: z.boolean().default(false),
   order: z.number().optional(),
   date: isoDate,
@@ -33,19 +80,61 @@ export const ProjectFrontmatterSchema = z.object({
 
 export type ProjectFrontmatter = z.infer<typeof ProjectFrontmatterSchema>;
 
-export const PostFrontmatterSchema = z.object({
-  title: z.string().min(1),
-  slug: z
-    .string()
-    .regex(slugPattern, 'slug must be lowercase kebab-case')
-    .optional(),
-  date: isoDate,
-  summary: z.string().min(1).max(200),
-  tags: z.array(z.string().min(1)).default([]),
-  author: z.string().min(1).default('Dom'),
-  cover: z.string().optional(),
-  draft: z.boolean().default(false),
+/**
+ * A single "worked on this entry" backlog reference (blog-format-v2 §3).
+ * `label` is a free string, not an enum/id, on purpose — `BACKLOG.md` has no
+ * stable per-item identifier today (see the spec §6 rationale). `status` is
+ * the one part that IS schema-validated, since it drives `BacklogChip`'s
+ * tone mapping.
+ */
+export const BacklogRefSchema = z.object({
+  label: z.string().min(1),
+  status: z.enum(['completed', 'in-progress', 'planned']),
 });
+
+export type BacklogChipRef = z.infer<typeof BacklogRefSchema>;
+
+export const PostFrontmatterSchema = z
+  .object({
+    title: z.string().min(1),
+    slug: z
+      .string()
+      .regex(slugPattern, 'slug must be lowercase kebab-case')
+      .optional(),
+    date: isoDate,
+    summary: z.string().min(1).max(200),
+    tags: z.array(z.string().min(1)).default([]),
+    // No `.default('Dom')` here on purpose (blog-format-v2 §3): the "Dom"
+    // fallback moved to the loader-level `normalizePost` so it applies
+    // uniformly whether a post sets neither `author` nor `authors`, one, or
+    // (rejected below) both. A schema-level default on `author` alone would
+    // make it always-truthy at parse time, silently breaking the
+    // mutual-exclusion `.refine` for any post that only sets `authors`.
+    author: z.string().min(1).optional(),
+    // NEW (blog-format-v2 §3): ordered list, credit order = array order.
+    // Mutually exclusive with `author` — see the `.refine` below.
+    authors: z.array(z.string().min(1)).min(1).max(4).optional(),
+    // NEW: 2-5 plain-text bullets, no inline markdown/links (§4 — a fact
+    // needing a citation belongs in the body, not the TL;DR).
+    tldr: z.array(z.string().min(1).max(140)).min(2).max(5).optional(),
+    // NEW: up to 6 "worked on this entry" backlog labels.
+    backlogRefs: z.array(BacklogRefSchema).max(6).optional(),
+    cover: z.string().optional(),
+    draft: z.boolean().default(false),
+    // Same-day tie-break for `sortPosts` (loader.ts). Optional and additive —
+    // every existing post has no `order` and keeps parsing unchanged.
+    // Direction is deliberately spelled out here because an ordering field
+    // whose direction is ambiguous is its own bug: HIGHER `order` = LATER in
+    // the day = sorts FIRST (a post published at 21:00 with `order: 2`
+    // outranks one at 10:00 with `order: 1` on the same date). Posts on the
+    // same date that omit `order` sort AFTER every post on that date that
+    // declares one; see `sortPosts` for the full chain (date -> order -> slug).
+    order: z.number().int().optional(),
+  })
+  .refine((frontmatter) => !(frontmatter.author && frontmatter.authors), {
+    message: '`author` and `authors` are mutually exclusive — pick one',
+    path: ['author'],
+  });
 
 export type PostFrontmatter = z.infer<typeof PostFrontmatterSchema>;
 
@@ -54,7 +143,23 @@ export interface Project extends ProjectFrontmatter {
   body: string;
 }
 
-export interface Post extends PostFrontmatter {
+/**
+ * The publicly-consumed post shape — `author`/`authors` are normalized here
+ * to always-populated fields (see `normalizePost` in loader.ts), so every
+ * existing consumer (`Byline`, `ProvenanceStrip`, `BlogPost`'s cast-member
+ * lookup) keeps reading a plain `string` `post.author` with zero changes,
+ * even for a multi-author post. `PostFrontmatter`'s `author`/`authors` stay
+ * optional at the schema level (raw frontmatter, pre-normalization); `Post`
+ * is what every component actually reads.
+ */
+export interface Post extends Omit<PostFrontmatter, 'author' | 'authors'> {
   slug: string;
   body: string;
+  /** Always populated; always equal to `authors[0]` (the primary/compiling
+   * voice — see loader.ts `normalizePost` and BlogPost.tsx's signature-block
+   * rule). */
+  author: string;
+  /** Always populated (defaults to `['Dom']` when the post sets neither
+   * `author` nor `authors`). Ordered; credit order = array order. */
+  authors: string[];
 }
