@@ -132,7 +132,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 ### Dom's directives 2026-07-18 evening (in person, verbatim priorities —
 ### these outrank the machine-generated items below)
 
-- [ ] **DOM-1 — Cast names: every agent gets a real first name.** Lead +
+- [x] **DOM-1 — Cast names: every agent gets a real first name.** Lead +
       designer: real, distinct, Dutch/English-pronounceable first names for
       all characters so "personality can grow and everyone can actually
       become a personality inside this devops drama" (Dom). Scope grew to 10
@@ -141,9 +141,11 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       (names + pronouns + byline format), `cast.ts` + Cast page + bylines
       updated. The Judge stays deliberately unnamed — it is an independent
       check, not a teammate, and naming it would break that framing. **Gates
-      DOM-2 and DOM-3.** _(Started same evening — designer proposal in
-      flight.)_
-- [ ] **DOM-2 — Blog format v2: layered, scannable, multi-voice.** Dom:
+      DOM-2 and DOM-3.** _(2026-07-18, team/2026-07-18-cast-names — merged as
+      PR #15. **This item was left unchecked for a day after it shipped**; the
+      2026-07-19 run found the merge in git history and corrected it. See that
+      run's report — the backlog has now misreported its own state twice.)_
+- [x] **DOM-2 — Blog format v2: layered, scannable, multi-voice.** Dom:
       "a loooot of text… bullets, visuals, layered information; labels on
       which backlog items got worked on or completed; let multiple team
       members tell the part of the story that's their expertise." designer
@@ -154,6 +156,25 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       linking the narrative to the actual backlog. Guardrail: personality and
       banter are free; **events must be real** (never-invent applies to facts,
       not voice).
+      _(2026-07-19, team/2026-07-19-blog-format-v2, PR #22 — awaiting Dom.
+      Spec (`docs/blog-format-v2.md`) + implementation in one PR so the format
+      is reviewable as a rendered page. Six components: TLDRBlock, Callout,
+      PullQuote (formalizing the existing blockquote treatment), SectionByline,
+      BacklogChip/Row, BylineGroup. **Zero new npm dependencies** —
+      `remark-directive` rejected partly because `:::callout` renders as inert
+      literal text on GitHub, where these posts also get read during PR review;
+      a labeled blockquote degrades legibly everywhere. Multi-author is
+      additive: `author: string` stays valid forever, new `authors[]` is
+      mutually exclusive via `.refine`, and the LOADER (not the schema) derives
+      `post.authors`/`post.author` so every existing consumer is untouched.
+      frontend-dev **declined to compose `BacklogChip` on `<Badge>`** — an
+      override className after Badge's hardcoded padding relies on Tailwind
+      class order, which guarantees nothing, and would have silently shipped
+      the undersized tap target the spec warned about. 159 tests green (from
+      104). Demo on the 07-18 retrospective post; lead verified every TL;DR
+      bullet and all 5 backlog chips against the post's own body — no new
+      factual claim introduced. **Caveat: all 159 tests are pure logic; a
+      browser pass is still warranted.** DOM-3 is now unblocked.)_
 - [ ] **DOM-3 — Agent-interaction storytelling.** Dom: "create a story about
       the multiple agents interacting with each other, how they work together
       on tasks." The reports already contain real drama (QA passing a harness
@@ -176,7 +197,22 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       gallery on ProjectCard/ProjectDetail. **Supersedes the old "Cover
       images" item.** PizzaParty/MensApp/LoveDiary need their dev servers
       checked first.
-- [ ] **DOM-5 — Hire a visual-media agent.** Dom: "if we need a new
+      _(**PARTIAL — stays open.** Capture: 2026-07-18, PRs #14/#18, 6 assets
+      for 2 of 6 projects. Rendering: 2026-07-19,
+      team/2026-07-19-project-media-rendering, PR #21 — awaiting Dom. `cover`
+      finally wired after being dead in the schema since the scaffold; new
+      `media` gallery, animations first per Dom's directive. QA found **an
+      autoplaying GIF hiding under a "Play" button** (`poster` was optional for
+      `kind: 'animation'` while the renderer falls back to `src`) — a landmine
+      for the 4 projects still awaiting assets, now schema-enforced. Lead review
+      found **focus dropped to `<body>`** when the play button unmounted on
+      click; fixed with a persistent Play⇄Stop toggle, which also closed an
+      unnamed gap — there was no way to STOP a GIF on a feature whose whole
+      premise is invited motion. Captions verified byte-for-byte against
+      CAPTIONS.md and posters verified pixel-by-pixel against ffmpeg frame 0.
+      **Still outstanding: capture for SoulForge, PizzaParty, MensApp,
+      LoveDiary** — the latter three need their dev servers checked first.)_
+- [x] **DOM-5 — Hire a visual-media agent.** Dom: "if we need a new
       visual-design agent, you have all freedom to hire one on your own —
       document this process." Decision: yes — no existing agent has browser/
       capture tools (frontend-dev, designer et al. are code/spec agents;
@@ -184,10 +220,14 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       and DOM-4 is exactly this skill set). Write the agent definition,
       vendor a copy in-repo, announce the hire in a report + logbook post
       (the hire itself is a real studio event — good DOM-3 material).
+      _(2026-07-18, team/2026-07-18-visual-media-hire — merged as PR #13; the
+      announcement post shipped as PR #16. Lucas found a real sticky-nav bug in
+      Dom's own portfolio while shooting it on night one. Also left unchecked
+      for a day after shipping; corrected by the 2026-07-19 run.)_
 
 ### Added 2026-07-18 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — Browser-level smoke test in CI.** devops + qa-tester: add a
+- [x] **HIGH — Browser-level smoke test in CI.** devops + qa-tester: add a
       minimal real-DOM check (jsdom Vitest project, or Playwright on the built
       `dist/`) covering a handful of load-bearing invariants — every in-page
       anchor resolves, exactly one `<h1>` per route, no console errors, key
@@ -206,7 +246,19 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       `vercel.json` added in PR #9) while localhost worked perfectly, because
       Vite's dev server does the SPA fallback silently. A local-only smoke
       test would have stayed green through it._
-- [ ] **HIGH — Content-validation gate in CI.** qa-tester: a build-time check
+      _(2026-07-19, team/2026-07-19-ci-gates, PR #20 — awaiting Dom. Real mount
+      under StrictMode in jsdom (NOT `renderToStaticMarkup`, which by
+      construction cannot reproduce a double-invoke bug), 16 route cases = all
+      5 static + all 6 projects + all 5 posts. devops proved it by
+      reintroducing the exact 07-18 `Markdown.tsx` bug and watching it fail.
+      **The lead's review then caught a second gap: v1 tested
+      `getAllPosts()[0]` only — 1 of 11 content routes — and a dead anchor
+      planted in a different post passed 7/7 green.** Fixed to full coverage,
+      re-falsified. Deployed-URL check ships as a separate non-required job
+      that skips visibly when no URL is set. Screenshot-diff (the 07-15 token
+      collision / 07-17 mobile-order class) deliberately NOT added — real
+      ongoing cost, named rather than implied away.)_
+- [x] **HIGH — Content-validation gate in CI.** qa-tester: a build-time check
       over `content/` frontmatter — post `date` must match the filename's
       `YYYY-MM-DD` prefix; slugs unique; no two posts sharing a `date` (forces
       an explicit decision instead of an arbitrary sort tie-break deciding
@@ -219,7 +271,17 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       from history the same day as proof), and a database would store a wrong
       date just as faithfully while moving posts out of PR review. The fix for
       decision-level mistakes is a gate at decision time, which is this item._
-- [ ] **HIGH — Provenance content model.** architect: design real frontmatter
+      _(2026-07-19, team/2026-07-19-ci-gates, PR #20 — awaiting Dom, grouped
+      with the smoke test because both edit `ci.yml`. **The gate is born RED
+      and was deliberately not made green**: `2026-07-18-we-hired-someone-to-
+      look-at-the-page.md` and `2026-07-18-what-the-green-checkmarks-missed.md`
+      share `date: "2026-07-18"`, so a sort tie-break is deciding public
+      reading order right now. Fixing that changes what readers see, and Dom
+      has already ruled on this exact class once (chronology for the founding
+      post) — so it is escalated, not silently patched. Kept out of `npm test`
+      and non-blocking in CI so nothing goes green by pretending. **Open
+      decision for Dom.**)_
+- [x] **HIGH — Provenance content model.** architect: design real frontmatter
       (or a generated sidecar fed from `reports/`) carrying reviewer, Judge
       verdict/round/score, commit hash and token cost, then wire
       `ProvenanceStrip` to render it. _Source: PROJECT-BRIEF goal 3 + design
@@ -230,6 +292,22 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       have now deliberately omitted a brief-specified provenance element rather
       than fabricate it (2026-07-17 projects, 2026-07-18 posts). The honest fix
       is real data, not a smaller strip._
+      _(2026-07-19, team/2026-07-19-provenance-model, PR #19 — **SPEC ONLY**,
+      awaiting Dom; `docs/provenance-model.md`. Recommends DERIVING provenance
+      from a structured `yaml provenance` block in `reports/` joined with
+      `git log`, over hand-authored frontmatter. The argument is
+      falsifiability: with frontmatter the value asserted and the value
+      displayed are the same string, so no gate can ever contradict it —
+      exactly the failure the Judge already caught here once. Prose parsing
+      rejected outright because `reports/2026-07-18.md` contains
+      `qa-tester passed it **88/100**`, which any regex loose enough to catch
+      the four real Judge-verdict formats would misattribute to the Judge on
+      the site's most prominent honesty device. Zero new frontmatter fields;
+      7 PR-sized items in dependency order. **Implementation NOT started.**
+      Two posts will render "no run record" permanently — verified by grep
+      that neither is named in any report. Flags a deploy blocker: the
+      generator needs full git history and `ci.yml` sets no `fetch-depth`
+      while Vercel shallow-clones.)_
 - [ ] **MEDIUM — `MarginNote` component.** designer → frontend-dev: the design
       brief specifies margin notes on project detail and blog post (desktop:
       anchored into the rail at their true vertical position; mobile: inline
@@ -258,6 +336,53 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       Not a live bug — TOC and DOM agree, and no current post has such a
       heading — and ASCII-only URLs may well be intentional. _Source:
       qa-tester, blog-engine pass. Logged so the decision is explicit._
+
+### Added 2026-07-19 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — `liveUrl` is set by zero projects (and 2 of 6 have no `repo`).**
+      `liveUrl` is in the schema AND rendered in two places in
+      `ProjectDetail.tsx` — and no project file sets it, so the markup is
+      permanently dead. `portfolio` and `chart-token-playground` also have no
+      `repo`. Decide per project: real URL, or drop the affordance. **Check
+      first whether each repo is actually public — a 404 link is worse than no
+      link**, and several of these may be private. _Source: named product gap
+      found by the lead 2026-07-19 while auditing the schema; this is the exact
+      same "brief-specified element quietly rendering nothing" pattern as
+      `cover` (dead from the scaffold until DOM-4 this run) and the provenance
+      strip. Market research backs the priority: live deployments a reader can
+      click are repeatedly cited as the highest-signal portfolio element
+      (hyperskill.org "Building a Developer Portfolio in 2026: What Actually
+      Gets Attention"; techtimes.com 2026 tech-portfolio guide)._
+- [ ] **MEDIUM — Component-level test infrastructure is missing repo-wide.**
+      `vitest.config.ts` restricts `include` to `src/**/*.test.ts`, so a
+      `.tsx` test would not even run, and there is no jsdom. Every "N tests
+      green" figure this project has ever reported is pure logic/schema
+      coverage with **zero evidence about rendered DOM, clicks, or focus**.
+      PR #20 adds `jsdom` + `@testing-library/react` for the smoke suite —
+      this item is to widen the include pattern and backfill interaction tests
+      for the components that need them. **First customer: the DOM-4 play/stop
+      control (PR #21), whose focus-retention fix currently rests on React
+      reconciliation semantics and code review, not a passing assertion.**
+      _Source: qa-tester flagged the gap during the DOM-4 review and could not
+      close it; frontend-dev independently confirmed it. Sequence AFTER #20 and
+      #21 merge._
+- [ ] **MEDIUM — Performance budget for the now-image-heavy project pages.**
+      DOM-4 puts GIFs and PNGs on pages that were previously text-only, which
+      changes this site's performance profile for the first time. Define and
+      check a budget (LCP <2.5s, CLS <0.1, INP <200ms; a page-weight ceiling).
+      The groundwork is already in place — click-to-play means no GIF can be
+      the LCP element, dimensions are declared on every image, and `dist/`
+      output is small — so this is measurement and a guardrail, not
+      optimization work. _Source: 2026-07-19 run. Deliberately scoped small:
+      the deployed-URL check from PR #20 is the natural place to hang it, and
+      no measurement has ever been taken for this site. Thresholds per
+      Google's Core Web Vitals (developers.google.com/search/docs/appearance/
+      core-web-vitals); INP is the most-failed metric on the 2026 web, which is
+      an argument for measuring rather than assuming._
+- [ ] **LOW — Two published posts share a date (`2026-07-18`).** A sort
+      tie-break currently decides their public reading order. **Blocked on
+      Dom's decision** — see the content-validation gate item above. Listed
+      separately so it does not get lost when that gate is merged.
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
