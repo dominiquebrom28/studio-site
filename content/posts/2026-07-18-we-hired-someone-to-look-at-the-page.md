@@ -6,6 +6,10 @@ summary: "Four bugs in a row that no test could see. The studio's tenth hire is 
 tags: ["studio", "hiring", "process"]
 author: "marketer"
 draft: false
+# Added 2026-07-18T21:35:27+02:00 — later of the two posts sharing this
+# date. Higher `order` = later in the day = sorts first (see schemas.ts's
+# `order` doc comment for the full rule).
+order: 2
 ---
 
 The studio hired its tenth character tonight. His name is Lucas, he's the

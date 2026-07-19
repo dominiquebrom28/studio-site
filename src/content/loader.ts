@@ -5,6 +5,7 @@ import {
   PostFrontmatterSchema,
   type Project,
   type Post,
+  type PostFrontmatter,
 } from './schemas';
 
 // Same rule the Zod schemas use for an explicit frontmatter `slug` override
@@ -88,6 +89,30 @@ export function buildCollection<TFrontmatter extends { slug?: string }>(
 const allProjectsRaw = buildCollection(projectFiles, ProjectFrontmatterSchema, 'project');
 const allPostsRaw = buildCollection(postFiles, PostFrontmatterSchema, 'post');
 
+/**
+ * Normalizes a raw parsed post (post-Zod, pre-derived) to the `Post` shape
+ * every component actually reads (blog-format-v2 §3). This is the loader-
+ * level derivation the spec calls for — NOT a schema default — precisely so
+ * the `author`/`authors` mutual-exclusion `.refine` in schemas.ts sees the
+ * frontmatter exactly as written (neither field silently pre-filled) before
+ * this function ever runs.
+ *
+ * `post.authors` is always populated: an explicit `authors` array wins,
+ * otherwise a single `author` string is wrapped in a one-element array,
+ * otherwise (neither field set) it falls back to `['Dom']` — the same
+ * fallback identity `author` used to default to at the schema level, moved
+ * here so it applies uniformly. `post.author` is always `authors[0]`, so
+ * every existing single-author consumer (`Byline`, `ProvenanceStrip`,
+ * `BlogPost`'s cast-member lookup, and the always-one-voice signature
+ * block) keeps compiling and behaving identically, with zero code changes,
+ * even against a multi-author post.
+ */
+export function normalizePost(raw: PostFrontmatter & { slug: string; body: string }): Post {
+  const { author, authors: rawAuthors, ...rest } = raw;
+  const authors = rawAuthors ?? (author ? [author] : ['Dom']);
+  return { ...rest, authors, author: authors[0] };
+}
+
 // Drafts (posts) are filtered only in production so they preview in `npm run
 // dev` but never ship (spec §3.3). Projects don't have a draft flag in the
 // schema; `status` is the only lifecycle field and every status is public.
@@ -98,7 +123,8 @@ export function filterVisiblePosts(items: Post[], isProd: boolean): Post[] {
   return isProd ? items.filter((post) => !post.draft) : items;
 }
 
-const visiblePosts = filterVisiblePosts(allPostsRaw as Post[], import.meta.env.PROD);
+const normalizedPosts = (allPostsRaw as (PostFrontmatter & { slug: string; body: string })[]).map(normalizePost);
+const visiblePosts = filterVisiblePosts(normalizedPosts, import.meta.env.PROD);
 
 export function sortProjects(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => {
@@ -109,8 +135,30 @@ export function sortProjects(projects: Project[]): Project[] {
   });
 }
 
+// Fully deterministic — never falls back to `import.meta.glob`'s
+// filesystem-order (i.e. filename spelling), which is what silently decided
+// public reading order before this tie-break chain existed (see
+// validate-content.test.ts's header comment for the incident that surfaced
+// this). Chain, in priority order:
+//   1. date descending (newest day first)
+//   2. `order` descending WITHIN a shared date — higher `order` = later in
+//      the day = shown first (same direction as "newest on top"; see the
+//      field's doc comment in schemas.ts). A post with no `order` sorts
+//      after every post on the same date that declares one.
+//   3. `slug` ascending — a guaranteed, content-derived (not glob-order)
+//      final tie-break for the case two same-date posts both omit `order`,
+//      or one full-identical case where every prior key ties.
 export function sortPosts(posts: Post[]): Post[] {
-  return [...posts].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  return [...posts].sort((a, b) => {
+    const dateDiff = Date.parse(b.date) - Date.parse(a.date);
+    if (dateDiff !== 0) return dateDiff;
+
+    const orderA = a.order ?? Number.NEGATIVE_INFINITY;
+    const orderB = b.order ?? Number.NEGATIVE_INFINITY;
+    if (orderA !== orderB) return orderB - orderA;
+
+    return a.slug.localeCompare(b.slug);
+  });
 }
 
 export const projects: readonly Project[] = Object.freeze(sortProjects(allProjectsRaw as Project[]));

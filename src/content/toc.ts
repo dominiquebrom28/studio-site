@@ -155,3 +155,79 @@ export function headingIdsByLine(body: string): Map<number, string> {
   }
   return map;
 }
+
+const SECTION_BYLINE_PATTERN = /^\*Section by:\s*(.+?)\*$/i;
+
+export interface ScannedSectionByline {
+  /** 1-based source line number of the matched `*Section by: ...*` line
+   * itself (not the heading's line) — the line `Markdown.tsx`'s `p`
+   * renderer looks up by `node.position.start.line`, the same by-line-
+   * number lookup pattern `headingIdsByLine` already established for `h2`. */
+  line: number;
+  names: string[];
+}
+
+/**
+ * Scans a markdown body for `*Section by: {Name}[, {Name}...]*` lines that
+ * are the FIRST non-blank line directly after an `## ` heading
+ * (docs/blog-format-v2.md §2 "SectionByline" / §4 "Section byline"
+ * authoring surface) — a pure, line-based scan, the exact same shape as
+ * `scanH2Headings` above: fence-aware, no remark plugin, no shared/mutated
+ * state across calls, same result every time for the same `body`.
+ *
+ * Case-insensitive on "Section by:". An identical-looking italic line
+ * anywhere else in a section (not the first non-blank line after its
+ * heading) is deliberately NOT matched — per the spec, it's just an
+ * ordinary paragraph there, not parsed. A line that doesn't match the
+ * pattern at all is likewise left alone — this mechanism can only under-
+ * render (fall back to a plain paragraph), never fail a build.
+ */
+export function scanSectionBylines(body: string): ScannedSectionByline[] {
+  const results: ScannedSectionByline[] = [];
+  const lines = body.split('\n');
+  let inFence = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    if (!/^##\s+\S/.test(line)) continue;
+
+    let j = i + 1;
+    while (j < lines.length && lines[j].trim() === '') j++;
+    if (j >= lines.length) continue;
+
+    const match = SECTION_BYLINE_PATTERN.exec(lines[j].trim());
+    if (!match) continue;
+
+    const names = match[1]
+      .split(',')
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+    if (names.length === 0) continue;
+
+    results.push({ line: j + 1, names });
+  }
+
+  return results;
+}
+
+/**
+ * Line-number-keyed projection of `scanSectionBylines` — the read-only
+ * lookup `Markdown.tsx`'s `p` renderer uses (`node.position.start.line`),
+ * mirroring `headingIdsByLine`'s idempotent-by-construction shape exactly,
+ * for the same StrictMode-safety reason documented on that function: a
+ * pure function computed once from the raw source string can never drift
+ * out of sync with itself across a double-render pass, because there is no
+ * shared counter or mutated state for a second pass to disagree with.
+ */
+export function sectionBylinesByLine(body: string): Map<number, string[]> {
+  const map = new Map<number, string[]>();
+  for (const entry of scanSectionBylines(body)) {
+    map.set(entry.line, entry.names);
+  }
+  return map;
+}

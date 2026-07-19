@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { ProjectFrontmatterSchema, ProjectMediaItemSchema, PostFrontmatterSchema } from './schemas';
+import {
+  ProjectFrontmatterSchema,
+  ProjectMediaItemSchema,
+  PostFrontmatterSchema,
+  BacklogRefSchema,
+} from './schemas';
 
 const validProject = {
   title: 'SoulForge',
@@ -159,8 +164,18 @@ describe('PostFrontmatterSchema', () => {
   it('accepts valid frontmatter and applies defaults', () => {
     const result = PostFrontmatterSchema.parse(validPost);
     expect(result.draft).toBe(false);
-    expect(result.author).toBe('Dom');
     expect(result.tags).toEqual([]);
+  });
+
+  // blog-format-v2 §3: the schema no longer defaults `author` to "Dom" —
+  // that fallback moved to the loader's `normalizePost` so it applies
+  // uniformly across `author`/`authors`/neither. At the schema level, a post
+  // that sets neither field simply parses with `author` and `authors` both
+  // absent.
+  it('leaves `author` and `authors` both absent when neither is set (no schema-level default anymore)', () => {
+    const result = PostFrontmatterSchema.parse(validPost);
+    expect(result.author).toBeUndefined();
+    expect(result.authors).toBeUndefined();
   });
 
   it('rejects a missing required field (date)', () => {
@@ -183,5 +198,109 @@ describe('PostFrontmatterSchema', () => {
 
   it('rejects a non-kebab-case explicit slug override', () => {
     expect(() => PostFrontmatterSchema.parse({ ...validPost, slug: 'Not_Kebab' })).toThrow();
+  });
+
+  describe('authors (multi-author, blog-format-v2 §3)', () => {
+    it('accepts a single `author` string with no `authors` field', () => {
+      const result = PostFrontmatterSchema.parse({ ...validPost, author: 'designer' });
+      expect(result.author).toBe('designer');
+      expect(result.authors).toBeUndefined();
+    });
+
+    it('accepts an `authors` array with no `author` field', () => {
+      const result = PostFrontmatterSchema.parse({ ...validPost, authors: ['designer', 'frontend-dev'] });
+      expect(result.authors).toEqual(['designer', 'frontend-dev']);
+      expect(result.author).toBeUndefined();
+    });
+
+    it('rejects a post that sets BOTH `author` and `authors` (mutually exclusive)', () => {
+      expect(() =>
+        PostFrontmatterSchema.parse({ ...validPost, author: 'designer', authors: ['designer', 'frontend-dev'] }),
+      ).toThrow(/mutually exclusive/);
+    });
+
+    it('rejects an empty `authors` array (min 1)', () => {
+      expect(() => PostFrontmatterSchema.parse({ ...validPost, authors: [] })).toThrow();
+    });
+
+    it('rejects more than 4 authors', () => {
+      expect(() =>
+        PostFrontmatterSchema.parse({
+          ...validPost,
+          authors: ['designer', 'frontend-dev', 'backend-dev', 'devops', 'qa-tester'],
+        }),
+      ).toThrow();
+    });
+
+    it('accepts exactly 4 authors (the max)', () => {
+      const result = PostFrontmatterSchema.parse({
+        ...validPost,
+        authors: ['designer', 'frontend-dev', 'backend-dev', 'devops'],
+      });
+      expect(result.authors).toHaveLength(4);
+    });
+  });
+
+  describe('tldr (blog-format-v2 §3/§4)', () => {
+    it('accepts 2-5 plain-text bullets', () => {
+      const result = PostFrontmatterSchema.parse({ ...validPost, tldr: ['First point.', 'Second point.'] });
+      expect(result.tldr).toEqual(['First point.', 'Second point.']);
+    });
+
+    it('rejects fewer than 2 bullets', () => {
+      expect(() => PostFrontmatterSchema.parse({ ...validPost, tldr: ['Only one.'] })).toThrow();
+    });
+
+    it('rejects more than 5 bullets', () => {
+      expect(() =>
+        PostFrontmatterSchema.parse({ ...validPost, tldr: ['a', 'b', 'c', 'd', 'e', 'f'] }),
+      ).toThrow();
+    });
+
+    it('rejects a bullet over 140 chars', () => {
+      expect(() =>
+        PostFrontmatterSchema.parse({ ...validPost, tldr: ['x'.repeat(141), 'A second bullet.'] }),
+      ).toThrow();
+    });
+
+    it('is absent (not an empty array) when the post declares no tldr', () => {
+      expect(PostFrontmatterSchema.parse(validPost).tldr).toBeUndefined();
+    });
+  });
+
+  describe('backlogRefs (blog-format-v2 §3)', () => {
+    it('accepts a valid backlogRefs array', () => {
+      const result = PostFrontmatterSchema.parse({
+        ...validPost,
+        backlogRefs: [{ label: 'Blog engine', status: 'completed' }],
+      });
+      expect(result.backlogRefs).toEqual([{ label: 'Blog engine', status: 'completed' }]);
+    });
+
+    it('rejects an invalid status enum value', () => {
+      expect(() =>
+        PostFrontmatterSchema.parse({
+          ...validPost,
+          backlogRefs: [{ label: 'Blog engine', status: 'done' }],
+        }),
+      ).toThrow();
+    });
+
+    it('rejects more than 6 backlogRefs', () => {
+      const refs = Array.from({ length: 7 }, (_, i) => ({ label: `Item ${i}`, status: 'completed' as const }));
+      expect(() => PostFrontmatterSchema.parse({ ...validPost, backlogRefs: refs })).toThrow();
+    });
+  });
+});
+
+describe('BacklogRefSchema', () => {
+  it('accepts each valid status value', () => {
+    for (const status of ['completed', 'in-progress', 'planned'] as const) {
+      expect(BacklogRefSchema.parse({ label: 'x', status }).status).toBe(status);
+    }
+  });
+
+  it('rejects an empty label', () => {
+    expect(() => BacklogRefSchema.parse({ label: '', status: 'completed' })).toThrow();
   });
 });

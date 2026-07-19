@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { slugifyHeading, nextUniqueId, extractTableOfContents, headingIdsByLine } from './toc';
+import {
+  slugifyHeading,
+  nextUniqueId,
+  extractTableOfContents,
+  headingIdsByLine,
+  scanSectionBylines,
+  sectionBylinesByLine,
+} from './toc';
 
 describe('slugifyHeading', () => {
   it('lowercases and hyphenates plain text', () => {
@@ -208,5 +215,98 @@ text
     const toc = extractTableOfContents(body);
     const byLine = headingIdsByLine(body);
     expect([...byLine.values()]).toEqual(toc.map((entry) => entry.id));
+  });
+});
+
+/**
+ * Section byline parser (docs/blog-format-v2.md §2 SectionByline / §4
+ * "Section byline" authoring surface) — a pure, line-based scan matching
+ * `*Section by: {Name}[, {Name}...]*` as the first non-blank line directly
+ * after an `## ` heading. Same fence-aware, no-remark-plugin shape as
+ * `scanH2Headings` above.
+ */
+describe('scanSectionBylines', () => {
+  it('matches a single-name byline directly after a heading', () => {
+    const body = '## The scariest bugs wear a citation\n*Section by: designer*\n\nBody text.\n';
+    expect(scanSectionBylines(body)).toEqual([{ line: 2, names: ['designer'] }]);
+  });
+
+  it('is case-insensitive on "Section by:"', () => {
+    const body = '## Heading\n*section BY: designer*\n\ntext\n';
+    expect(scanSectionBylines(body)).toEqual([{ line: 2, names: ['designer'] }]);
+  });
+
+  it('splits a comma-separated list into multiple names for a jointly written section', () => {
+    const body = '## Heading\n*Section by: designer, frontend-dev*\n\ntext\n';
+    expect(scanSectionBylines(body)).toEqual([{ line: 2, names: ['designer', 'frontend-dev'] }]);
+  });
+
+  it('tolerates blank lines between the heading and the byline', () => {
+    const body = '## Heading\n\n\n*Section by: designer*\n\ntext\n';
+    expect(scanSectionBylines(body)).toEqual([{ line: 4, names: ['designer'] }]);
+  });
+
+  it('does NOT match when the italic line is not the first non-blank line after the heading', () => {
+    const body = '## Heading\n\nSome intro text.\n\n*Section by: designer*\n\nMore text.\n';
+    expect(scanSectionBylines(body)).toEqual([]);
+  });
+
+  it('does not match an ordinary italic sentence that does not use the "Section by:" phrase', () => {
+    const body = '## Heading\n*Just an italic sentence.*\n\ntext\n';
+    expect(scanSectionBylines(body)).toEqual([]);
+  });
+
+  it('never fails on a malformed/unmatched line — degrades to no bylines found, never throws', () => {
+    const body = '## Heading\n*Section by:*\n\ntext\n';
+    expect(() => scanSectionBylines(body)).not.toThrow();
+    expect(scanSectionBylines(body)).toEqual([]);
+  });
+
+  it('finds a byline under every heading in a multi-section body, in document order', () => {
+    const body = [
+      '## First section',
+      '*Section by: designer*',
+      '',
+      'text',
+      '',
+      '## Second section',
+      '*Section by: frontend-dev, backend-dev*',
+      '',
+      'more text',
+      '',
+    ].join('\n');
+    expect(scanSectionBylines(body)).toEqual([
+      { line: 2, names: ['designer'] },
+      { line: 7, names: ['frontend-dev', 'backend-dev'] },
+    ]);
+  });
+
+  it('ignores a heading-like line and byline-like line inside a fenced code block', () => {
+    const body = '## Real heading\n*Section by: designer*\n\n```\n## not a heading\n*Section by: nobody*\n```\n';
+    expect(scanSectionBylines(body)).toEqual([{ line: 2, names: ['designer'] }]);
+  });
+
+  it('returns an empty array for a body with no headings at all', () => {
+    expect(scanSectionBylines('Just a paragraph, no headings.')).toEqual([]);
+  });
+});
+
+describe('sectionBylinesByLine', () => {
+  it('is a line-number-keyed projection of scanSectionBylines', () => {
+    const body = '## Heading\n*Section by: designer*\n\ntext\n';
+    const map = sectionBylinesByLine(body);
+    expect(map.get(2)).toEqual(['designer']);
+    expect(map.size).toBe(1);
+  });
+
+  it('is idempotent — computing it twice from the same source yields an identical map', () => {
+    const body = '## First\n*Section by: designer*\n\ntext\n\n## Second\n*Section by: frontend-dev*\n\ntext\n';
+    const first = sectionBylinesByLine(body);
+    const second = sectionBylinesByLine(body);
+    expect(second).toEqual(first);
+  });
+
+  it('returns an empty map when no section bylines are present', () => {
+    expect(sectionBylinesByLine('## Heading\n\ntext\n').size).toBe(0);
   });
 });

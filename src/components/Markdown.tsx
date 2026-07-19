@@ -2,7 +2,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ReactNode } from 'react';
 import { Prose } from './ui/Prose';
-import { slugifyHeading, headingIdsByLine } from '@/content/toc';
+import { Callout } from './Callout';
+import { PullQuote } from './PullQuote';
+import { SectionByline } from './SectionByline';
+import { slugifyHeading, headingIdsByLine, sectionBylinesByLine } from '@/content/toc';
+import { classifyBlockquote, stripCalloutLabel } from '@/lib/calloutTone';
 
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
@@ -60,9 +64,24 @@ function flattenToText(node: ReactNode): string {
  * `toc.test.ts`'s idempotency regression test for the full story.
  *
  * No new dependency (e.g. `rehype-slug`) is needed for this.
+ *
+ * blog-format-v2 additions (docs/blog-format-v2.md §2/§4), same "no new
+ * remark plugin, no render-time mutation" discipline as the `h2` renderer
+ * above:
+ *
+ * - `p`: a paragraph is replaced with `SectionByline` only when its source
+ *   line number is a hit in `sectionBylinesByLine` — a pure, once-computed
+ *   `line → names[]` map (`content/toc.ts`), the exact same by-line lookup
+ *   shape as `headingIds` above. Everything else renders as an ordinary
+ *   `<p>`.
+ * - `blockquote`: classified once, read-only, via `classifyBlockquote`
+ *   (`src/lib/calloutTone.ts`) — a bold `Note:`/`Win:`/`Watch-out:` first
+ *   line renders `Callout`; anything else renders `PullQuote` (today's
+ *   unchanged default blockquote treatment).
  */
 export function Markdown({ children, ruled = false }: { children: string; ruled?: boolean }) {
   const headingIds = headingIdsByLine(children);
+  const sectionBylines = sectionBylinesByLine(children);
 
   return (
     <Prose ruled={ruled}>
@@ -78,6 +97,21 @@ export function Markdown({ children, ruled = false }: { children: string; ruled?
                 {headingChildren}
               </h2>
             );
+          },
+          p({ node, children: paragraphChildren, ...rest }) {
+            const line = node?.position?.start.line;
+            const names = line !== undefined ? sectionBylines.get(line) : undefined;
+            if (names) {
+              return <SectionByline names={names} />;
+            }
+            return <p {...rest}>{paragraphChildren}</p>;
+          },
+          blockquote({ children: quoteChildren }) {
+            const tone = classifyBlockquote(quoteChildren);
+            if (tone) {
+              return <Callout tone={tone}>{stripCalloutLabel(quoteChildren)}</Callout>;
+            }
+            return <PullQuote>{quoteChildren}</PullQuote>;
           },
         }}
       >

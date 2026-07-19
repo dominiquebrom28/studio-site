@@ -19,12 +19,26 @@ import { cast } from './cast';
  *
  * WHY: 2026-07-18 evening, Dom caught the blog rendering in the wrong
  * order live. Root cause was a date decision, plus a filename/date mismatch
- * and a two-posts-one-date tie no gate flagged. Posts sort by `date`
- * (`sortPosts` in loader.ts) with no secondary tie-break — two posts
- * sharing a date means whichever happens to iterate first from
- * `import.meta.glob`'s (filesystem-order, not content-order) object
- * silently wins "newer," which is exactly the kind of arbitrary decision
- * this gate exists to turn into a build failure instead.
+ * and a two-posts-one-date tie no gate flagged.
+ *
+ * CORRECTION (2026-07-19, Dom, verbatim): "one of the checks gave an error
+ * because 2 blog posts had the same date. but this IS possible on days we
+ * worked more than usual." He's right, and it lines up with this studio's
+ * standing policy (2026-07-18): "Multiple posts per day are fine for
+ * significant events; significance earns a post, volume never does." A
+ * shared date is a legitimate, expected outcome on a productive day — it is
+ * NOT the bug. This gate originally banned shared dates outright, which
+ * punished exactly the days it should have been celebrating.
+ *
+ * The actual defect was never the shared date: it was that `sortPosts`
+ * (loader.ts) used to break same-date ties with nothing but
+ * `Array.prototype.sort`'s stability against `import.meta.glob`'s
+ * (filesystem-order, not content-order) object — i.e. public reading order
+ * on a tied date was decided by filename spelling. `sortPosts` now has an
+ * explicit, documented tie-break chain (date -> `order` desc -> slug asc),
+ * so this gate's job is narrower and more accurate: sharing a date is
+ * legal, but each post sharing that date MUST declare a distinct `order` —
+ * leaving the resulting order to chance is what's actually disallowed.
  *
  * COUPLING NOTE (flagged per the task, for whoever lands the multi-author
  * schema change): the author rule below reads the RAW parsed YAML
@@ -88,24 +102,40 @@ describe('content validation — post frontmatter (real content/posts)', () => {
     }
   });
 
-  it('no two posts share a date (an arbitrary sort tie-break must never silently decide reading order)', () => {
-    const byDate = new Map<string, string[]>();
+  it('if two or more posts share a date, each must declare a distinct `order` (sharing a date is legal; leaving the resulting order to chance is not)', () => {
+    const byDate = new Map<string, ParsedPost[]>();
     for (const post of posts) {
       const date = typeof post.data.date === 'string' ? post.data.date : String(post.data.date);
       const existing = byDate.get(date) ?? [];
-      existing.push(post.filename);
+      existing.push(post);
       byDate.set(date, existing);
     }
 
-    const collisions = [...byDate.entries()].filter(([, files]) => files.length > 1);
-    expect(
-      collisions,
-      collisions.length > 0
-        ? `date collision(s) found — these files share a date and would sort ambiguously:\n${collisions
-            .map(([date, files]) => `  ${date}: ${files.join(', ')}`)
-            .join('\n')}`
-        : undefined,
-    ).toEqual([]);
+    const sharedDates = [...byDate.entries()].filter(([, group]) => group.length > 1);
+
+    const problems: string[] = [];
+    for (const [date, group] of sharedDates) {
+      const seenOrders = new Map<number, string>();
+      for (const post of group) {
+        const order = post.data.order;
+        if (typeof order !== 'number' || !Number.isFinite(order)) {
+          problems.push(
+            `  ${date}: "${post.filename}" shares this date with ${group.length - 1} other post(s) but has no numeric \`order\` set`,
+          );
+          continue;
+        }
+        const clash = seenOrders.get(order);
+        if (clash) {
+          problems.push(
+            `  ${date}: "${post.filename}" and "${clash}" both declare \`order: ${order}\` — must be distinct`,
+          );
+        } else {
+          seenOrders.set(order, post.filename);
+        }
+      }
+    }
+
+    expect(problems, problems.length > 0 ? problems.join('\n') : undefined).toEqual([]);
   });
 
   describe('summary is <=200 chars', () => {
