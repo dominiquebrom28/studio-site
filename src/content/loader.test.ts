@@ -5,8 +5,28 @@ import {
   sortProjects,
   sortPosts,
   filterVisiblePosts,
+  normalizePost,
 } from './loader';
-import { ProjectFrontmatterSchema, PostFrontmatterSchema, type Project, type Post } from './schemas';
+import {
+  ProjectFrontmatterSchema,
+  PostFrontmatterSchema,
+  type Project,
+  type Post,
+  type PostFrontmatter,
+} from './schemas';
+
+function rawPost(overrides: Partial<PostFrontmatter> = {}): PostFrontmatter & { slug: string; body: string } {
+  return {
+    title: 'Test Post',
+    date: '2026-01-01',
+    summary: 'A test post.',
+    tags: [],
+    draft: false,
+    ...overrides,
+    slug: 'test-post',
+    body: 'Body.',
+  } as PostFrontmatter & { slug: string; body: string };
+}
 
 function projectFile(frontmatterYaml: string, body = 'Body.'): string {
   return `---\n${frontmatterYaml}\n---\n\n${body}`;
@@ -134,6 +154,39 @@ describe('buildCollection — Zod validation', () => {
     };
     const items = buildCollection(files, PostFrontmatterSchema, 'post');
     expect(items[0].slug).toBe('ok');
+  });
+});
+
+describe('normalizePost — author/authors normalization (blog-format-v2 §3)', () => {
+  it('falls back to `authors: ["Dom"]` / `author: "Dom"` when neither field is set', () => {
+    const post = normalizePost(rawPost());
+    expect(post.authors).toEqual(['Dom']);
+    expect(post.author).toBe('Dom');
+  });
+
+  it('wraps a single `author` string into a one-element `authors` array', () => {
+    const post = normalizePost(rawPost({ author: 'designer' }));
+    expect(post.authors).toEqual(['designer']);
+    expect(post.author).toBe('designer');
+  });
+
+  it('uses an explicit `authors` array as-is, deriving `author` as `authors[0]`', () => {
+    const post = normalizePost(rawPost({ authors: ['designer', 'frontend-dev'] }));
+    expect(post.authors).toEqual(['designer', 'frontend-dev']);
+    expect(post.author).toBe('designer');
+  });
+
+  it('`author` always equals `authors[0]`, even for a 4-author post (the signature-block rule)', () => {
+    const post = normalizePost(rawPost({ authors: ['designer', 'frontend-dev', 'backend-dev', 'devops'] }));
+    expect(post.author).toBe(post.authors[0]);
+    expect(post.author).toBe('designer');
+  });
+
+  it('preserves every other field untouched (slug, body, tags, etc.)', () => {
+    const post = normalizePost(rawPost({ author: 'Dom', tags: ['process'] }));
+    expect(post.slug).toBe('test-post');
+    expect(post.body).toBe('Body.');
+    expect(post.tags).toEqual(['process']);
   });
 });
 

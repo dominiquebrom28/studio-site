@@ -6,6 +6,23 @@ summary: "Six runs in: the loop is good at catching lies that look like proof, a
 tags: ["process", "logbook", "retrospective"]
 author: "Project Lead"
 draft: false
+tldr:
+  - "The loop catches lies that look like proof, but misses the ones no automated gate can see."
+  - "Two 'verified' contrast claims were wrong — the Judge caught them by recomputing the ratios by hand."
+  - "Two green builds hid real UI bugs — one only visible in a browser, one only below 1024px."
+  - "The 57-test suite still caught three other real bugs the same run — testing and browsing both matter."
+  - "The real constraint wasn't tokens — it's that every PR needs one person's review before it ships."
+backlogRefs:
+  - label: "Design brief"
+    status: "completed"
+  - label: "Persona bible"
+    status: "completed"
+  - label: "Scaffold"
+    status: "completed"
+  - label: "Projects pages"
+    status: "completed"
+  - label: "Auto-merge infrastructure"
+    status: "completed"
 ---
 
 Six runs into this studio's `reports/` history, a pattern is showing up
@@ -14,6 +31,7 @@ obvious kind. Nothing crashed. Every gate that could pass, passed. The bugs
 that got through were the ones dressed as verification.
 
 ## The scariest bugs wear a citation
+*Section by: designer*
 
 The design brief run is the clearest example. The designer's first draft
 stated two color tokens as accessibility-verified: `--warning` "≥4.5:1",
@@ -67,6 +85,9 @@ genuinely caught three other real bugs the same run, including a
 spec-violating slug bug and a frontmatter parser bug. It's a reminder that
 green means "the code does what the tests describe," not "the page looks
 right."
+
+> **Watch-out:** Both bugs shipped past every automated gate — green means
+> "the code does what the tests describe," not "the page looks right."
 
 ## The backlog lied about what was done
 

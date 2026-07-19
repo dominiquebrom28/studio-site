@@ -37,6 +37,33 @@ describe('content loader — real repo content', () => {
     }
   });
 
+  // blog-format-v2 §3's backward-compatibility promise, verified against the
+  // REAL content directory: all five pre-existing posts (single `author`
+  // string, no `authors`/`tldr`/`backlogRefs` field) must still parse with
+  // zero edits, and the loader's `normalizePost` must give every one of them
+  // a populated `authors` array whose first element equals `author`.
+  it('every real committed post gets a populated `authors` array, with `author` always equal to `authors[0]`', () => {
+    const posts = getAllPosts();
+    expect(posts.length).toBe(5);
+    for (const post of posts) {
+      expect(post.authors.length).toBeGreaterThan(0);
+      expect(post.authors.length).toBeLessThanOrEqual(4);
+      expect(post.author).toBe(post.authors[0]);
+    }
+  });
+
+  // The one real post this feature was demonstrated against (blog-format-v2
+  // rollout) — a single-author post, so it must still resolve to exactly
+  // the one `authors` entry the pre-existing `author: "Project Lead"`
+  // frontmatter implies, unaffected by adding `tldr`/`backlogRefs`.
+  it('the demo post (tldr + backlogRefs added) still normalizes to a single-author `authors` array', () => {
+    const post = getPostBySlug('what-the-green-checkmarks-missed');
+    expect(post?.authors).toEqual(['Project Lead']);
+    expect(post?.author).toBe('Project Lead');
+    expect(post?.tldr?.length).toBeGreaterThanOrEqual(2);
+    expect(post?.backlogRefs?.length).toBeGreaterThan(0);
+  });
+
   it('getProjectBySlug returns undefined for an unknown slug (NotFound path)', () => {
     expect(getProjectBySlug('this-project-does-not-exist')).toBeUndefined();
   });

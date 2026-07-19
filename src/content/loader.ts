@@ -5,6 +5,7 @@ import {
   PostFrontmatterSchema,
   type Project,
   type Post,
+  type PostFrontmatter,
 } from './schemas';
 
 // Same rule the Zod schemas use for an explicit frontmatter `slug` override
@@ -88,6 +89,30 @@ export function buildCollection<TFrontmatter extends { slug?: string }>(
 const allProjectsRaw = buildCollection(projectFiles, ProjectFrontmatterSchema, 'project');
 const allPostsRaw = buildCollection(postFiles, PostFrontmatterSchema, 'post');
 
+/**
+ * Normalizes a raw parsed post (post-Zod, pre-derived) to the `Post` shape
+ * every component actually reads (blog-format-v2 §3). This is the loader-
+ * level derivation the spec calls for — NOT a schema default — precisely so
+ * the `author`/`authors` mutual-exclusion `.refine` in schemas.ts sees the
+ * frontmatter exactly as written (neither field silently pre-filled) before
+ * this function ever runs.
+ *
+ * `post.authors` is always populated: an explicit `authors` array wins,
+ * otherwise a single `author` string is wrapped in a one-element array,
+ * otherwise (neither field set) it falls back to `['Dom']` — the same
+ * fallback identity `author` used to default to at the schema level, moved
+ * here so it applies uniformly. `post.author` is always `authors[0]`, so
+ * every existing single-author consumer (`Byline`, `ProvenanceStrip`,
+ * `BlogPost`'s cast-member lookup, and the always-one-voice signature
+ * block) keeps compiling and behaving identically, with zero code changes,
+ * even against a multi-author post.
+ */
+export function normalizePost(raw: PostFrontmatter & { slug: string; body: string }): Post {
+  const { author, authors: rawAuthors, ...rest } = raw;
+  const authors = rawAuthors ?? (author ? [author] : ['Dom']);
+  return { ...rest, authors, author: authors[0] };
+}
+
 // Drafts (posts) are filtered only in production so they preview in `npm run
 // dev` but never ship (spec §3.3). Projects don't have a draft flag in the
 // schema; `status` is the only lifecycle field and every status is public.
@@ -98,7 +123,8 @@ export function filterVisiblePosts(items: Post[], isProd: boolean): Post[] {
   return isProd ? items.filter((post) => !post.draft) : items;
 }
 
-const visiblePosts = filterVisiblePosts(allPostsRaw as Post[], import.meta.env.PROD);
+const normalizedPosts = (allPostsRaw as (PostFrontmatter & { slug: string; body: string })[]).map(normalizePost);
+const visiblePosts = filterVisiblePosts(normalizedPosts, import.meta.env.PROD);
 
 export function sortProjects(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => {
