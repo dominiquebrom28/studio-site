@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, type RouteObject } from 'react-router-dom';
 import { RootLayout } from './components/layout/RootLayout';
 import { withSuspense } from './lib/withSuspense';
 
@@ -11,7 +11,13 @@ const BlogPost = lazy(() => import('./pages/BlogPost'));
 const Cast = lazy(() => import('./pages/Cast'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-export const router = createBrowserRouter([
+// Exported separately from the `router` singleton below so the smoke-test
+// suite (src/smoke/) can build its own `createMemoryRouter(routes, {...})`
+// per route under test, without touching `window.history`/`window.location`
+// (which is what a single shared `createBrowserRouter` instance is pinned
+// to at construction time). This is the same route tree either way — no
+// behavior change for the real app.
+export const routes: RouteObject[] = [
   {
     path: '/',
     element: <RootLayout />,
@@ -26,4 +32,6 @@ export const router = createBrowserRouter([
       { path: '*', element: withSuspense(<NotFound />) },
     ],
   },
-]);
+];
+
+export const router = createBrowserRouter(routes);

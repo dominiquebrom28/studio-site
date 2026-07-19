@@ -5,11 +5,24 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      deployed_url:
+        description: >-
+          Deployed URL to smoke-check (e.g. a Vercel preview). Leave blank to
+          skip — see the `deployed-smoke` job below.
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  # CRITICAL: this job's name ("build") is depended on by branch protection
+  # as the required "CI / build" check (.github/AUTO-MERGE-SETUP.md) — never
+  # rename it. New steps are safe to add here (they become part of the same
+  # required check with zero extra config); a new JOB is not required unless
+  # Dom deliberately adds it to branch protection (see each new job's comment
+  # below for why it isn't part of this one).
   build:
     runs-on: ubuntu-latest
     steps:
@@ -34,5 +47,91 @@ jobs:
       - name: Test
         run: npm test
 
+      # Real-DOM mount (jsdom + StrictMode) of every key route — catches the
+      # class of bug a `renderToStaticMarkup` harness structurally cannot
+      # (double-invoke-only bugs; see src/smoke/routes.smoke.test.tsx's
+      # header comment for the 2026-07-18 dead-TOC-anchor incident this
+      # gate exists because of). Cheap (~3s) — kept IN this required job
+      # rather than a separate opt-in one, since it directly guards a
+      # pattern that has now shipped a P0 four runs running.
+      - name: Smoke test (real DOM mount, StrictMode)
+        run: npm run test:smoke
+
       - name: Build
         run: npm run build
+
+  # Content-validation gate (BACKLOG "Content-validation gate in CI",
+  # 2026-07-18): date-matches-filename, no-shared-dates, and author-resolves
+  # -to-cast rules over content/posts/*.md (src/content/validate-content.test.ts;
+  # two more of the five rules — unique slugs, summary length — are already
+  # enforced for free by the existing Zod schema + loader.ts, independent of
+  # this job). Deliberately its OWN job, not a step inside `build`:
+  #
+  #   - It is currently RED against real committed content (a genuine
+  #     finding — see the PR description / devops report, not a bug in the
+  #     check): two posts dated 2026-07-18 share that date with no
+  #     tie-break. Per instructions this was reported, not silently patched.
+  #   - Because of that, this job is NOT added to branch protection and does
+  #     NOT gate merges yet — it runs on every PR so the violation stays
+  #     visible, but a red X here won't block anything until Dom either (a)
+  #     fixes the current content (assign one of the two posts a distinct
+  #     date, or add an explicit tie-break field) or (b) decides to make
+  #     this required regardless. Once (a) is done, add "validate-content"
+  #     to the branch-protection required-checks list the same way `build`
+  #     is documented in .github/AUTO-MERGE-SETUP.md.
+  validate-content:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate content frontmatter
+        run: npm run validate:content
+
+  # Plain HTTP smoke check against a REAL deployed URL (Vercel preview or
+  # production) — see scripts/check-deployed-routes.mjs's header comment for
+  # why this exists (2026-07-18: every route but `/` 404'd in production,
+  # SPA with no rewrite rule; localhost stayed green throughout because
+  # Vite's dev server hides the exact failure mode this checks for).
+  #
+  # Deliberately NOT wired into `build` and deliberately NOT required:
+  # `build` runs on every PR, long before any preview deployment is
+  # guaranteed to exist. This job runs alongside it but the script itself
+  # no-ops (exit 0, clearly logged as SKIPPED) whenever no URL is supplied,
+  # so it never blocks a PR just because a preview isn't ready yet.
+  #
+  # HOW DOM TURNS THIS ON:
+  #   1. One-time, per repo: Settings -> Secrets and variables -> Actions ->
+  #      Variables -> New repository variable `SMOKE_URL` set to a STABLE
+  #      URL (production, once launched, or a fixed alias domain) — this
+  #      makes the check run automatically on every PR from then on.
+  #   2. Ad hoc, for any single preview: Actions -> "CI" workflow -> "Run
+  #      workflow" -> fill in `deployed_url` with that PR's Vercel preview
+  #      URL, or run `gh workflow run ci.yml -f deployed_url=<preview-url>`.
+  #   3. Only once satisfied this is stable, add "deployed-smoke" to
+  #      branch protection's required-checks list if it should ever block
+  #      merges — it does not by default.
+  deployed-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check deployed routes (skips cleanly if no URL configured)
+        env:
+          SMOKE_URL: ${{ github.event.inputs.deployed_url || vars.SMOKE_URL }}
+        run: node scripts/check-deployed-routes.mjs
