@@ -57,6 +57,86 @@ export const ProjectMediaItemSchema = z
 
 export type ProjectMediaItem = z.infer<typeof ProjectMediaItemSchema>;
 
+// --- Process/narrative additions (docs/project-page-v2.md §10) ---
+//
+// All of the below are OPTIONAL at the ProjectFrontmatterSchema level and
+// none of the six existing project files set any of them yet — this is a
+// strict additive change, verified by schemas.test.ts's "all six existing
+// projects still parse with no new fields" pass-through tests.
+
+/** The recorded/inferred provenance convention (spec §1): every narrative
+ * block on a project page is tagged as straight-from-git-history
+ * (`logged`), the studio's own interpretive reading (`read`), or an honest
+ * admission that the source material doesn't say (`not-stated`). */
+export const ProvenanceSchema = z.enum(['logged', 'read', 'not-stated']);
+export type Provenance = z.infer<typeof ProvenanceSchema>;
+
+/** A single narrative field: prose text plus the provenance tag that governs
+ * its typographic treatment (italic for `read`, roman otherwise — spec §1B)
+ * and its `ProvenanceTag` badge. Used directly for `goal` ("Why this
+ * exists" — one block, one tag, one to three sentences). */
+export const NarrativeFieldSchema = z.object({
+  text: z.string().min(1),
+  source: ProvenanceSchema,
+});
+export type NarrativeField = z.infer<typeof NarrativeFieldSchema>;
+
+// `brief` deviates from the spec §10 code sample, which shows
+// `brief: NarrativeFieldSchema.optional()` (a single text+source pair).
+// That can't actually represent what spec §3 asks for: "The Brief" is 2-4
+// BULLETS, and — its own words — "One line may honestly be `not-stated`
+// where a project has no discernible brief... say so plainly rather than
+// padding" (PizzaParty's case). A single scalar `source` has nowhere to put
+// a bullet-level exception. `NarrativeCardFieldSchema` keeps one `source`
+// for the block's eyebrow `ProvenanceTag` (spec §1A: the tag sits on the
+// block, not sprinkled per line) while giving each bullet its own
+// `NarrativeField` so an individual line can honestly diverge (e.g. mostly
+// `read` bullets, one `not-stated`). Flagged as a deliberate schema
+// deviation, not an oversight — see the frontend-dev report.
+export const NarrativeCardFieldSchema = z.object({
+  source: ProvenanceSchema,
+  bullets: z.array(NarrativeFieldSchema).min(2).max(4),
+});
+export type NarrativeCardField = z.infer<typeof NarrativeCardFieldSchema>;
+
+/** A `BuildTimeline` phase caption (spec §2.2 "narrative layer"): a real
+ * in-flow caption anchored to a date range (or a single point, when `to` is
+ * omitted), always rendered as real content — never `aria-hidden`. */
+export const ProcessPhaseSchema = z.object({
+  from: isoDate,
+  to: isoDate.optional(),
+  title: z.string().min(1),
+  narrative: z.string().min(1),
+  tone: z.enum(['build', 'silence', 'pivot', 'cleanup', 'reactivation']),
+});
+export type ProcessPhase = z.infer<typeof ProcessPhaseSchema>;
+
+/** One day's worth of real commit history (spec §2.2 "scaffold"). `date` is
+ * day-granularity on purpose — matches `docs/research/commit-bursts.md`,
+ * which is the authoritative, mechanically-extracted source for this data
+ * (transcribe from there; never hand-estimate). `isCleanupSweep` flags the
+ * 2026-07-16 five-repo sweep specifically. */
+export const CommitBurstSchema = z.object({
+  date: isoDate,
+  count: z.number().int().positive(),
+  isCleanupSweep: z.boolean().default(false),
+  commitUrl: urlOrEmpty,
+});
+export type CommitBurst = z.infer<typeof CommitBurstSchema>;
+
+/** The full `BuildTimeline` data set for a project. `commits.min(1)` — a
+ * project that declares `process` at all must have at least one real commit
+ * to scaffold the timeline on; a project with truly nothing to draw (Chart
+ * Token Playground) omits `process` entirely and uses `template:
+ * "single-sitting"` instead (spec §2.4), which reads `sessionsNote` off the
+ * frontmatter directly rather than through this shape. */
+export const ProjectProcessSchema = z.object({
+  commits: z.array(CommitBurstSchema).min(1),
+  phases: z.array(ProcessPhaseSchema).default([]),
+  sessionsNote: z.string().optional(),
+});
+export type ProjectProcess = z.infer<typeof ProjectProcessSchema>;
+
 export const ProjectFrontmatterSchema = z.object({
   title: z.string().min(1),
   slug: z
@@ -76,6 +156,21 @@ export const ProjectFrontmatterSchema = z.object({
   featured: z.boolean().default(false),
   order: z.number().optional(),
   date: isoDate,
+  // --- v2 (docs/project-page-v2.md §10) — all optional, all additive ---
+  /** "Why this exists" narrative block (spec §3). */
+  goal: NarrativeFieldSchema.optional(),
+  /** "The Brief" card block (spec §3) — see `NarrativeCardFieldSchema`'s
+   * doc comment for why this isn't the single-field shape spec §10 sketched. */
+  brief: NarrativeCardFieldSchema.optional(),
+  /** `BuildTimeline` data (spec §2). Absent on the single-sitting template
+   * and on any project a content pass hasn't reached yet. */
+  process: ProjectProcessSchema.optional(),
+  // Defaults to 'standard' rather than being left undefined so every
+  // existing project (six files, none of which set `template` yet) and
+  // every consumer can treat this as an always-populated, two-valued
+  // discriminant with no `project.template ?? 'standard'` fallback logic
+  // scattered through components.
+  template: z.enum(['standard', 'single-sitting']).default('standard'),
 });
 
 export type ProjectFrontmatter = z.infer<typeof ProjectFrontmatterSchema>;
