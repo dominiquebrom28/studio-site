@@ -8,6 +8,53 @@ repo: "https://github.com/dominiquebrom28/lovediary"
 featured: false
 order: 5
 date: "2026-05-03"
+goal:
+  text: |-
+    LoveDiary reads like a personal project built for a couple rather than a market — a private, aesthetic timeline for logging the moments in a relationship as something closer to a shared scrapbook than a productivity app.
+  source: read
+brief:
+  source: read
+  bullets:
+    - text: |-
+        Let two people log meaningful moments — photo, mood, location, date — on one shared timeline.
+      source: read
+    - text: |-
+        Present it beautifully: a full-width hero, a running relationship-duration counter, a swipeable story mode.
+      source: read
+    - text: |-
+        Give it real settings — theme, hero customisation — without slowing down the core add-a-moment loop.
+      source: read
+    - text: |-
+        Make it feel like two people are using it together, even before there's a backend to make that literally true.
+      source: read
+process:
+  commits:
+    - date: "2026-05-03"
+      count: 1
+    - date: "2026-05-04"
+      count: 8
+    - date: "2026-07-16"
+      count: 1
+      isCleanupSweep: true
+  phases:
+    - from: "2026-05-03"
+      to: "2026-05-03"
+      title: "The scaffold"
+      narrative: |-
+        One commit: the Next.js boilerplate. The quiet, unremarkable start before the real building happened the next evening.
+      tone: build
+    - from: "2026-05-04"
+      to: "2026-05-04"
+      title: "Eight commits in one evening, and a page built to be thrown away"
+      narrative: |-
+        The core loop — moments, reactions, comments, the story slideshow, theme switching — lands in about three hours. In the middle of it a full settings page gets built, shipped, and replaced by a drawer eleven minutes later; the abandoned page is still sitting in the repo, unreachable from the live app. A bottom-tab nav is removed entirely the same evening. It reads like someone iterating fast enough to correct a decision before it had time to feel wrong.
+      tone: pivot
+    - from: "2026-07-16"
+      to: "2026-07-16"
+      title: "73 days quiet, then the sweep"
+      narrative: |-
+        Work stopped mid-iteration; real follow-up files sat uncommitted for over two months before the sweep landed them. Nothing about the app's core promise changed in that time — the partner-sync screen still shows a couple code that can never connect to anyone, because there's no backend behind it.
+      tone: cleanup
 ---
 
 LoveDiary is a couples' relationship-timeline app. Couples log "moments" — typed entries for firsts, dates, trips, milestones, random moments, surprises, inside jokes, and growth — each with a title, date, location, description, mood, image, reactions, and comments, laid out on a vertical timeline under a full-width hero. There's also a fullscreen, swipeable story-slideshow mode in the style of Instagram stories, a settings drawer offering three themes (parchment, midnight, sage), hero customization, and a running relationship-duration display.

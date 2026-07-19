@@ -31,9 +31,53 @@ media:
 featured: true
 order: 2
 date: "2026-07-06"
+goal:
+  text: |-
+    "Same designer, same work, four different creative directions. Each one is a live, working concept — open them, feel them, react. The winner gets built out across the whole site." That's the stated purpose, straight from the portfolio's own ConceptIndex.tsx.
+  source: logged
+brief:
+  source: read
+  bullets:
+    - text: |-
+        Build a personal portfolio that doubles as proof of design-systems thinking, not just a case-study gallery.
+      source: read
+    - text: |-
+        Protect three NDA case studies without using real client screenshots — every diagram is a hand-built SVG abstraction instead.
+      source: read
+    - text: |-
+        Prove the pitch instead of stating it: "inspect mode" lets a visitor press a key and watch the site annotate itself with its own design tokens, live.
+      source: read
+    - text: |-
+        Don't commit to one visual language too early — ship several full, live creative directions and let the strongest earn the win.
+      source: read
+process:
+  commits:
+    - date: "2026-07-06"
+      count: 4
+    - date: "2026-07-18"
+      count: 1
+  phases:
+    - from: "2026-07-06"
+      to: "2026-07-06"
+      title: "Base site, then four more directions"
+      narrative: |-
+        The first commit ships a complete, working portfolio. The same day the concept escalates: four full alternate creative directions, each built as a real switchable site rather than a mockup, landing in one pass.
+      tone: build
+    - from: "2026-07-06"
+      to: "2026-07-06"
+      title: "A fifth, riskier direction — rebuilt within hours"
+      narrative: |-
+        A fifth concept goes further than the others: the portfolio rebuilt as a playable 2D side-scrolling RPG. It's ambitious enough that it gets rebuilt almost immediately — 616 of its first 713 lines discarded within hours to turn it from a static concept into something you can actually walk through. As far as the record shows none of the five was ever declared the winner: the site's own concept index still says "four directions" while five exist.
+      tone: pivot
+    - from: "2026-07-18"
+      to: "2026-07-18"
+      title: "A bug found while filming it"
+      narrative: |-
+        Twelve days of quiet, then one real fix: a sticky-nav bug where the header backdrop was only applied by a JS-toggled class, so content read through it while scrolling. It was caught while capturing a scrolling GIF of the site, not while looking at it normally — scripted, repeatable scrolling exposed a race the eye had been quietly forgiving.
+      tone: reactivation
 ---
 
-This is Dom's own portfolio — "Product & UX Designer, 7+ years in design systems, multi-brand foundations and end-to-end product design" — built to replace an existing Figma Sites build. It's a single-page app with a home screen and three case studies (a nine-brand, five-platform design system; a marketing-automation project spanning eight UI libraries; a pension app), all flagged NDA, which shaped two of its more unusual decisions.
+This is Dom's own portfolio — "Product & UX Designer, 7+ years in design systems, multi-brand foundations and end-to-end product design." It's a single-page app with a home screen and three case studies (a nine-brand, five-platform design system; a marketing-automation project spanning eight UI libraries; a pension app), all flagged NDA, which shaped two of its more unusual decisions.
 
 The first is inspect mode: press "i" and the site annotates itself with its own design tokens, dropping a 12-column grid overlay and a HUD over elements that each carry a `data-token` attribute — the portfolio explaining its own construction in real time. The second is zero images, anywhere. Every visual is a hand-built, animated SVG or CSS diagram; a code comment states the reasoning directly: no client assets are used, because every diagram is an abstraction of the real work, which also keeps NDA material safe.
 

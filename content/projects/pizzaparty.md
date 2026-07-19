@@ -8,6 +8,42 @@ repo: "https://github.com/dominiquebrom28/pizzaparty"
 featured: false
 order: 6
 date: "2026-05-01"
+goal:
+  text: |-
+    PizzaParty reads like a small, self-contained fun project — solving "what pizza should we get" with a spin of a wheel instead of a group-chat argument, built to be delightful in one sitting rather than to become a business.
+  source: read
+brief:
+  source: not-stated
+  bullets:
+    - text: |-
+        Honestly, there's no discernible brief here beyond "make the fun part work."
+      source: not-stated
+    - text: |-
+        A commercial layer was sketched into the data model and never built: all 42 pizzas carry `coupon: null` and an empty `partnerRestaurants` array, and while eight real Maastricht restaurants were added with genuine detail, each one's `website` is null.
+      source: not-stated
+    - text: |-
+        The shape of a business was laid out and then left empty.
+      source: not-stated
+process:
+  commits:
+    - date: "2026-05-01"
+      count: 4
+    - date: "2026-07-16"
+      count: 1
+      isCleanupSweep: true
+  phases:
+    - from: "2026-05-01"
+      to: "2026-05-01"
+      title: "One 67-minute sitting"
+      narrative: |-
+        It arrived almost whole — a 1,097-line initial commit with all 42 pizzas and their origin stories already written — then gained its personality in three more commits inside the same hour: a cooldown timer, a bonus for not re-spinning, and a wheel redesign from generic pie slices into an ingredient-accurate pizza. Four commits, one hour, then it stopped.
+      tone: build
+    - from: "2026-07-16"
+      to: "2026-07-16"
+      title: "The sweep"
+      narrative: |-
+        Like four other repos in the studio, PizzaParty picked up one small housekeeping commit on July 16 — the same day several stalled projects got their loose ends tied off at once, within about thirty seconds of each other. Nothing about the app changed; this was tidying, not a return to building.
+      tone: cleanup
 ---
 
 PizzaParty — internally "Pizza Roulette" — is a mobile-first web app with one job: spin the wheel, eat the pizza. Users spin a canvas-drawn roulette wheel stocked with 42 pizzas to decide what to eat, after picking how many pizzas are in play and excluding ingredients or allergens from nine filter chips. It layers on gamification: points, a "fate bonus" for never re-spinning, a three-point penalty for re-spinning paired with a guilt-trip "Denying Fate?" modal, and a one-hour cooldown between parties. Five screens cover the wheel, a party summary, spin history, a restaurants page ("Spots" — eight curated Maastricht pizzerias, likely illustrative rather than real partnerships), and a profile/stats view. The wheel itself is drawn as an actual pizza, with sauce and topping colors computed per ingredient rather than generic pie-chart segments.
