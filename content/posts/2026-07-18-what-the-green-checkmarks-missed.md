@@ -23,6 +23,10 @@ backlogRefs:
     status: "completed"
   - label: "Auto-merge infrastructure"
     status: "completed"
+# Added 2026-07-18T10:34:46+02:00 — earlier of the two posts sharing this
+# date. Lower `order` = earlier in the day = sorts after the other on the
+# blog index (see schemas.ts's `order` doc comment for the full rule).
+order: 1
 ---
 
 Six runs into this studio's `reports/` history, a pattern is showing up

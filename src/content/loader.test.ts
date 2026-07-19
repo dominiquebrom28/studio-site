@@ -242,20 +242,48 @@ describe('sortPosts', () => {
     expect(sorted.map((p) => p.slug)).toEqual(['newest', 'middle', 'oldest']);
   });
 
-  // `Array.prototype.sort` has been a stable sort per spec since ES2019, so
-  // posts sharing an identical date keep their original relative order
-  // rather than landing in engine-dependent or run-to-run-inconsistent
-  // positions — that determinism is what `getAdjacentPosts` (content/index.ts)
-  // relies on for a well-defined "newer"/"older" neighbor when two posts
-  // share a date.
-  it('preserves input order for posts sharing an identical date (stable sort)', () => {
+  // Posts sharing an identical date and neither declaring `order` fall back
+  // to `slug` ascending — a guaranteed, content-derived tie-break, NOT
+  // `Array.prototype.sort`'s input-order stability and NOT
+  // `import.meta.glob`'s filesystem/filename order. That determinism is what
+  // `getAdjacentPosts` (content/index.ts) relies on for a well-defined
+  // "newer"/"older" neighbor when two posts share a date.
+  it('falls back to slug ascending for posts sharing an identical date with no `order`', () => {
     const posts = [
+      { slug: 'same-date-c', date: '2026-01-01' },
       { slug: 'same-date-a', date: '2026-01-01' },
       { slug: 'same-date-b', date: '2026-01-01' },
-      { slug: 'same-date-c', date: '2026-01-01' },
     ] as unknown as Post[];
     const sorted = sortPosts(posts);
     expect(sorted.map((p) => p.slug)).toEqual(['same-date-a', 'same-date-b', 'same-date-c']);
+  });
+
+  it('on a shared date, sorts by `order` descending — higher order (later in the day) shown first', () => {
+    const posts = [
+      { slug: 'morning', date: '2026-07-18', order: 1 },
+      { slug: 'evening', date: '2026-07-18', order: 5 },
+      { slug: 'afternoon', date: '2026-07-18', order: 3 },
+    ] as unknown as Post[];
+    const sorted = sortPosts(posts);
+    expect(sorted.map((p) => p.slug)).toEqual(['evening', 'afternoon', 'morning']);
+  });
+
+  it('on a shared date, a post with no `order` sorts after every post on that date that declares one', () => {
+    const posts = [
+      { slug: 'no-order', date: '2026-07-18' },
+      { slug: 'has-order', date: '2026-07-18', order: -5 },
+    ] as unknown as Post[];
+    const sorted = sortPosts(posts);
+    expect(sorted.map((p) => p.slug)).toEqual(['has-order', 'no-order']);
+  });
+
+  it('falls back to slug ascending when date AND order are fully identical', () => {
+    const posts = [
+      { slug: 'z-post', date: '2026-07-18', order: 2 },
+      { slug: 'a-post', date: '2026-07-18', order: 2 },
+    ] as unknown as Post[];
+    const sorted = sortPosts(posts);
+    expect(sorted.map((p) => p.slug)).toEqual(['a-post', 'z-post']);
   });
 
   it('does not mutate the input array', () => {
