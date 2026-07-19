@@ -17,5 +17,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Excluded here on purpose — this is the content-validation GATE, run
+    // (and reported on) separately via `npm run validate:content` /
+    // vitest.content.config.ts. See that config's header comment.
+    exclude: ['**/node_modules/**', 'src/content/validate-content.test.ts'],
   },
 });
