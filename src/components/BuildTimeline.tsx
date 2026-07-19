@@ -42,19 +42,22 @@ export function BuildTimeline({
   const scaffold = buildTimelineScaffold(commits, status);
 
   // Scroll-linked, not scroll-triggered (spec §2.2/§5.1) — this is the
-  // specific "framer" feeling Dom named: as of the 2026-07-19 P0 audit this
-  // ONLY drives the decorative (`aria-hidden`, never-zero) tick-dot scale
-  // pop on desktop — see `useRevealAtPosition`'s doc comment for why the
-  // rule itself and the gap/tick TEXT no longer read from this value.
-  // Always called (rules-of-hooks) even under reduced motion; its output is
-  // simply never read into a style value in that branch, which is cheaper
-  // and safer than conditionally skipping the hook.
+  // specific "framer" feeling Dom named: advances AND reverses with scroll
+  // direction. As of the 2026-07-19 P0 audit (and its follow-up) this
+  // drives ONLY decorative, textless, `aria-hidden` layers that carry zero
+  // information — the desktop tick-dot scale pop, and the accent sweep
+  // overlaid on each (always fully drawn) base rule. See
+  // `useRevealAtPosition`'s and `TimelineRule`'s doc comments for why
+  // nothing that carries meaning reads from this value. Always called
+  // (rules-of-hooks) even under reduced motion; its output is simply never
+  // read into a style value in that branch, which is cheaper and safer
+  // than conditionally skipping the hook.
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start 0.8', 'end 0.3'] });
 
   return (
     <div ref={sectionRef} className="mb-10">
       <DesktopTimeline scaffold={scaffold} phases={phases} progress={scrollYProgress} reduced={!!prefersReducedMotion} />
-      <MobileTimeline scaffold={scaffold} phases={phases} />
+      <MobileTimeline scaffold={scaffold} phases={phases} progress={scrollYProgress} reduced={!!prefersReducedMotion} />
       <CommitLog commits={commits} isOpenEnded={scaffold.isOpenEnded} />
     </div>
   );
@@ -108,6 +111,66 @@ function SweepFlag() {
   );
 }
 
+/**
+ * The scaffold's rule, desktop (horizontal) and mobile (vertical) alike —
+ * two layers, resolving the 2026-07-19 P0 audit's timeline finding without
+ * dropping the scroll-linked "draw as you scroll, retrace on scroll back
+ * up" feel Dom asked for by name (design-brief's "framer" feel; spec
+ * §2.2's centrepiece; measured working correctly in real Chrome —
+ * 0 → 0.19 → 0.49 → 0.79 → 1.0 down, identically back up):
+ *
+ * - BASE layer — plain, static, ALWAYS fully drawn (`--hairline`-family
+ *   `ink/30`, never bound to scroll). This is the scaffold that makes tick
+ *   and gap positions legible — real meaning, not decoration — so its
+ *   visibility can never depend on scroll position or an animation frame
+ *   actually running. (A rule bound straight to `scrollYProgress` sits at
+ *   `scale{X,Y}: 0` — zero width/height, i.e. invisible — until the reader
+ *   scrolls, or forever if rAF never runs: the same "un-animated state
+ *   isn't the same content" failure as the page's opacity fades, just
+ *   expressed as a transform.)
+ * - ACCENT layer — `m.div`, `--marker-600` (design-brief §4 riso vocabulary,
+ *   no new color introduced), `scale{X,Y}` bound straight to `progress`,
+ *   `aria-hidden` and textless — carries zero information. THIS is where
+ *   the scroll-linked sweep lives: advances and reverses with scroll
+ *   direction, and if rAF is dead it simply never appears — the base rule
+ *   underneath still reads perfectly on its own either way. Skipped
+ *   entirely (not rendered at all) under reduced motion, per Dom's
+ *   instruction to show only the base rule in that case.
+ */
+function TimelineRule({
+  axis,
+  progress,
+  reduced,
+}: {
+  axis: 'x' | 'y';
+  progress: MotionValue<number>;
+  reduced: boolean;
+}) {
+  const sizeClass = axis === 'x' ? 'h-px w-full' : 'h-full w-px';
+  const originClass = axis === 'x' ? 'origin-left' : 'origin-top';
+  const scaleKey = axis === 'x' ? 'scaleX' : 'scaleY';
+
+  return (
+    <div className={`relative ${sizeClass}`}>
+      {/* `data-timeline-rule` is a test hook only (no visual/behavioral
+          effect) — see src/smoke/motion-resting-state.smoke.test.tsx's
+          "base rule stays fully drawn" case, which asserts the BASE layer
+          specifically never carries a scroll-bound `scale{X,Y}` inline
+          style, so a future re-binding of this element to `progress`
+          fails loudly instead of silently reintroducing the 2026-07-19
+          bug. */}
+      <div data-timeline-rule="base" className="absolute inset-0 bg-ink/30" />
+      {!reduced && (
+        <m.div
+          data-timeline-rule="accent"
+          className={`absolute inset-0 ${originClass} bg-marker-600`}
+          style={{ [scaleKey]: progress }}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------------- */
 /* Desktop: horizontal rule, alternating above/below phase captions        */
 /* ---------------------------------------------------------------------- */
@@ -123,18 +186,6 @@ function DesktopTimeline({
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
-  // The rule's resting state is ALWAYS fully drawn (`scaleX: 1`), scroll or
-  // no scroll, JS-live or not — a horizontal rule whose width is bound
-  // straight to `scrollYProgress` sits at `scaleX: 0` (zero-width, i.e.
-  // invisible) until the reader scrolls, with no rAF/timer required to
-  // observe that resting value. That's the exact same "un-animated state
-  // isn't the same content" failure the P0 audit found in the opacity
-  // fades elsewhere on this page, just expressed as a transform instead of
-  // an opacity — so it gets the same fix: never bake in a hidden resting
-  // state. `progress` remains threaded through for `DesktopTickDot`'s
-  // decorative (never-zero) scale pop.
-  const ruleStyle = { scaleX: 1 };
-
   return (
     <div className="relative mb-6 hidden pt-[22rem] pb-[22rem] pr-24 lg:block">
       {/* Decorative scaffold — rule, ticks, connectors. Real content (phase
@@ -156,7 +207,7 @@ function DesktopTimeline({
           verified via real Chrome, not just this dev tool). 352px clears the
           tallest measured caption with headroom for future copy edits. */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
-        <m.div className="h-px w-full origin-left bg-ink/30" style={ruleStyle} />
+        <TimelineRule axis="x" progress={progress} reduced={reduced} />
         {scaffold.ticks.map((tick) => (
           <DesktopTickDot key={tick.date} tick={tick} progress={progress} reduced={reduced} />
         ))}
@@ -280,15 +331,14 @@ function DesktopPhaseCaption({
 function MobileTimeline({
   scaffold,
   phases,
+  progress,
+  reduced,
 }: {
   scaffold: TimelineScaffold;
   phases: ProcessPhase[];
+  progress: MotionValue<number>;
+  reduced: boolean;
 }) {
-  // See `DesktopTimeline`'s matching comment — a `scaleY` bound straight to
-  // scroll progress sits at 0 (zero-height, invisible) at rest, so the
-  // vertical rule is always rendered fully drawn instead.
-  const ruleStyle = { scaleY: 1 };
-
   // Interleave ticks, gaps, and phases into one date-ordered flow so a
   // phase caption reads directly after the commit(s) it's describing
   // (spec §2.2: "Mobile: inline below their anchor... never a separate tab
@@ -307,7 +357,7 @@ function MobileTimeline({
   return (
     <div className="relative pl-8 lg:hidden">
       <div className="pointer-events-none absolute inset-y-0 left-[15px] w-px" aria-hidden="true">
-        <m.div className="h-full w-px origin-top bg-ink/30" style={ruleStyle} />
+        <TimelineRule axis="y" progress={progress} reduced={reduced} />
       </div>
 
       <div className="flex flex-col gap-4">

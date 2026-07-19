@@ -39,6 +39,19 @@ import { getAllProjects } from '@/content';
  * callback (see that file's doc comment) — so every `whileInView` element
  * in this suite is ALSO permanently stuck at its `initial` value, exactly
  * mirroring "the entrance trigger never fires."
+ *
+ * SEPARATE, SUBTLER CASE — `BuildTimeline`'s rule: this is the one place on
+ * the page a scroll-linked motion value is intentionally kept (the
+ * "advances and reverses with scroll" draw-in Dom asked for by name,
+ * `TimelineRule`'s ACCENT layer). The BASE layer underneath it must never
+ * be re-bound to that same scroll value — a rule whose `scale{X,Y}` reads
+ * from `scrollYProgress` sits at `scale: 0` (zero width/height) at the top
+ * of the page, or forever if rAF is dead: the same failure as `opacity: 0`,
+ * just expressed as a transform. The check below asserts the base layer
+ * specifically (`[data-timeline-rule="base"]`) never carries a `scaleX`/
+ * `scaleY` of 0 — the regression this whole file exists to prevent someone
+ * reintroducing "a month from now" by moving the scroll binding onto the
+ * wrong layer.
  */
 
 let originalRaf: typeof window.requestAnimationFrame;
@@ -70,6 +83,19 @@ const allProjects = getAllProjects();
  * this suite's config skips the Tailwind Vite plugin, see vitest.smoke.config.ts). */
 function elementsWithInlineStyle(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>('[style]'));
+}
+
+/** Reads a `scaleX(...)`/`scaleY(...)` value straight out of an element's
+ * inline `transform` (Framer Motion writes motion-value-driven `scale`
+ * props as this, synchronously, on mount — verified by hand: an
+ * `initial={{ scaleX: 0 }}` element's `style.transform` already reads
+ * `"scaleX(0)"` immediately after `render()`, no timers advanced). Returns
+ * `null` when there's no transform at all — i.e. the element was never
+ * bound to a scale motion value in the first place, which reads as
+ * "definitely visible," not "unknown." */
+function inlineScale(el: HTMLElement): number | null {
+  const match = el.style.transform.match(/scale[XY]?\(\s*(-?[\d.]+)/);
+  return match ? Number.parseFloat(match[1]) : null;
 }
 
 describe('motion resting-state (rAF frozen, zero frames)', () => {
@@ -108,6 +134,21 @@ describe('motion resting-state (rAF frozen, zero frames)', () => {
       for (const tech of project.stack) {
         const chip = screen.getByText(tech);
         expect(getComputedStyle(chip).opacity, `stack chip "${tech}" is opacity:0`).not.toBe('0');
+      }
+
+      // BuildTimeline's base rule (see the file-level doc comment's
+      // "SEPARATE, SUBTLER CASE") — only rendered for projects with a
+      // `process` field. Desktop AND mobile each render their own copy
+      // (responsive duplicate content, see BuildTimeline.tsx), so this can
+      // find more than one; every one of them must be scale-1 (or
+      // transform-free entirely), never scale-0.
+      if (project.process) {
+        const baseRules = document.querySelectorAll<HTMLElement>('[data-timeline-rule="base"]');
+        expect(baseRules.length, 'expected at least one BuildTimeline base rule to be rendered').toBeGreaterThan(0);
+        for (const rule of Array.from(baseRules)) {
+          const scale = inlineScale(rule);
+          expect(scale, `BuildTimeline base rule rendered at scale:0 (transform: "${rule.style.transform}")`).not.toBe(0);
+        }
       }
     },
   );
