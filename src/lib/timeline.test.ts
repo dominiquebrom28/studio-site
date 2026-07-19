@@ -3,17 +3,9 @@ import {
   buildTimelineScaffold,
   positionForDate,
   GAP_THRESHOLD_DAYS,
-  assignPhaseCaptionLanes,
-  computeSideCaptionLayout,
-  layoutPhaseCaptions,
+  numberPhasesChronologically,
   findHandoffs,
   buildRuleSegments,
-  CAPTION_COLLISION_FRACTION,
-  FALLBACK_CAPTION_HEIGHT_PX,
-  RULE_ANCHOR_OFFSET_PX,
-  LANE_GAP_PX,
-  MIN_CAPTION_CLEARANCE_PX,
-  type CaptionHeights,
 } from './timeline';
 import type { CommitBurst, ProcessPhase } from '@/content/schemas';
 
@@ -160,55 +152,38 @@ describe('positionForDate', () => {
   });
 });
 
-describe('assignPhaseCaptionLanes', () => {
-  it('a single phase gets lane 0 on its default (alternating-index) side', () => {
+describe('numberPhasesChronologically (2026-07-19, THIRD attempt at the MensApp overlap fix)', () => {
+  // This is now the ONLY "layout" a phase gets on the desktop rule — a
+  // chronological number, nothing more. See the doc comment on this
+  // function in timeline.ts for why side/lane/height/clearance math was
+  // deleted rather than iterated on again: it structurally cannot overlap,
+  // at any phase count or clustering, because the packing problem itself
+  // no longer exists (phase narratives are a normal-flow list, not
+  // absolutely-positioned boxes).
+
+  it('numbers a single phase 1', () => {
     const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-02-01', 1)], 'shipped');
-    const assignments = assignPhaseCaptionLanes([phase('2026-01-01', undefined, 'one phase, nothing to collide with')], scaffold);
-    expect(assignments).toHaveLength(1);
-    expect(assignments[0]).toMatchObject({ side: 'above', lane: 0 });
+    const numbered = numberPhasesChronologically(
+      [phase('2026-01-01', undefined, 'the only phase')],
+      scaffold,
+    );
+    expect(numbered).toHaveLength(1);
+    expect(numbered[0]).toMatchObject({ number: 1, position: 0 });
   });
 
-  it('keeps two far-apart phases on lane 0 of their alternating sides (the four "already look right" projects\' shape)', () => {
-    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-12-01', 1)], 'shipped');
-    const phases = [phase('2026-01-01', undefined, 'first'), phase('2026-12-01', undefined, 'second')];
-    const assignments = assignPhaseCaptionLanes(phases, scaffold);
-    expect(assignments[0]).toMatchObject({ side: 'above', lane: 0 });
-    expect(assignments[1]).toMatchObject({ side: 'below', lane: 0 });
-  });
-
-  it('pushes two phases at near-identical positions on the same default side into distinct lanes', () => {
-    // Domain 2026-01-01 -> 2026-01-11 (10 days). Phases at index 0 and 2
-    // both default to "above"; their positions (day 0 and day 1 of 10) are
-    // 0.1 apart — comfortably inside CAPTION_COLLISION_FRACTION (0.36) —
-    // so they must NOT share lane 0.
-    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-01-11', 1)], 'shipped');
+  it('numbers phases in real chronological (position) order, not array-authored order', () => {
+    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-01-31', 1)], 'shipped');
+    // Authored out of order on purpose — the later date first.
     const phases = [
-      phase('2026-01-01', undefined, 'above, day 0'),
-      phase('2026-01-05', undefined, 'below, middling'), // keeps the "below" lane out of this assertion
-      phase('2026-01-02', undefined, 'above, day 1 — near-identical to phase 0'),
+      phase('2026-01-31', undefined, 'chronologically last', { title: 'Last' }),
+      phase('2026-01-01', undefined, 'chronologically first', { title: 'First' }),
     ];
-    const assignments = assignPhaseCaptionLanes(phases, scaffold);
-    expect(assignments[0].side).toBe('above');
-    expect(assignments[2].side).toBe('above');
-    // Same side, near-identical position — MUST land in different lanes.
-    expect(assignments[0].lane).not.toBe(assignments[2].lane);
+    const numbered = numberPhasesChronologically(phases, scaffold);
+    expect(numbered.map((n) => n.phase.title)).toEqual(['First', 'Last']);
+    expect(numbered.map((n) => n.number)).toEqual([1, 2]);
   });
 
-  it('two phases anchored on the exact same date (a real content shape — soulforge/portfolio both do this) land on opposite sides and never collide', () => {
-    const scaffold = buildTimelineScaffold([burst('2026-06-15', 1), burst('2026-07-16', 1)], 'shipped');
-    const phases = [
-      phase('2026-06-15', '2026-06-15', 'first same-day phase'),
-      phase('2026-06-15', '2026-06-15', 'second same-day phase'),
-    ];
-    const assignments = assignPhaseCaptionLanes(phases, scaffold);
-    expect(assignments[0].position).toBe(assignments[1].position);
-    expect(assignments[0].side).not.toBe(assignments[1].side);
-    expect(assignments[0].lane).toBe(0);
-    expect(assignments[1].lane).toBe(0);
-  });
-
-  it('packs the MensApp shape (5 phases clustered in the first ~7% of a 78-day domain) without any same-side/same-lane collision', () => {
-    // Exact dates/positions from content/projects/mensapp.md.
+  it('numbers the MensApp shape (5 phases clustered in the first ~7% of a 78-day domain) 1 through 5 in date order — the exact shape that broke lane-packing twice', () => {
     const scaffold = buildTimelineScaffold(
       [
         burst('2026-04-29', 7),
@@ -221,173 +196,44 @@ describe('assignPhaseCaptionLanes', () => {
       'shipped',
     );
     const phases = [
-      phase('2026-04-29', '2026-04-29', 'Day one, the hard way'),
-      phase('2026-04-30', '2026-04-30', 'Realtime goes in, and comes back out four minutes later'),
-      phase('2026-05-02', '2026-05-02', 'Eight commits, one long push toward festive'),
-      phase('2026-05-04', '2026-05-05', 'The ambition spike'),
-      phase('2026-07-16', '2026-07-16', '72 days quiet, then the sweep'),
+      phase('2026-04-29', '2026-04-29', 'Day one, the hard way', { title: 'Day one' }),
+      phase('2026-04-30', '2026-04-30', 'Realtime goes in, and comes back out four minutes later', { title: 'Realtime' }),
+      phase('2026-05-02', '2026-05-02', 'Eight commits, one long push toward festive', { title: 'Eight commits' }),
+      phase('2026-05-04', '2026-05-05', 'The ambition spike', { title: 'Ambition spike' }),
+      phase('2026-07-16', '2026-07-16', '72 days quiet, then the sweep', { title: 'The sweep' }),
     ];
-    const assignments = assignPhaseCaptionLanes(phases, scaffold);
-
-    // No two assignments sharing a side AND a lane may be closer than the
-    // collision fraction — the actual invariant this whole module exists to
-    // guarantee. Checked exhaustively rather than asserting exact lane
-    // numbers, so this test keeps holding even if the packing heuristic's
-    // internals change later.
-    for (let i = 0; i < assignments.length; i++) {
-      for (let j = i + 1; j < assignments.length; j++) {
-        const a = assignments[i];
-        const b = assignments[j];
-        if (a.side === b.side && a.lane === b.lane) {
-          expect(Math.abs(a.position - b.position)).toBeGreaterThanOrEqual(CAPTION_COLLISION_FRACTION);
-        }
-      }
-    }
-
-    // The tightly-clustered first four phases (positions 0, 0.013, 0.038,
-    // 0.071 of the 78-day domain) alternate above/below by index but are
-    // all mutually within the collision fraction — by the pigeonhole
-    // principle, at least one side needs more than one lane.
-    const maxLane = Math.max(...assignments.map((a) => a.lane));
-    expect(maxLane).toBeGreaterThan(0);
-  });
-});
-
-describe('computeSideCaptionLayout — fed REAL measured heights, not estimated ones', () => {
-  it('a side with no captions falls back to the minimum clearance floor and an empty offsets array', () => {
-    const layout = computeSideCaptionLayout([], 'above');
-    expect(layout.offsets).toEqual([]);
-    expect(layout.clearancePx).toBe(MIN_CAPTION_CLEARANCE_PX);
-  });
-
-  it('an unmeasured phase (absent from the heights map — first paint, before the DOM measurement effect has run) falls back to FALLBACK_CAPTION_HEIGHT_PX, never zero/collapsed', () => {
-    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-02-01', 1)], 'shipped');
-    const assignments = assignPhaseCaptionLanes([phase('2026-01-01', undefined, 'not yet measured')], scaffold);
-    const layout = computeSideCaptionLayout(assignments, 'above', {}); // empty measuredHeights
-    expect(layout.offsets).toEqual([RULE_ANCHOR_OFFSET_PX]);
-    expect(layout.clearancePx).toBe(RULE_ANCHOR_OFFSET_PX + FALLBACK_CAPTION_HEIGHT_PX + 16 /* CLEARANCE_SAFETY_MARGIN_PX */);
-  });
-
-  it('a single lane starts its offset at RULE_ANCHOR_OFFSET_PX and clearance covers exactly the REAL measured height', () => {
-    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-02-01', 1)], 'shipped');
-    const assignments = assignPhaseCaptionLanes([phase('2026-01-01', undefined, 'measured caption')], scaffold);
-    const measuredHeights: CaptionHeights = { 0: 226 }; // a real height from Dom's MensApp measurement
-    const layout = computeSideCaptionLayout(assignments, 'above', measuredHeights);
-    expect(layout.offsets).toEqual([RULE_ANCHOR_OFFSET_PX]);
-    expect(layout.clearancePx).toBe(RULE_ANCHOR_OFFSET_PX + 226 + 16);
-  });
-
-  it('a second lane starts past the first lane\'s tallest MEASURED caption plus the inter-lane gap, and clearance grows to cover both', () => {
-    // Three same-position phases (0 and 2 default to "above" and collide,
-    // per the MensApp-shape trick used elsewhere in this file) — 0 claims
-    // lane 0, 2 is pushed to lane 1.
-    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-02-01', 1)], 'shipped');
-    const clustered = [
-      phase('2026-01-01', undefined, 'tall caption', { title: 'A' }),
-      phase('2026-01-01', undefined, 'below filler', { title: 'filler' }),
-      phase('2026-01-01', undefined, 'short caption', { title: 'B' }),
-    ];
-    const assignments = assignPhaseCaptionLanes(clustered, scaffold);
-    const measuredHeights: CaptionHeights = { 0: 434, 2: 168 }; // real MensApp heights
-    const layout = computeSideCaptionLayout(assignments, 'above', measuredHeights);
-
-    expect(layout.offsets).toEqual([RULE_ANCHOR_OFFSET_PX, RULE_ANCHOR_OFFSET_PX + 434 + LANE_GAP_PX]);
-    expect(layout.clearancePx).toBe(RULE_ANCHOR_OFFSET_PX + 434 + LANE_GAP_PX + 168 + 16);
-  });
-});
-
-describe('layoutPhaseCaptions — the MensApp regression (Dom\'s real browser measurement, 2026-07-19)', () => {
-  // Dom measured these EXACT heights live in Chrome at 1280px after the
-  // estimator-based fix still overlapped: "Build/The opening…" 226,
-  // "Pivot/Supabase…" 264, "Build/The biggest…" 434, "Build/One commit…"
-  // 472, "Cleanup/Commit…" 168 — matching, in content order, phases 0-4
-  // below. The estimator guessed too LOW for phases 0 and 1, so lane 1
-  // (phases 2 and 3) started before lane 0's real content had finished,
-  // producing the reported 37px and 18px overlaps. Fed these same real
-  // numbers, `layoutPhaseCaptions` must place every same-side/same-lane
-  // pair with zero overlap — this is the exact case that broke in the browser.
-  const scaffold = buildTimelineScaffold(
-    [
-      burst('2026-04-29', 7),
-      burst('2026-04-30', 6),
-      burst('2026-05-02', 8),
-      burst('2026-05-04', 1),
-      burst('2026-05-05', 1),
-      burst('2026-07-16', 1, { isCleanupSweep: true }),
-    ],
-    'shipped',
-  );
-  const mensappPhases = [
-    phase('2026-04-29', '2026-04-29', 'Day one, the hard way'),
-    phase('2026-04-30', '2026-04-30', 'Realtime goes in, and comes back out four minutes later'),
-    phase('2026-05-02', '2026-05-02', 'Eight commits, one long push toward festive'),
-    phase('2026-05-04', '2026-05-05', 'The ambition spike'),
-    phase('2026-07-16', '2026-07-16', '72 days quiet, then the sweep'),
-  ];
-  const realMeasuredHeights: CaptionHeights = { 0: 226, 1: 264, 2: 434, 3: 472, 4: 168 };
-
-  it('places every same-side/same-lane pair with a non-negative gap — no overlap, given the exact real heights that broke in the browser', () => {
-    const layout = layoutPhaseCaptions(mensappPhases, scaffold, realMeasuredHeights);
-
-    for (const side of ['above', 'below'] as const) {
-      const sideLayout = side === 'above' ? layout.above : layout.below;
-      const inThisLane = new Map<number, { start: number; end: number }[]>();
-      for (const assignment of layout.assignments) {
-        if (assignment.side !== side) continue;
-        const height = realMeasuredHeights[assignment.index];
-        const start = sideLayout.offsets[assignment.lane];
-        const list = inThisLane.get(assignment.lane) ?? [];
-        list.push({ start, end: start + height });
-        inThisLane.set(assignment.lane, list);
-      }
-      // Same lane == same vertical band on that side; a lane is only safe
-      // if every occupant's box fits inside [offset, offset + laneMaxHeight].
-      for (const [lane, boxes] of inThisLane) {
-        const laneMax = boxes.reduce((max, b) => Math.max(max, b.end - b.start), 0);
-        const laneStart = sideLayout.offsets[lane];
-        for (const box of boxes) {
-          expect(box.end).toBeLessThanOrEqual(laneStart + laneMax);
-        }
-      }
+    const numbered = numberPhasesChronologically(phases, scaffold);
+    expect(numbered.map((n) => n.number)).toEqual([1, 2, 3, 4, 5]);
+    expect(numbered.map((n) => n.phase.title)).toEqual([
+      'Day one',
+      'Realtime',
+      'Eight commits',
+      'Ambition spike',
+      'The sweep',
+    ]);
+    // Positions strictly increasing — no clustering-related ambiguity in
+    // the ordering, even though four of these sit within a few percent of
+    // the rule's length of each other.
+    for (let i = 1; i < numbered.length; i++) {
+      expect(numbered[i].position).toBeGreaterThanOrEqual(numbered[i - 1].position);
     }
   });
 
-  it('the specific two colliding pairs Dom reported (phases 0/2 above, phases 1/3 below) land in different lanes', () => {
-    const layout = layoutPhaseCaptions(mensappPhases, scaffold, realMeasuredHeights);
-    const byIndex = new Map(layout.assignments.map((a) => [a.index, a]));
-    expect(byIndex.get(0)!.side).toBe(byIndex.get(2)!.side);
-    expect(byIndex.get(0)!.lane).not.toBe(byIndex.get(2)!.lane);
-    expect(byIndex.get(1)!.side).toBe(byIndex.get(3)!.side);
-    expect(byIndex.get(1)!.lane).not.toBe(byIndex.get(3)!.lane);
-  });
-
-  it('needs MORE clearance than a single-lane project fed the same real heights — collision-avoidance costs real vertical space, which is the honest trade-off, not a regression', () => {
-    const singleLaneShapePhases = [mensappPhases[0], mensappPhases[4]];
-    const singleLaneHeights: CaptionHeights = { 0: realMeasuredHeights[0], 1: realMeasuredHeights[4] };
-    const mensappLayout = layoutPhaseCaptions(mensappPhases, scaffold, realMeasuredHeights);
-    const singleLaneLayout = layoutPhaseCaptions(singleLaneShapePhases, scaffold, singleLaneHeights);
-    expect(mensappLayout.clearancePx).toBeGreaterThan(singleLaneLayout.clearancePx);
-  });
-});
-
-describe('layoutPhaseCaptions', () => {
-  it('a single phase needing measurement not yet available falls back safely, never to zero clearance', () => {
-    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1)], 'shipped');
-    const layout = layoutPhaseCaptions([phase('2026-01-01', undefined, 'unmeasured')], scaffold, {});
-    expect(layout.clearancePx).toBeGreaterThan(0);
-    expect(layout.clearancePx).toBe(RULE_ANCHOR_OFFSET_PX + FALLBACK_CAPTION_HEIGHT_PX + 16);
-    // The empty side (no phase ever lands "below" here) still gets the floor.
-    expect(layout.below.clearancePx).toBe(MIN_CAPTION_CLEARANCE_PX);
-  });
-
-  it('every assignment\'s caption stays anchored to its own phase (order-preserving output)', () => {
-    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-02-01', 1)], 'shipped');
+  it('breaks a tie (two phases anchored at the exact same position) by original array index, deterministically', () => {
+    const scaffold = buildTimelineScaffold([burst('2026-06-15', 1), burst('2026-07-16', 1)], 'shipped');
     const phases = [
-      phase('2026-01-01', undefined, 'first', { title: 'First' }),
-      phase('2026-02-01', undefined, 'second', { title: 'Second' }),
+      phase('2026-06-15', '2026-06-15', 'first same-day phase', { title: 'A' }),
+      phase('2026-06-15', '2026-06-15', 'second same-day phase', { title: 'B' }),
     ];
-    const layout = layoutPhaseCaptions(phases, scaffold, { 0: 150, 1: 150 });
-    expect(layout.assignments.map((a) => a.phase.title)).toEqual(['First', 'Second']);
+    const numbered = numberPhasesChronologically(phases, scaffold);
+    expect(numbered[0].position).toBe(numbered[1].position);
+    expect(numbered.map((n) => n.phase.title)).toEqual(['A', 'B']);
+    expect(numbered.map((n) => n.number)).toEqual([1, 2]);
+  });
+
+  it('returns an empty array for zero phases', () => {
+    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1)], 'shipped');
+    expect(numberPhasesChronologically([], scaffold)).toEqual([]);
   });
 });
 

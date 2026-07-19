@@ -1,14 +1,13 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { m, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
 import {
   buildTimelineScaffold,
   buildRuleSegments,
   findHandoffs,
-  layoutPhaseCaptions,
+  numberPhasesChronologically,
   phaseAnchorPosition,
-  type CaptionHeights,
-  type PhaseCaptionAssignment,
+  type NumberedPhase,
   type TimelineHandoff,
   type TimelineScaffold,
   type TimelineTick,
@@ -17,27 +16,46 @@ import {
 /**
  * `BuildTimeline` (docs/project-page-v2.md §2.2) — the process
  * visualization centrepiece. The scaffold (commit dates/counts/gaps) is
- * always recorded (roman, `aria-hidden` graphic); phase captions riding on
- * top are the studio's interpretive read (italic, real in-flow text, never
- * hidden).
+ * always recorded (roman, `aria-hidden` graphic); phase narratives are the
+ * studio's interpretive read (italic, real in-flow text, never hidden).
  *
- * LAYOUT APPROACH (flagged for Dom's visual sign-off, same as the spec's own
- * "taste call" framing for the media scatter layout): rather than one set of
- * caption nodes whose CSS `position` flips between flow/absolute at the `lg`
- * breakpoint, this renders two sibling presentations of the SAME data — a
- * `lg:hidden` vertical flow (ticks + captions in normal reading order, one
- * DOM location) and a `hidden lg:block` horizontal graphic (alternating
- * above/below captions with SVG connectors, a second DOM location). Exactly
- * one is ever visible/in the accessibility tree at a given viewport width
- * (the other is `display: none`, fully removed from it — not merely
+ * LAYOUT, deliberate deviation from spec §2.2 (2026-07-19, THIRD pass at a
+ * MensApp overlap bug — flagged here for Dom to reconcile the spec):
+ * §2.2 calls for phase captions positioned around the desktop rule,
+ * alternating above/below with `MarginNote` connectors. Two rounds of
+ * making that work (estimated-height, then real-measured-height lane
+ * packing — see `src/lib/timeline.ts`'s `numberPhasesChronologically` doc
+ * comment for the full history) both still produced real overlaps in a
+ * real browser, because MensApp's burst-then-silence shape — the norm,
+ * not the exception, across all six projects — compresses several phases'
+ * 224px-wide anchor points within ~50px of each other; that's an
+ * unconditional geometry problem no packing heuristic fixes for good.
+ *
+ * So: the rule keeps every commit-scaffold detail (`TimelineRule`, tick
+ * dots, gap labels, the "still open" terminus, the solo/team handoff
+ * marker) exactly as it was — that IS the honest visualization and none of
+ * it overlaps. Small numbered markers on the rule (`DesktopPhaseNumberMarker`)
+ * now replace phase captions there; the narratives themselves moved into an
+ * ordered list in normal document flow below the rule
+ * (`DesktopPhaseListItem`), each item carrying the same number as its rule
+ * marker. A flow list cannot overlap, structurally, at any phase count or
+ * clustering — trading the spec's alternating-captions composition (a
+ * genuinely nicer look on evenly-spread phases, which none of today's six
+ * projects have) for a layout that's always readable.
+ *
+ * Two sibling presentations of the SAME data still exist for mobile vs.
+ * desktop — a `lg:hidden` vertical flow (ticks + phases in one interleaved,
+ * chronological reading order) and a `hidden lg:block` rule-plus-list.
+ * Exactly one is ever visible/in the accessibility tree at a given viewport
+ * width (the other is `display: none`, fully removed from it — not merely
  * visually hidden) — the same standard "responsive duplicate content"
  * pattern the codebase already uses for the mobile/desktop meta blocks in
- * ProjectDetail.tsx. No content is read twice by assistive tech; this is
- * presentational duplication, not an accessibility violation.
+ * ProjectDetail.tsx. No content is read twice by assistive tech.
  *
- * The `<details>` commit-log disclosure below the graphic is rendered once
- * (not duplicated per breakpoint) — it's the accessibility floor AND Dom's
- * fact-check surface (spec §2.2), independent of which graphic is showing.
+ * The `<details>` commit-log disclosure below is rendered once (not
+ * duplicated per breakpoint) — it's the accessibility floor AND Dom's
+ * fact-check surface (spec §2.2), independent of which presentation is
+ * showing.
  */
 export function BuildTimeline({
   commits,
@@ -217,87 +235,10 @@ function TimelineRule({
 }
 
 /* ---------------------------------------------------------------------- */
-/* Desktop: horizontal rule, alternating above/below phase captions        */
+/* Desktop: the rule (unchanged, honest visualization) + an ordered list   */
+/* of phase narratives in normal flow beneath it — see the deviation note   */
+/* on `BuildTimeline` above for why this replaced alternating captions.     */
 /* ---------------------------------------------------------------------- */
-
-/**
- * Measures every desktop phase caption's REAL rendered content height —
- * NOT an estimate (2026-07-19, second fix: a character-count estimator lived
- * here briefly and was verifiably wrong, in the direction that causes
- * overlap, because rendered height depends on wrap points, not character
- * count — see `src/lib/timeline.ts`'s doc comment on this history).
- *
- * Two layers, deliberately:
- * 1. A SYNCHRONOUS read (`el.getBoundingClientRect().height`) inside
- *    `useLayoutEffect`. `useLayoutEffect` runs after the DOM commits but
- *    BEFORE the browser paints, and setting state inside it flushes a
- *    correction in that same pre-paint window — so in any real browser, a
- *    reader never actually sees the pre-measurement fallback render. This
- *    is also why the motion resting-state rule still holds: reaching the
- *    correct layout depends on `useLayoutEffect`'s ordering guarantee, not
- *    on an animation frame ever running (rAF can be frozen/dead and this
- *    still resolves).
- * 2. A `ResizeObserver` on the same elements, for everything a one-time
- *    read can't catch — a web font finishing its swap after first paint,
- *    a content edit in dev. Its callback isn't guaranteed synchronous
- *    (unlike the read above), so this layer is a best-effort correction,
- *    not the first-paint guarantee.
- *
- * If neither is available (`ResizeObserver` undefined — jsdom without the
- * `src/smoke/setup.ts` stub, or a very old browser), heights simply stay
- * unmeasured and every caption uses `FALLBACK_CAPTION_HEIGHT_PX` — a safe,
- * generous constant, never a collapsed or overlapping layout.
- */
-function useMeasuredCaptionHeights(phases: readonly ProcessPhase[]): {
-  heights: CaptionHeights;
-  registerCaptionRef: (index: number) => (el: HTMLElement | null) => void;
-} {
-  const [heights, setHeights] = useState<Record<number, number>>({});
-  const elementsRef = useRef<Map<number, HTMLElement>>(new Map());
-
-  const registerCaptionRef = useCallback(
-    (index: number) => (el: HTMLElement | null) => {
-      if (el) elementsRef.current.set(index, el);
-      else elementsRef.current.delete(index);
-    },
-    [],
-  );
-
-  useLayoutEffect(() => {
-    // `phases` changing identity means a different project's captions are
-    // now mounted (ProjectDetail can stay mounted across a route change to
-    // a different project's page) — every previous measurement describes
-    // content that no longer exists, so start clean rather than showing a
-    // stale, unrelated height even for one frame.
-    setHeights({});
-
-    const elements = elementsRef.current;
-
-    function measureAll() {
-      setHeights((prev) => {
-        let changed = false;
-        const next: Record<number, number> = { ...prev };
-        for (const [index, el] of elements) {
-          const height = Math.ceil(el.getBoundingClientRect().height);
-          if (height > 0 && next[index] !== height) {
-            next[index] = height;
-            changed = true;
-          }
-        }
-        return changed ? next : prev;
-      });
-    }
-
-    measureAll();
-
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(() => measureAll());
-    for (const el of elements.values()) observer.observe(el);
-    return () => observer.disconnect();
-  }, [phases]);
-
-  return { heights, registerCaptionRef };
-}
 
 function DesktopTimeline({
   scaffold,
@@ -310,72 +251,70 @@ function DesktopTimeline({
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
-  // Side/lane assignment (collision-avoidance) lives in `src/lib/timeline.ts`
-  // as pure, unit-tested functions — see that file's "Desktop caption
-  // collision-avoidance" section. `clearancePx` replaces the previous flat
-  // `pt-[22rem] pb-[22rem]` (352px): it's derived from REAL measured caption
-  // heights (`useMeasuredCaptionHeights` above), applied to BOTH
-  // paddingTop and paddingBottom (kept symmetric on purpose — see
-  // `TimelineCaptionLayout.clearancePx`'s doc comment) so the rule's plain
-  // `top: 50%` stays exactly centered.
-  const { heights, registerCaptionRef } = useMeasuredCaptionHeights(phases);
-  const layout = layoutPhaseCaptions(phases, scaffold, heights);
+  // The entire "layout" a phase needs now: a chronological number, nothing
+  // more — see `numberPhasesChronologically`'s doc comment in
+  // `src/lib/timeline.ts` for why there's no side/lane/height/clearance
+  // math here anymore.
+  const numberedPhases = numberPhasesChronologically(phases, scaffold);
   // The solo -> team handoff (empty for every all-solo/all-team project —
   // all six today), see `findHandoffs`'s doc comment in `src/lib/timeline.ts`.
   const handoffs = findHandoffs(phases, scaffold);
   const hasHandoff = handoffs.length > 0;
 
   return (
-    <div
-      className="relative mb-6 hidden pr-24 lg:block"
-      style={{ paddingTop: layout.clearancePx, paddingBottom: layout.clearancePx }}
-    >
-      {/* Decorative scaffold — rule, ticks, connectors. Real content (phase
-          captions, and the handoff marker) lives outside this aria-hidden
-          wrapper below. The extra `pr-24` on the outer container reserves
-          room for the "still open" terminus label so it never bleeds past
-          the column's right edge — it's positioned at the rule's end
-          (100%), inside that reserved space, never outside the component's
-          own box. */}
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
-        <TimelineRule axis="x" progress={progress} reduced={reduced} handoffPositions={handoffs.map((h) => h.position)} />
-        {scaffold.ticks.map((tick) => (
-          <DesktopTickDot key={tick.date} tick={tick} progress={progress} reduced={reduced} />
-        ))}
-        {scaffold.isOpenEnded && (
-          <span
-            className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
-          >
-            → still open
-          </span>
-        )}
-        {scaffold.gaps.map((gap) => (
-          <GapLabel key={gap.position} gap={gap} />
+    <div className="hidden lg:block">
+      {/* The rule graphic — proportional positions, ticks, burst-count
+          badges, gap labels, the cleanup-sweep flag, the solo/team handoff
+          marker, and now a small numbered marker per phase, pairing it to
+          its list item below. Nothing here needs project-dependent
+          clearance any more (phase text no longer lives in this box), so
+          the vertical padding is a small fixed constant, sized only for
+          this graphic's own decorative elements. The extra `pr-24`
+          reserves room for the "still open" terminus label so it never
+          bleeds past the column's right edge. */}
+      <div className="relative mb-8 py-9 pr-24">
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
+          <TimelineRule axis="x" progress={progress} reduced={reduced} handoffPositions={handoffs.map((h) => h.position)} />
+          {scaffold.ticks.map((tick) => (
+            <DesktopTickDot key={tick.date} tick={tick} progress={progress} reduced={reduced} />
+          ))}
+          {scaffold.isOpenEnded && (
+            <span
+              className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
+            >
+              → still open
+            </span>
+          )}
+          {scaffold.gaps.map((gap) => (
+            <GapLabel key={gap.position} gap={gap} />
+          ))}
+          {numberedPhases.map((numberedPhase) => (
+            <DesktopPhaseNumberMarker key={numberedPhase.number} numberedPhase={numberedPhase} />
+          ))}
+        </div>
+
+        {/* The handoff itself — real, non-`aria-hidden` content (this is
+            the "and then the team took over" moment Dom asked to make
+            visible), sitting directly on the rule. Renders nothing at all
+            for the six all-solo projects today (`handoffs` is empty). */}
+        {handoffs.map((handoff) => (
+          <DesktopHandoffMarker key={handoff.position} handoff={handoff} />
         ))}
       </div>
 
-      {/* Real content — phase captions, packed onto a side + lane by
-          `layoutPhaseCaptions` so no two ever overlap, connected by a
-          decorative aria-hidden SVG line (the design-brief §6 `MarginNote`
-          connector device) whose length grows with the caption's lane. */}
-      {layout.assignments.map((assignment) => (
-        <DesktopPhaseCaption
-          key={`${assignment.phase.from}-${assignment.phase.title}`}
-          assignment={assignment}
-          offsetPx={(assignment.side === 'above' ? layout.above : layout.below).offsets[assignment.lane]}
-          showModeTag={hasHandoff}
-          contentRef={registerCaptionRef(assignment.index)}
-        />
-      ))}
-
-      {/* The handoff itself — real, non-`aria-hidden` content (this is the
-          "and then the team took over" moment Dom asked to make visible),
-          sitting directly on the rule rather than above/below like a phase
-          caption. Renders nothing at all for the six all-solo projects
-          today (`handoffs` is empty). */}
-      {handoffs.map((handoff) => (
-        <DesktopHandoffMarker key={handoff.position} handoff={handoff} />
-      ))}
+      {/* Real content — one list item per phase, in the SAME chronological
+          order and carrying the SAME number as its rule marker above. An
+          `<ol>` in normal document flow cannot overlap, at any phase count
+          or clustering. */}
+      <ol className="flex flex-col gap-5">
+        {numberedPhases.map((numberedPhase) => (
+          <DesktopPhaseListItem
+            key={`${numberedPhase.phase.from}-${numberedPhase.phase.title}`}
+            numberedPhase={numberedPhase}
+            showModeTag={hasHandoff}
+          />
+        ))}
+      </ol>
     </div>
   );
 }
@@ -448,70 +387,65 @@ function GapLabel({ gap }: { gap: { position: number; days: number } }) {
   );
 }
 
-function DesktopPhaseCaption({
-  assignment,
-  offsetPx,
-  showModeTag,
-  contentRef,
-}: {
-  assignment: PhaseCaptionAssignment;
-  /** Distance (px) from the rule's centerline to this caption's near edge —
-   * also the connector SVG's length. Grows per lane (see
-   * `computeSideCaptionLayout` in `src/lib/timeline.ts`) so a caption pushed
-   * into a second lane still reads as connected to the rule, just further
-   * out, rather than floating. */
-  offsetPx: number;
-  /** True only when this project's timeline has a solo -> team handoff —
-   * see `phaseToneLabel`'s doc comment. */
-  showModeTag: boolean;
-  /** Attached to the tone-label + narrative wrapper (NOT the connector) —
-   * `useMeasuredCaptionHeights`' real DOM measurement point. See that
-   * hook's doc comment for why this replaced a character-count estimate. */
-  contentRef: (el: HTMLElement | null) => void;
-}) {
-  const { phase, position, side } = assignment;
-  const prefersReducedMotion = useReducedMotion();
-  const isAbove = side === 'above';
+/** Decorative-only (`aria-hidden`) — the visual pointer from a rule
+ * position to its matching numbered list item below. The number itself is
+ * real content only in `DesktopPhaseListItem`; this is purely a "look
+ * here" marker, same reasoning as the tick dots and gap labels it sits
+ * alongside. Deliberately distinct in shape/size from a plain commit-burst
+ * tick dot so it doesn't read as just another commit. */
+function DesktopPhaseNumberMarker({ numberedPhase }: { numberedPhase: NumberedPhase }) {
+  return (
+    <span
+      className="absolute top-1/2 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-marker-700/60 bg-paper font-mono text-[9px] font-semibold leading-none text-marker-700"
+      style={{ left: `${numberedPhase.position * 100}%` }}
+    >
+      {numberedPhase.number}
+    </span>
+  );
+}
 
+/** One phase's real content, in the ordered list beneath the rule — never
+ * overlaps anything, regardless of how tightly its phases cluster on the
+ * rule above, because it's normal document flow. Carries the same number
+ * as its `DesktopPhaseNumberMarker`, its real date range, its tone label
+ * (with the same "· Team" tag `phaseToneLabel` adds on a mixed-mode
+ * project), and the narrative itself. */
+function DesktopPhaseListItem({
+  numberedPhase,
+  showModeTag,
+}: {
+  numberedPhase: NumberedPhase;
+  showModeTag: boolean;
+}) {
+  const { phase, number } = numberedPhase;
+  const prefersReducedMotion = useReducedMotion();
   const motionProps = prefersReducedMotion
     ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { y: isAbove ? 16 : -16 },
+        initial: { y: 16 },
         whileInView: { y: 0 },
         viewport: { once: true, margin: '-40px' },
         transition: { duration: 0.35, ease: 'easeOut' as const },
       };
 
   return (
-    <m.div
-      className="absolute w-56 -translate-x-1/2 text-center"
-      style={{
-        left: `${position * 100}%`,
-        [isAbove ? 'bottom' : 'top']: `calc(50% + ${offsetPx}px)`,
-      }}
-      {...motionProps}
-    >
-      {/* Hand-drawn-style connector to the rule (design-brief §6 MarginNote
-          device) — purely decorative. Its length matches `offsetPx`, so a
-          caption stacked into a further-out lane gets a visibly longer
-          connector rather than looking disconnected from the rule. */}
-      <svg
+    <m.li className="flex gap-3" {...motionProps}>
+      {/* `aria-hidden`: the `<ol>`/`<li>` pairing already gives assistive
+          tech this item's ordinal position ("N of TOTAL") — a second,
+          redundant spoken "1" here would double up, not clarify. */}
+      <span
         aria-hidden="true"
-        width="2"
-        height={offsetPx}
-        viewBox={`0 0 2 ${offsetPx}`}
-        className={`mx-auto text-marker-700/50 ${isAbove ? 'mb-1 rotate-[1.5deg]' : 'mt-1 -rotate-[1.5deg] rotate-180'}`}
+        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-marker-700/60 bg-paper font-mono text-[10px] font-semibold leading-none text-marker-700"
       >
-        <line x1="1" y1="0" x2="1" y2={offsetPx} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-      {/* The measured element: tone label + narrative, excluding the
-          connector above (whose length is `offsetPx` — a LANE property,
-          not this caption's own content height). */}
-      <div ref={contentRef}>
-        <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{phaseToneLabel(phase, showModeTag)}</p>
+        {number}
+      </span>
+      <div>
+        <p className="mb-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
+          {phase.to && phase.to !== phase.from ? `${phase.from} – ${phase.to}` : phase.from} · {phaseToneLabel(phase, showModeTag)}
+        </p>
         <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
       </div>
-    </m.div>
+    </m.li>
   );
 }
 
