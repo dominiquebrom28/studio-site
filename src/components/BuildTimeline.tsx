@@ -42,18 +42,19 @@ export function BuildTimeline({
   const scaffold = buildTimelineScaffold(commits, status);
 
   // Scroll-linked, not scroll-triggered (spec §2.2/§5.1) — this is the
-  // specific "framer" feeling Dom named: the rule advances AND reverses
-  // with scroll direction. Always called (rules-of-hooks) even under
-  // reduced motion; its output is simply never read into a style value in
-  // that branch (see each child's `reduced ? ... : ...` `ruleStyle`/
-  // `reveal` branching below), which is cheaper and safer than
-  // conditionally skipping the hook.
+  // specific "framer" feeling Dom named: as of the 2026-07-19 P0 audit this
+  // ONLY drives the decorative (`aria-hidden`, never-zero) tick-dot scale
+  // pop on desktop — see `useRevealAtPosition`'s doc comment for why the
+  // rule itself and the gap/tick TEXT no longer read from this value.
+  // Always called (rules-of-hooks) even under reduced motion; its output is
+  // simply never read into a style value in that branch, which is cheaper
+  // and safer than conditionally skipping the hook.
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start 0.8', 'end 0.3'] });
 
   return (
     <div ref={sectionRef} className="mb-10">
       <DesktopTimeline scaffold={scaffold} phases={phases} progress={scrollYProgress} reduced={!!prefersReducedMotion} />
-      <MobileTimeline scaffold={scaffold} phases={phases} progress={scrollYProgress} reduced={!!prefersReducedMotion} />
+      <MobileTimeline scaffold={scaffold} phases={phases} />
       <CommitLog commits={commits} isOpenEnded={scaffold.isOpenEnded} />
     </div>
   );
@@ -74,15 +75,20 @@ function phaseAnchorPosition(phase: ProcessPhase, scaffold: TimelineScaffold): n
   return (fromPos + toPos) / 2;
 }
 
-/** Shared reveal-on-draw values for a single tick/gap/phase, gated to how
- * far the (scroll-linked, or instantly-complete under reduced motion) rule
- * has drawn past its position. Always calls the same two `useTransform`
- * hooks regardless of `reduced` — only the CONSUMED style differs. */
+/** Shared reveal-on-draw value for a single decorative tick dot, gated to
+ * how far the (scroll-linked, or instantly-complete under reduced motion)
+ * rule has drawn past its position — SCALE ONLY, floor 0.6 (never 0).
+ * Deliberately not `opacity`: `progress` sits at 0 before the reader has
+ * scrolled at all (or forever, if scroll/rAF is dead), and this value is
+ * read directly into a `style` prop with no animation frame required to
+ * observe it — an `opacity` mapped from the same input would make every
+ * tick invisible at rest, the exact class of bug this file was audited
+ * for (2026-07-19). A scale floor of 0.6 keeps the (purely decorative,
+ * `aria-hidden`) dot visibly present at every point in that range instead. */
 function useRevealAtPosition(progress: MotionValue<number>, position: number, reduced: boolean) {
   const start = Math.max(position - 0.035, 0);
-  const opacity = useTransform(progress, [start, position], [0, 1]);
   const scale = useTransform(progress, [start, position], [0.6, 1]);
-  return reduced ? { opacity: 1, scale: 1 } : { opacity, scale };
+  return reduced ? { scale: 1 } : { scale };
 }
 
 function CommitCountBadge({ count }: { count: number }) {
@@ -117,7 +123,17 @@ function DesktopTimeline({
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
-  const ruleStyle = reduced ? { scaleX: 1 } : { scaleX: progress };
+  // The rule's resting state is ALWAYS fully drawn (`scaleX: 1`), scroll or
+  // no scroll, JS-live or not — a horizontal rule whose width is bound
+  // straight to `scrollYProgress` sits at `scaleX: 0` (zero-width, i.e.
+  // invisible) until the reader scrolls, with no rAF/timer required to
+  // observe that resting value. That's the exact same "un-animated state
+  // isn't the same content" failure the P0 audit found in the opacity
+  // fades elsewhere on this page, just expressed as a transform instead of
+  // an opacity — so it gets the same fix: never bake in a hidden resting
+  // state. `progress` remains threaded through for `DesktopTickDot`'s
+  // decorative (never-zero) scale pop.
+  const ruleStyle = { scaleX: 1 };
 
   return (
     <div className="relative mb-6 hidden pt-[22rem] pb-[22rem] pr-24 lg:block">
@@ -152,7 +168,7 @@ function DesktopTimeline({
           </span>
         )}
         {scaffold.gaps.map((gap) => (
-          <GapLabel key={gap.position} gap={gap} progress={progress} reduced={reduced} />
+          <GapLabel key={gap.position} gap={gap} />
         ))}
       </div>
 
@@ -181,7 +197,7 @@ function DesktopTickDot({
   return (
     <m.div
       className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center"
-      style={{ left: `${tick.position * 100}%`, opacity: reveal.opacity, scale: reveal.scale }}
+      style={{ left: `${tick.position * 100}%`, scale: reveal.scale }}
     >
       <span
         className={`rounded-full border-2 border-paper ${tick.isCleanupSweep ? 'bg-marker-700' : 'bg-ink'}`}
@@ -194,26 +210,21 @@ function DesktopTickDot({
 /** Desktop-only — positioned along the horizontal rule at the gap's real
  * midpoint. Mobile's equivalent is `MobileGapRow`, a plain flow row (no
  * absolute positioning needed once the rail is vertical and already in
- * document order). */
-function GapLabel({
-  gap,
-  progress,
-  reduced,
-}: {
-  gap: { position: number; days: number };
-  progress: MotionValue<number>;
-  reduced: boolean;
-}) {
-  const reveal = useRevealAtPosition(progress, gap.position, reduced);
-
+ * document order).
+ *
+ * Always rendered, no motion: this is real text ("N days") a sighted
+ * reader needs to read regardless of scroll position, so it can't be
+ * gated behind a scroll-driven `opacity` that sits at 0 until scrolled
+ * (or forever, under throttled/suspended rAF) — the same class of bug the
+ * 2026-07-19 P0 audit found in the page's fade-in entrances. */
+function GapLabel({ gap }: { gap: { position: number; days: number } }) {
   return (
-    <m.span
+    <span
       className="absolute top-4 -translate-x-1/2 whitespace-nowrap font-mono text-[11px] text-ink-muted"
-      style={{ left: `${gap.position * 100}%`, opacity: reveal.opacity }}
-      transition={reduced ? undefined : { duration: 0.5, delay: 0.15 }}
+      style={{ left: `${gap.position * 100}%` }}
     >
       {gap.days} days
-    </m.span>
+    </span>
   );
 }
 
@@ -231,10 +242,10 @@ function DesktopPhaseCaption({
   const above = index % 2 === 0;
 
   const motionProps = prefersReducedMotion
-    ? { initial: { opacity: 1, y: 0 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } }
+    ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { opacity: 0, y: above ? 16 : -16 },
-        whileInView: { opacity: 1, y: 0 },
+        initial: { y: above ? 16 : -16 },
+        whileInView: { y: 0 },
         viewport: { once: true, margin: '-40px' },
         transition: { duration: 0.35, ease: 'easeOut' as const },
       };
@@ -269,15 +280,14 @@ function DesktopPhaseCaption({
 function MobileTimeline({
   scaffold,
   phases,
-  progress,
-  reduced,
 }: {
   scaffold: TimelineScaffold;
   phases: ProcessPhase[];
-  progress: MotionValue<number>;
-  reduced: boolean;
 }) {
-  const ruleStyle = reduced ? { scaleY: 1 } : { scaleY: progress };
+  // See `DesktopTimeline`'s matching comment — a `scaleY` bound straight to
+  // scroll progress sits at 0 (zero-height, invisible) at rest, so the
+  // vertical rule is always rendered fully drawn instead.
+  const ruleStyle = { scaleY: 1 };
 
   // Interleave ticks, gaps, and phases into one date-ordered flow so a
   // phase caption reads directly after the commit(s) it's describing
@@ -303,10 +313,10 @@ function MobileTimeline({
       <div className="flex flex-col gap-4">
         {rows.map((row, index) => {
           if (row.kind === 'tick') {
-            return <MobileTickRow key={`tick-${row.tick.date}-${index}`} tick={row.tick} progress={progress} reduced={reduced} />;
+            return <MobileTickRow key={`tick-${row.tick.date}-${index}`} tick={row.tick} />;
           }
           if (row.kind === 'gap') {
-            return <MobileGapRow key={`gap-${row.gap.position}`} gap={row.gap} progress={progress} reduced={reduced} />;
+            return <MobileGapRow key={`gap-${row.gap.position}`} gap={row.gap} />;
           }
           return <MobilePhaseRow key={`phase-${row.phase.from}-${row.phase.title}`} phase={row.phase} />;
         })}
@@ -321,22 +331,12 @@ function MobileTimeline({
   );
 }
 
-function MobileTickRow({
-  tick,
-  progress,
-  reduced,
-}: {
-  tick: TimelineTick;
-  progress: MotionValue<number>;
-  reduced: boolean;
-}) {
-  const reveal = useRevealAtPosition(progress, tick.position, reduced);
-
+// Always rendered, no motion — same reasoning as `GapLabel`: the tick date
+// is real text a reader needs to read, so it never sits behind a
+// scroll-driven `opacity` that starts at (or freezes at) 0.
+function MobileTickRow({ tick }: { tick: TimelineTick }) {
   return (
-    <m.p
-      className="relative font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
-      style={{ opacity: reveal.opacity }}
-    >
+    <p className="relative font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
       <span
         aria-hidden="true"
         className={`absolute -left-8 top-1 h-2 w-2 rounded-full ${tick.isCleanupSweep ? 'bg-marker-700' : 'bg-ink'}`}
@@ -344,43 +344,28 @@ function MobileTickRow({
       {tick.date}
       <CommitCountBadge count={tick.count} />
       {tick.isCleanupSweep && <SweepFlag />}
-    </m.p>
+    </p>
   );
 }
 
 /** The mobile-flow equivalent of `GapLabel` — a plain flow row (no absolute
  * positioning needed; the vertical rail is already reading order), so a
  * ≥14-day silence gets its duration stamped on mobile exactly as it does on
- * the desktop rule, not silently dropped. */
-function MobileGapRow({
-  gap,
-  progress,
-  reduced,
-}: {
-  gap: { position: number; days: number };
-  progress: MotionValue<number>;
-  reduced: boolean;
-}) {
-  const reveal = useRevealAtPosition(progress, gap.position, reduced);
-
+ * the desktop rule, not silently dropped. Always rendered, no motion — same
+ * reasoning as `GapLabel`/`MobileTickRow` above. */
+function MobileGapRow({ gap }: { gap: { position: number; days: number } }) {
   return (
-    <m.p
-      className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
-      style={{ opacity: reveal.opacity }}
-      transition={reduced ? undefined : { duration: 0.5, delay: 0.15 }}
-    >
-      {gap.days} days of silence
-    </m.p>
+    <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{gap.days} days of silence</p>
   );
 }
 
 function MobilePhaseRow({ phase }: { phase: ProcessPhase }) {
   const prefersReducedMotion = useReducedMotion();
   const motionProps = prefersReducedMotion
-    ? { initial: { opacity: 1, y: 0 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } }
+    ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { opacity: 0, y: 16 },
-        whileInView: { opacity: 1, y: 0 },
+        initial: { y: 16 },
+        whileInView: { y: 0 },
         viewport: { once: true, margin: '-40px' },
         transition: { duration: 0.35, ease: 'easeOut' as const },
       };

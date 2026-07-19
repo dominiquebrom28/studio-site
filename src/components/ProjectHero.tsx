@@ -12,14 +12,17 @@ const SETTLE_EASE = [0.16, 1, 0.3, 1] as const;
  * links markup, shared by both templates so hero motion lives in exactly
  * one place. Renders the single `<h1>` for the page.
  *
- * Non-negotiable (spec §5.3, §3.1): the cover image (or the no-cover
- * placeholder, which becomes the LCP element on cover-less pages) NEVER
- * animates `opacity` — only `scale`/`translateY`. An opacity fade delays
- * when the browser counts the image painted; transform-only affects
- * neither LCP timing nor CLS. Every un-animated starting state below is the
- * exact same readable content the animated end state is, just at a
- * different scale/position — nothing is `opacity: 0` in a way only JS
- * clears (see the top-level non-negotiables in the task brief).
+ * Non-negotiable (spec §5.3, §3.1), and NOT just for the cover image:
+ * nothing in this component ever animates `opacity` — every entrance here
+ * (eyebrow row, status/date, H1, stack chips, cover) moves only
+ * `scale`/`translateY`/`rotate`. `initial` is applied synchronously as an
+ * inline style by Framer Motion the moment this mounts (no rAF/timer
+ * required to observe it) — so if `initial` ever sets `opacity: 0`, that IS
+ * the frozen-forever state under throttled/suspended rAF, not a transient
+ * one. Every un-animated starting state below is the exact same readable
+ * content the animated end state is, just at a different scale/position/
+ * rotation — nothing is `opacity: 0` anywhere in this file (see the
+ * top-level non-negotiables in the task brief).
  */
 export function ProjectHero({ project }: { project: Project }) {
   const prefersReducedMotion = useReducedMotion();
@@ -35,24 +38,24 @@ export function ProjectHero({ project }: { project: Project }) {
   const eyebrowLabel = project.template === 'single-sitting' ? 'ONE SITTING · SOLO BUILD' : 'SOLO BUILD · NO AGENT TEAM';
 
   const eyebrowMotion = prefersReducedMotion
-    ? { initial: { opacity: 1, y: 0 }, animate: { opacity: 1, y: 0 } }
-    : { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35, ease: 'easeOut' as const } };
+    ? { initial: { y: 0 }, animate: { y: 0 } }
+    : { initial: { y: 16 }, animate: { y: 0 }, transition: { duration: 0.35, ease: 'easeOut' as const } };
 
   const titleMotion = prefersReducedMotion
-    ? { initial: { opacity: 1, y: 0 }, animate: { opacity: 1, y: 0 } }
+    ? { initial: { y: 0 }, animate: { y: 0 } }
     : {
-        initial: { opacity: 0, y: 16 },
-        animate: { opacity: 1, y: 0 },
+        initial: { y: 16 },
+        animate: { y: 0 },
         transition: { duration: 0.35, ease: 'easeOut' as const, delay: 0.04 },
       };
 
   function stampMotion(index: number) {
     if (prefersReducedMotion) {
-      return { initial: { opacity: 1, scale: 1, rotate: -2 }, animate: { opacity: 1, scale: 1, rotate: -2 } };
+      return { initial: { scale: 1, rotate: -2 }, animate: { scale: 1, rotate: -2 } };
     }
     return {
-      initial: { opacity: 0, scale: 1.15, rotate: -6 },
-      animate: { opacity: 1, scale: 1, rotate: -2 },
+      initial: { scale: 1.15, rotate: -6 },
+      animate: { scale: 1, rotate: -2 },
       transition: { duration: 0.35, ease: BACK_EASE, delay: index * 0.04 },
     };
   }

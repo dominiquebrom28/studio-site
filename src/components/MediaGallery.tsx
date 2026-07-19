@@ -126,11 +126,16 @@ function GalleryItem({ item, index }: { item: ProjectMediaItem; index: number })
     });
   }
 
+  // Transform-only entrance (spec §5.3) — `initial` is applied synchronously
+  // as an inline style on mount, no rAF/timer needed to observe it, so an
+  // `opacity: 0` initial IS the permanently-frozen state under
+  // throttled/suspended rAF, not a transient one (2026-07-19 P0 audit).
+  // `opacity` stays 1 throughout; only `y` (rise) animates.
   const entranceMotion = prefersReducedMotion
-    ? { initial: { opacity: 1, y: 0 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } }
+    ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { opacity: 0, y: 24 },
-        whileInView: { opacity: 1, y: 0 },
+        initial: { y: 24 },
+        whileInView: { y: 0 },
         viewport: { once: true, margin: '-40px' },
         transition: { duration: 0.3, ease: 'easeOut' as const, delay: index * 0.08 },
       };

@@ -23,8 +23,10 @@ export function narrativeTextClass(source: Provenance): string {
 }
 
 interface NarrativeBlockProps {
-  /** Mono eyebrow label, e.g. "WHY THIS EXISTS" / "THE BRIEF". */
-  eyebrow: string;
+  /** Mono eyebrow label, e.g. "WHY THIS EXISTS" / "THE BRIEF". Omit it when
+   * it would only repeat `heading` verbatim (the `ProvenanceTag` alone is
+   * enough in that slot) — see the header-rendering doc comment below. */
+  eyebrow?: string;
   /** Drives the `ProvenanceTag` shown in the eyebrow row — for `variant:
    * "card"`, this is the block's overall/summarizing tag; individual
    * bullets (rendered via `NarrativeBullets`) carry their own source too. */
@@ -43,37 +45,46 @@ interface NarrativeBlockProps {
  * ruling, no card — so these read as distinct sections rather than more
  * notebook page (spec §7 "Reused as-is" note on `Prose`).
  *
- * Motion (spec §5.2 "Why/Brief entrance"): fade+rise 20px, eyebrow 60ms
- * before body, 400ms ease-out, `whileInView` `{ once: true }`. Reduced
- * motion collapses to an instant opacity-only appearance via
- * `useReducedMotion()` (not Tailwind's `motion-reduce:`, since this is
- * JS-driven scroll-triggered motion, not a hover/press transition).
+ * Motion (spec §5.2 "Why/Brief entrance"): rise 20px, eyebrow 60ms before
+ * body, 400ms ease-out, `whileInView` `{ once: true }`. Transform-only —
+ * `opacity` stays 1 throughout (never part of `initial`): `initial` is
+ * applied synchronously as an inline style on mount (no rAF/timer needed
+ * to see it), so an `opacity: 0` initial IS the permanently-frozen state
+ * under throttled/suspended rAF, not a transient one. Reduced motion
+ * collapses to a static, already-in-place render via `useReducedMotion()`
+ * (not Tailwind's `motion-reduce:`, since this is JS-driven
+ * scroll-triggered motion, not a hover/press transition).
  */
 export function NarrativeBlock({ eyebrow, source, heading, children, variant = 'prose' }: NarrativeBlockProps) {
   const prefersReducedMotion = useReducedMotion();
   const ref = useRef(null);
 
   const eyebrowMotion = prefersReducedMotion
-    ? { initial: { opacity: 1 }, whileInView: { opacity: 1 }, viewport: { once: true } }
+    ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { opacity: 0, y: 20 },
-        whileInView: { opacity: 1, y: 0 },
+        initial: { y: 20 },
+        whileInView: { y: 0 },
         viewport: { once: true, margin: '-80px' },
         transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const },
       };
 
   const bodyMotion = prefersReducedMotion
-    ? { initial: { opacity: 1 }, whileInView: { opacity: 1 }, viewport: { once: true } }
+    ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { opacity: 0, y: 20 },
-        whileInView: { opacity: 1, y: 0 },
+        initial: { y: 20 },
+        whileInView: { y: 0 },
         viewport: { once: true, margin: '-80px' },
         transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const, delay: 0.06 },
       };
 
+  // `eyebrow` is optional — when the section's H2 already says the same
+  // words ("Why this exists" / "The brief"), a mono-text eyebrow repeating
+  // it verbatim is redundant copy AND a duplicate screen-reader
+  // announcement. Omit the prop at the call site and the `ProvenanceTag`
+  // stands alone in that slot instead.
   const header = (
     <m.div ref={ref} className="mb-3 flex items-center gap-2" {...eyebrowMotion}>
-      <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{eyebrow}</p>
+      {eyebrow && <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{eyebrow}</p>}
       <ProvenanceTag source={source} />
     </m.div>
   );

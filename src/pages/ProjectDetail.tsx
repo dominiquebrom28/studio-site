@@ -52,9 +52,14 @@ function MoreProjectsList({ projects }: { projects: Project[] }) {
 
 function BackLink() {
   const prefersReducedMotion = useReducedMotion();
+  // Transform-only entrance (spec §5.3, 2026-07-19 P0 audit) — `initial` is
+  // applied synchronously on mount with no rAF/timer required, so an
+  // `opacity: 0` initial is the permanently-frozen state under
+  // throttled/suspended rAF, not a transient one. `opacity` stays 1; only
+  // `y` (rise) animates.
   const motionProps = prefersReducedMotion
-    ? { initial: { opacity: 1, y: 0 }, animate: { opacity: 1, y: 0 } }
-    : { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35, ease: 'easeOut' as const } };
+    ? { initial: { y: 0 }, animate: { y: 0 } }
+    : { initial: { y: 16 }, animate: { y: 0 }, transition: { duration: 0.35, ease: 'easeOut' as const } };
 
   return (
     <m.div {...motionProps}>
@@ -79,14 +84,18 @@ function StandardTemplate({ project, moreProjects }: { project: Project; morePro
     <>
       <ProjectHero project={project} />
 
+      {/* No `eyebrow` prop here on purpose — it would repeat the H2 below
+          verbatim ("WHY THIS EXISTS" mono label over an "Why this exists"
+          H2, announced twice by a screen reader). The `ProvenanceTag`
+          stands alone in that row instead. */}
       {project.goal && (
-        <NarrativeBlock eyebrow="Why this exists" source={project.goal.source} heading="Why this exists">
+        <NarrativeBlock source={project.goal.source} heading="Why this exists">
           {project.goal.text}
         </NarrativeBlock>
       )}
 
       {project.brief && (
-        <NarrativeBlock eyebrow="The brief" source={project.brief.source} heading="The brief" variant="card">
+        <NarrativeBlock source={project.brief.source} heading="The brief" variant="card">
           <NarrativeBullets bullets={project.brief.bullets} />
         </NarrativeBlock>
       )}
