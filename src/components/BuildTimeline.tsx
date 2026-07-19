@@ -1,7 +1,14 @@
 import { useRef } from 'react';
 import { m, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
-import { buildTimelineScaffold, positionForDate, type TimelineScaffold, type TimelineTick } from '@/lib/timeline';
+import {
+  buildTimelineScaffold,
+  layoutPhaseCaptions,
+  phaseAnchorPosition,
+  type PhaseCaptionAssignment,
+  type TimelineScaffold,
+  type TimelineTick,
+} from '@/lib/timeline';
 
 /**
  * `BuildTimeline` (docs/project-page-v2.md §2.2) — the process
@@ -70,13 +77,6 @@ const TONE_LABEL: Record<ProcessPhase['tone'], string> = {
   cleanup: 'Cleanup',
   reactivation: 'Reactivation',
 };
-
-function phaseAnchorPosition(phase: ProcessPhase, scaffold: TimelineScaffold): number {
-  const fromPos = positionForDate(phase.from, scaffold);
-  if (!phase.to) return fromPos;
-  const toPos = positionForDate(phase.to, scaffold);
-  return (fromPos + toPos) / 2;
-}
 
 /** Shared reveal-on-draw value for a single decorative tick dot, gated to
  * how far the (scroll-linked, or instantly-complete under reduced motion)
@@ -186,26 +186,27 @@ function DesktopTimeline({
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
+  // Side/lane assignment (collision-avoidance) + the resulting vertical
+  // clearance both live in `src/lib/timeline.ts` as pure, unit-tested
+  // functions — see that file's "Desktop caption collision-avoidance"
+  // section for the full reasoning. `clearancePx` replaces the previous
+  // flat `pt-[22rem] pb-[22rem]` (352px): it's content-derived per project,
+  // applied to BOTH paddingTop and paddingBottom (kept symmetric on purpose
+  // — see `TimelineCaptionLayout.clearancePx`'s doc comment) so the rule's
+  // plain `top: 50%` stays exactly centered.
+  const layout = layoutPhaseCaptions(phases, scaffold);
+
   return (
-    <div className="relative mb-6 hidden pt-[22rem] pb-[22rem] pr-24 lg:block">
+    <div
+      className="relative mb-6 hidden pr-24 lg:block"
+      style={{ paddingTop: layout.clearancePx, paddingBottom: layout.clearancePx }}
+    >
       {/* Decorative scaffold — rule, ticks, connectors. Real content (phase
           captions) lives outside this aria-hidden wrapper below. The extra
           `pr-24` on the outer container reserves room for the "still open"
           terminus label so it never bleeds past the column's right edge —
           it's positioned at the rule's end (100%), inside that reserved
-          space, never outside the component's own box.
-
-          `pt-[22rem]`/`pb-[22rem]` (was `pt-24 pb-24`, 96px): a phase caption
-          is `w-56` (224px) with up to 3 sentences of body text, and its box
-          is anchored by its OUTER edge (`bottom-[calc(50%+28px)]` / `top-...`)
-          growing away from the rule as content wraps — absolutely-positioned
-          content is never clipped by a parent's padding, so 96px of headroom
-          was nowhere near enough: measured caption heights across all five
-          standard-template projects range up to 322px (lovediary), and
-          several exceeded 96px enough to overlap the "The process" H2 above
-          and the commit-log `<details>`/media gallery below (QA finding —
-          verified via real Chrome, not just this dev tool). 352px clears the
-          tallest measured caption with headroom for future copy edits. */}
+          space, never outside the component's own box. */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
         <TimelineRule axis="x" progress={progress} reduced={reduced} />
         {scaffold.ticks.map((tick) => (
@@ -223,11 +224,16 @@ function DesktopTimeline({
         ))}
       </div>
 
-      {/* Real content — phase captions, alternating above (even index) /
-          below (odd index) the rule, connected by a decorative aria-hidden
-          SVG line (the design-brief §6 `MarginNote` connector device). */}
-      {phases.map((phase, index) => (
-        <DesktopPhaseCaption key={`${phase.from}-${phase.title}`} phase={phase} index={index} scaffold={scaffold} />
+      {/* Real content — phase captions, packed onto a side + lane by
+          `layoutPhaseCaptions` so no two ever overlap, connected by a
+          decorative aria-hidden SVG line (the design-brief §6 `MarginNote`
+          connector device) whose length grows with the caption's lane. */}
+      {layout.assignments.map((assignment) => (
+        <DesktopPhaseCaption
+          key={`${assignment.phase.from}-${assignment.phase.title}`}
+          assignment={assignment}
+          offsetPx={(assignment.side === 'above' ? layout.above : layout.below).offsets[assignment.lane]}
+        />
       ))}
     </div>
   );
@@ -280,22 +286,25 @@ function GapLabel({ gap }: { gap: { position: number; days: number } }) {
 }
 
 function DesktopPhaseCaption({
-  phase,
-  index,
-  scaffold,
+  assignment,
+  offsetPx,
 }: {
-  phase: ProcessPhase;
-  index: number;
-  scaffold: TimelineScaffold;
+  assignment: PhaseCaptionAssignment;
+  /** Distance (px) from the rule's centerline to this caption's near edge —
+   * also the connector SVG's length. Grows per lane (see
+   * `computeSideCaptionLayout` in `src/lib/timeline.ts`) so a caption pushed
+   * into a second lane still reads as connected to the rule, just further
+   * out, rather than floating. */
+  offsetPx: number;
 }) {
+  const { phase, position, side } = assignment;
   const prefersReducedMotion = useReducedMotion();
-  const position = phaseAnchorPosition(phase, scaffold);
-  const above = index % 2 === 0;
+  const isAbove = side === 'above';
 
   const motionProps = prefersReducedMotion
     ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { y: above ? 16 : -16 },
+        initial: { y: isAbove ? 16 : -16 },
         whileInView: { y: 0 },
         viewport: { once: true, margin: '-40px' },
         transition: { duration: 0.35, ease: 'easeOut' as const },
@@ -303,20 +312,25 @@ function DesktopPhaseCaption({
 
   return (
     <m.div
-      className={`absolute w-56 -translate-x-1/2 text-center ${above ? 'bottom-[calc(50%+28px)]' : 'top-[calc(50%+28px)]'}`}
-      style={{ left: `${position * 100}%` }}
+      className="absolute w-56 -translate-x-1/2 text-center"
+      style={{
+        left: `${position * 100}%`,
+        [isAbove ? 'bottom' : 'top']: `calc(50% + ${offsetPx}px)`,
+      }}
       {...motionProps}
     >
       {/* Hand-drawn-style connector to the rule (design-brief §6 MarginNote
-          device) — purely decorative. */}
+          device) — purely decorative. Its length matches `offsetPx`, so a
+          caption stacked into a further-out lane gets a visibly longer
+          connector rather than looking disconnected from the rule. */}
       <svg
         aria-hidden="true"
         width="2"
-        height="28"
-        viewBox="0 0 2 28"
-        className={`mx-auto text-marker-700/50 ${above ? 'mb-1 rotate-[1.5deg]' : 'mt-1 -rotate-[1.5deg] rotate-180'}`}
+        height={offsetPx}
+        viewBox={`0 0 2 ${offsetPx}`}
+        className={`mx-auto text-marker-700/50 ${isAbove ? 'mb-1 rotate-[1.5deg]' : 'mt-1 -rotate-[1.5deg] rotate-180'}`}
       >
-        <line x1="1" y1="0" x2="1" y2="28" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="1" y1="0" x2="1" y2={offsetPx} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
       <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{TONE_LABEL[phase.tone]}</p>
       <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>

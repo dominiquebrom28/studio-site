@@ -1,6 +1,43 @@
 # Team rebuild model
 
-**Status:** draft for Dom's review · **Author:** architect (Theo)
+> ## ⚠️ SUPERSEDED IN PART — read this first
+>
+> **Dom reviewed this spec and chose a different structure.** His decision,
+> verbatim:
+>
+> > *"I think its better if we add it into the timeline/proces view: 'started out
+> > as a solo project with brief X' and then at one point we had the team look at
+> > it and we improved xyz. something like that will feel logical"*
+>
+> **One project, one timeline, one continuous story.** The team's involvement is a
+> *later chapter of the same project*, not a second project entry. There is no
+> ancestor edge, no peer rebuild, no lineage chip, and no comparison surface —
+> because there are no longer two things to compare, only one thing that changed
+> hands partway through.
+>
+> **What this supersedes:** §2 (peer entries + `rebuild.of`), §5's `RebuildSchema`
+> and `rebuild` key, §6.1's lineage helpers and §6.2's graph validation, §8's
+> routing and lineage affordances, and PRs 2, 3 and 7 in §10.
+>
+> **What it replaces them with:** `mode: 'solo' | 'team'` on `ProcessPhaseSchema`,
+> defaulting to `'solo'`; a project-level value **derived** from its phases
+> (`solo` / `team` / `solo-to-team`), never authored; and a visible handoff moment
+> on the `BuildTimeline` where the team enters.
+>
+> **What survives, and is arguably more important now:** §3 (evidence asymmetry —
+> R1–R4 apply unchanged to the solo and team *chapters* of one timeline), §4's
+> reasoning against a scoreboard (Dom's structure removes the temptation
+> architecturally, which is a stronger fix than a guardrail), §4.1's divergence
+> log and the `regression` boolean, §4.2's mechanisms for making an unflattering
+> account as cheap to publish as a flattering one, §4.3 on abandonment, §7's
+> three-layer provenance separation, §9's list of Dom's decisions, and §11's
+> not-building list.
+>
+> The sections below are kept as the record of the rejected alternative and the
+> reasoning that still applies. **Do not implement §2, §5's `rebuild` key, §6.1,
+> §6.2 or §8 as written.**
+
+**Status:** superseded in part — see banner · **Author:** architect (Theo)
 **Amends:** `docs/spec.md` §3 · **Composes with:** `docs/provenance-model.md`, `docs/project-page-v2.md`
 **Source:** Dom, 2026-07-19 — *"maybe even make a new version of these current solo-projects with your help… i want the whole team to review these and re-invent them."*
 

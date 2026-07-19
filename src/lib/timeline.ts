@@ -1,4 +1,4 @@
-import type { CommitBurst, Project } from '@/content/schemas';
+import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
 
 /**
  * Pure `BuildTimeline` position math (docs/project-page-v2.md §2.2), kept
@@ -132,4 +132,236 @@ export function positionForDate(dateIso: string, scaffold: Pick<TimelineScaffold
   const endMs = Date.parse(scaffold.domainEnd);
   const span = Math.max(endMs - startMs, 1);
   return Math.min(1, Math.max(0, (Date.parse(dateIso) - startMs) / span));
+}
+
+/**
+ * A phase's anchor position on the [0,1] rule — the midpoint of `from`/`to`
+ * when both are set, `from` alone otherwise. Shared by `BuildTimeline`
+ * (mobile's inline flow ordering) and `assignPhaseCaptionLanes` below, so
+ * both read the exact same anchor a caption's connector actually points at.
+ */
+export function phaseAnchorPosition(phase: Pick<ProcessPhase, 'from' | 'to'>, scaffold: Pick<TimelineScaffold, 'domainStart' | 'domainEnd'>): number {
+  const fromPos = positionForDate(phase.from, scaffold);
+  if (!phase.to) return fromPos;
+  const toPos = positionForDate(phase.to, scaffold);
+  return (fromPos + toPos) / 2;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Desktop caption collision-avoidance (docs/project-page-v2.md §2.2 fix,   */
+/* 2026-07-19 "MensApp captions overlap each other" finding)                */
+/* ------------------------------------------------------------------------ */
+//
+// Prior behaviour picked a caption's side (above/below the rule) purely from
+// its array index (`index % 2`). That's fine when phases are spread out
+// along the domain — the four other standard-template projects all
+// coincidentally are — but MensApp's five phases cluster in the first ~7%
+// of a 78-day domain, so two same-side captions land close enough in real
+// position to visually overlap. Bumping vertical padding (the previous
+// fix) can't solve this: the captions collide with EACH OTHER along the
+// horizontal axis, not with the heading/commit-log above/below them.
+//
+// The fix below is a hybrid of the collision-avoidance strategies the task
+// brief names: alternate sides by default (preserves the exact layout of
+// every project that already looks right), but when a caption's horizontal
+// footprint would collide with the nearest earlier caption already
+// claiming a lane on that side, push it into a new vertical lane instead
+// (bullet "stack same-side captions into distinct vertical lanes" +
+// "push to a second lane on collision") — a straightforward greedy
+// lane-packing pass over phases sorted by real position (bullet "greedy
+// lane-packing pass over phases sorted by position").
+
+export type CaptionSide = 'above' | 'below';
+
+/**
+ * Desktop caption footprint, expressed as a fraction of the rule's own
+ * width — used to decide whether two same-side, same-lane captions would
+ * visually overlap. Derived from the fixed desktop geometry (spec §6.1's
+ * `max-w-[720px]` content column; `DesktopTimeline`'s `pr-24` (96px)
+ * reserved for the "still open" terminus, leaving ~624px for the rule
+ * itself) and each caption's fixed `w-56` (224px) box centered on its
+ * anchor: two same-lane captions start to overlap once their anchors sit
+ * within one caption-width of each other, i.e. 224/624 ≈ 0.36 of the
+ * rule's total span. This is a geometry-derived ESTIMATE (this module has
+ * no DOM access by design), not a live measurement — flagged for
+ * confirmation in the browser pass.
+ */
+export const CAPTION_COLLISION_FRACTION = 0.36;
+
+export interface PhaseCaptionAssignment {
+  phase: ProcessPhase;
+  /** The phase's original index in the input array — callers key off this,
+   * not array order, since assignment is computed in position-sorted order
+   * internally. */
+  index: number;
+  position: number;
+  side: CaptionSide;
+  /** 0-based; 0 = the lane nearest the rule. */
+  lane: number;
+}
+
+/**
+ * Assigns every phase caption a side and a lane, guaranteeing no two
+ * captions on the same side AND lane are closer than `minGap` apart. Pure —
+ * takes only the scaffold's domain bounds, no DOM/layout access — so it's
+ * unit-testable on its own (see timeline.test.ts).
+ *
+ * Returned in the SAME order as the `phases` input (one entry per phase),
+ * even though the packing itself walks phases in chronological (position)
+ * order internally.
+ */
+export function assignPhaseCaptionLanes(
+  phases: readonly ProcessPhase[],
+  scaffold: Pick<TimelineScaffold, 'domainStart' | 'domainEnd'>,
+  minGap: number = CAPTION_COLLISION_FRACTION,
+): PhaseCaptionAssignment[] {
+  const withMeta = phases.map((phase, index) => ({
+    phase,
+    index,
+    position: phaseAnchorPosition(phase, scaffold),
+  }));
+
+  // Walk in chronological (position) order so a lane's "last claimed
+  // position" is always compared against its nearest earlier neighbour —
+  // content is already authored chronologically (every phase's `from`
+  // ascending) for all six projects today, so this re-sort is a no-op for
+  // real content, but keeps the collision math correct even if that ever
+  // slips.
+  const sorted = [...withMeta].sort((a, b) => a.position - b.position);
+
+  const laneLastPosition: Record<CaptionSide, number[]> = { above: [], below: [] };
+  const byIndex = new Map<number, PhaseCaptionAssignment>();
+
+  for (const { phase, index, position } of sorted) {
+    // Default side alternates by the phase's ORIGINAL array index — exactly
+    // the pre-existing `index % 2` rule — so any project whose phases are
+    // already spaced out (every project but MensApp, today) keeps the
+    // identical layout it has now.
+    const side: CaptionSide = index % 2 === 0 ? 'above' : 'below';
+    const lane = claimLane(laneLastPosition[side], position, minGap);
+    byIndex.set(index, { phase, index, position, side, lane });
+  }
+
+  return phases.map((_, index) => byIndex.get(index)!);
+}
+
+/** Finds the first lane on this side whose most-recently-claimed position is
+ * at least `minGap` away from `position` (reusing it, so lanes stay
+ * maximally packed), opening a new lane only when every existing one is
+ * still too close. */
+function claimLane(lastPositionPerLane: number[], position: number, minGap: number): number {
+  for (let lane = 0; lane < lastPositionPerLane.length; lane++) {
+    if (position - lastPositionPerLane[lane] >= minGap) {
+      lastPositionPerLane[lane] = position;
+      return lane;
+    }
+  }
+  lastPositionPerLane.push(position);
+  return lastPositionPerLane.length - 1;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Vertical clearance — content-aware, replacing the previous flat          */
+/* `pt-[22rem] pb-[22rem]` (itself a fix for a DIFFERENT bug: captions      */
+/* clipping the H2 above / commit-log below — see BuildTimeline.tsx's       */
+/* history). That flat value was sized for the single tallest caption ever  */
+/* measured (LoveDiary, 322px); it was never meant to reserve room for TWO  */
+/* stacked lanes on a busy side, and it's needlessly large for every        */
+/* project whose captions are shorter than that one measurement.            */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Rough caption box height, estimated from its narrative's character count
+ * (this module has no DOM access, so an actual rendered height isn't
+ * available) — used ONLY to size reserved vertical clearance, never to hide
+ * or truncate real content. Calibrated against LoveDiary's day-two
+ * narrative (456 characters), the one real measurement on record (322px,
+ * measured in real Chrome per the prior desktop-caption-overlap fix): at
+ * `CAPTION_CHARS_PER_LINE` characters/line and `CAPTION_LINE_HEIGHT_PX`
+ * per line, this reproduces that measurement within a few px.
+ */
+export const CAPTION_CHARS_PER_LINE = 34; // ~224px (`w-56`) box at text-sm (14px)
+export const CAPTION_LINE_HEIGHT_PX = 19; // text-sm + leading-snug (1.375)
+/** Tone label line + its bottom margin (`mb-1`) — the fixed "chrome" above
+ * every caption's narrative text. */
+export const CAPTION_CHROME_PX = 21;
+
+export function estimateCaptionHeightPx(phase: Pick<ProcessPhase, 'narrative'>): number {
+  const narrative = phase.narrative.trim();
+  const lines = Math.max(1, Math.ceil(narrative.length / CAPTION_CHARS_PER_LINE));
+  return CAPTION_CHROME_PX + lines * CAPTION_LINE_HEIGHT_PX;
+}
+
+/** Matches the connector's existing length in `DesktopPhaseCaption` (the
+ * `height="28"` SVG) — the gap between the rule and a lane-0 caption's near
+ * edge. */
+export const RULE_ANCHOR_OFFSET_PX = 28;
+/** Vertical breathing room between two stacked lanes on the same side. */
+export const LANE_GAP_PX = 16;
+/** Added on top of the deepest lane's own height so a caption's last line
+ * never sits flush against the media gallery/commit-log below (or the H2
+ * above). */
+export const CLEARANCE_SAFETY_MARGIN_PX = 16;
+/** Floor so a side with zero (or very short) captions still reads as
+ * deliberate spacing, not a collapsed gap. */
+export const MIN_CAPTION_CLEARANCE_PX = 96;
+
+export interface SideCaptionLayout {
+  /** `offsets[lane]` — px distance from the rule's centerline to the near
+   * edge of that lane's captions; also the connector SVG's length for every
+   * caption placed in that lane. Empty when this side has no captions. */
+  offsets: number[];
+  /** This side's required `paddingTop`/`paddingBottom` (px). */
+  clearancePx: number;
+}
+
+/** Computes one side's (above or below) lane offsets and required
+ * clearance from a full set of assignments — the max estimated caption
+ * height per lane, stacked outward from the rule. */
+export function computeSideCaptionLayout(assignments: readonly PhaseCaptionAssignment[], side: CaptionSide): SideCaptionLayout {
+  const laneMaxHeights: number[] = [];
+  for (const assignment of assignments) {
+    if (assignment.side !== side) continue;
+    const height = estimateCaptionHeightPx(assignment.phase);
+    laneMaxHeights[assignment.lane] = Math.max(laneMaxHeights[assignment.lane] ?? 0, height);
+  }
+
+  if (laneMaxHeights.length === 0) {
+    return { offsets: [], clearancePx: MIN_CAPTION_CLEARANCE_PX };
+  }
+
+  const offsets: number[] = [];
+  let cursor = RULE_ANCHOR_OFFSET_PX;
+  for (const height of laneMaxHeights) {
+    offsets.push(cursor);
+    cursor += height + LANE_GAP_PX;
+  }
+  const clearancePx = Math.max(MIN_CAPTION_CLEARANCE_PX, cursor - LANE_GAP_PX + CLEARANCE_SAFETY_MARGIN_PX);
+  return { offsets, clearancePx };
+}
+
+export interface TimelineCaptionLayout {
+  assignments: PhaseCaptionAssignment[];
+  above: SideCaptionLayout;
+  below: SideCaptionLayout;
+  /** `max(above.clearancePx, below.clearancePx)` — applied to BOTH
+   * `paddingTop` and `paddingBottom` so the container stays symmetric and
+   * the rule (positioned at a plain `top: 50%`) stays exactly centered;
+   * see BuildTimeline.tsx's `DesktopTimeline` for why asymmetric padding
+   * would silently break that. */
+  clearancePx: number;
+}
+
+/** The single entry point `BuildTimeline` calls: side/lane assignment +
+ * per-side offsets + the one clearance value both `paddingTop` and
+ * `paddingBottom` should use. */
+export function layoutPhaseCaptions(
+  phases: readonly ProcessPhase[],
+  scaffold: Pick<TimelineScaffold, 'domainStart' | 'domainEnd'>,
+  minGap: number = CAPTION_COLLISION_FRACTION,
+): TimelineCaptionLayout {
+  const assignments = assignPhaseCaptionLanes(phases, scaffold, minGap);
+  const above = computeSideCaptionLayout(assignments, 'above');
+  const below = computeSideCaptionLayout(assignments, 'below');
+  return { assignments, above, below, clearancePx: Math.max(above.clearancePx, below.clearancePx) };
 }
