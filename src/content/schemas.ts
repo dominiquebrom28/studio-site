@@ -108,6 +108,14 @@ export const ProcessPhaseSchema = z.object({
   title: z.string().min(1),
   narrative: z.string().min(1),
   tone: z.enum(['build', 'silence', 'pivot', 'cleanup', 'reactivation']),
+  // Who was building during THIS phase (2026-07-19, Dom: "started out as a
+  // solo project... and then at one point we had the team look at it").
+  // Lives on the phase, not the project — a project's overall build-mode
+  // is DERIVED from these (see `ProjectBuildMode`/`normalizeProject` in
+  // loader.ts), never authored as a second, potentially-disagreeing source
+  // of truth. Defaults to `'solo'` so every phase in all six existing
+  // content files keeps parsing untouched — none of them author this field.
+  mode: z.enum(['solo', 'team']).default('solo'),
 });
 export type ProcessPhase = z.infer<typeof ProcessPhaseSchema>;
 
@@ -176,6 +184,20 @@ export const ProjectFrontmatterSchema = z.object({
 export type ProjectFrontmatter = z.infer<typeof ProjectFrontmatterSchema>;
 
 /**
+ * A project's overall build-mode — DERIVED from its `process.phases[].mode`
+ * values (see `normalizeProject` in loader.ts), never authored directly on
+ * the project's frontmatter. One authored source of truth (each phase's
+ * `mode`), no second place for it to disagree — same shape as how `Post`
+ * derives `author`/`authors` in `normalizePost`.
+ *
+ * - `'solo'` — every phase (or a project with no `process` at all) is solo.
+ * - `'team'` — every phase is team.
+ * - `'solo-to-team'` — the project's timeline actually contains both: a
+ *   solo chapter and a team chapter, in whatever order the phases fall.
+ */
+export type ProjectBuildMode = 'solo' | 'team' | 'solo-to-team';
+
+/**
  * A single "worked on this entry" backlog reference (blog-format-v2 §3).
  * `label` is a free string, not an enum/id, on purpose — `BACKLOG.md` has no
  * stable per-item identifier today (see the spec §6 rationale). `status` is
@@ -236,6 +258,9 @@ export type PostFrontmatter = z.infer<typeof PostFrontmatterSchema>;
 export interface Project extends ProjectFrontmatter {
   slug: string;
   body: string;
+  /** Always populated — derived by `normalizeProject` (loader.ts), never
+   * read off raw frontmatter. See `ProjectBuildMode`'s doc comment. */
+  buildMode: ProjectBuildMode;
 }
 
 /**

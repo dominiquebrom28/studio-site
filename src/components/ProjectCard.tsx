@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import type { Project } from '@/content';
 import { statusLabel, statusToneClass } from '@/content/status';
-import { Chip } from './ui/Badge';
+import { buildModeChipLabel, buildModeChipTone } from '@/content/buildMode';
+import { Chip, Badge } from './ui/Badge';
 
 export function ProjectCard({
   project,
@@ -36,10 +37,22 @@ export function ProjectCard({
         )}
       </div>
       <div className="p-4">
-        <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
-            {project.date.slice(0, 4)}
-          </span>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
+              {project.date.slice(0, 4)}
+            </span>
+            {/* The solo/team distinction, made "apparent in the overall
+                view" (Dom) — reads `buildMode` DERIVED from the project's
+                own timeline (`process.phases[].mode`), never a second
+                authored field. Quiet/scannable on purpose: `muted` tone for
+                the (today, universal) solo default, the studio's existing
+                `marker-700` accent only when the team was ever involved —
+                context, not a badge of honour either way. */}
+            <Badge tone={buildModeChipTone[project.buildMode]} tintVar={buildModeChipTone[project.buildMode] === 'tint' ? 'marker-700' : undefined}>
+              {buildModeChipLabel[project.buildMode]}
+            </Badge>
+          </div>
           <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.06em] ${statusToneClass[project.status]}`}>
             ● {statusLabel[project.status]}
           </span>

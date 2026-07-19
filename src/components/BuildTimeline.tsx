@@ -3,9 +3,12 @@ import { m, useReducedMotion, useScroll, useTransform, type MotionValue } from '
 import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
 import {
   buildTimelineScaffold,
+  buildRuleSegments,
+  findHandoffs,
   layoutPhaseCaptions,
   phaseAnchorPosition,
   type PhaseCaptionAssignment,
+  type TimelineHandoff,
   type TimelineScaffold,
   type TimelineTick,
 } from '@/lib/timeline';
@@ -78,6 +81,22 @@ const TONE_LABEL: Record<ProcessPhase['tone'], string> = {
   reactivation: 'Reactivation',
 };
 
+/**
+ * The tone-label line, with a small "· Team" tag appended when — and ONLY
+ * when — this project's timeline actually contains a handoff (`showModeTag`,
+ * i.e. `findHandoffs(...).length > 0`). Deliberately NOT shown on every
+ * project (task brief: "do not add a chip per caption if it makes the
+ * timeline noisy") — for the six all-solo projects today this renders
+ * identically to before. For a mixed project it disambiguates, cheaply,
+ * "who is this describing right now" without a second badge/chip per
+ * caption; solo phases stay unmarked (the implicit baseline established
+ * before the handoff marker), team phases get the tag.
+ */
+function phaseToneLabel(phase: ProcessPhase, showModeTag: boolean): string {
+  if (showModeTag && phase.mode === 'team') return `${TONE_LABEL[phase.tone]} · Team`;
+  return TONE_LABEL[phase.tone];
+}
+
 /** Shared reveal-on-draw value for a single decorative tick dot, gated to
  * how far the (scroll-linked, or instantly-complete under reduced motion)
  * rule has drawn past its position — SCALE ONLY, floor 0.6 (never 0).
@@ -136,30 +155,55 @@ function SweepFlag() {
  *   underneath still reads perfectly on its own either way. Skipped
  *   entirely (not rendered at all) under reduced motion, per Dom's
  *   instruction to show only the base rule in that case.
+ *
+ * BASE layer, solo/team split (2026-07-19, the handoff feature): when
+ * `handoffPositions` is non-empty, the base layer is drawn as multiple
+ * static segments (`buildRuleSegments`) instead of one — solo segments keep
+ * today's `ink/30`, team segments pick up a muted `marker-700` tint, so the
+ * rule itself visibly changes treatment at the handoff, on top of the
+ * labelled marker. Every segment is STILL always fully drawn, never
+ * scroll-bound — same resting-state guarantee as before. For an all-solo
+ * project (`handoffPositions` empty) `buildRuleSegments` returns one
+ * `'solo'` segment spanning 0-100%, i.e. pixel-identical to the old single
+ * `<div>`.
  */
 function TimelineRule({
   axis,
   progress,
   reduced,
+  handoffPositions = [],
 }: {
   axis: 'x' | 'y';
   progress: MotionValue<number>;
   reduced: boolean;
+  handoffPositions?: number[];
 }) {
   const sizeClass = axis === 'x' ? 'h-px w-full' : 'h-full w-px';
   const originClass = axis === 'x' ? 'origin-left' : 'origin-top';
   const scaleKey = axis === 'x' ? 'scaleX' : 'scaleY';
+  const segments = buildRuleSegments(handoffPositions);
 
   return (
     <div className={`relative ${sizeClass}`}>
       {/* `data-timeline-rule` is a test hook only (no visual/behavioral
           effect) — see src/smoke/motion-resting-state.smoke.test.tsx's
-          "base rule stays fully drawn" case, which asserts the BASE layer
-          specifically never carries a scroll-bound `scale{X,Y}` inline
-          style, so a future re-binding of this element to `progress`
-          fails loudly instead of silently reintroducing the 2026-07-19
-          bug. */}
-      <div data-timeline-rule="base" className="absolute inset-0 bg-ink/30" />
+          "base rule stays fully drawn" case, which asserts every BASE
+          layer segment specifically never carries a scroll-bound
+          `scale{X,Y}` inline style, so a future re-binding of this element
+          to `progress` fails loudly instead of silently reintroducing the
+          2026-07-19 bug. */}
+      {segments.map((segment) => (
+        <div
+          key={`${segment.start}-${segment.end}`}
+          data-timeline-rule="base"
+          className={`absolute ${segment.mode === 'team' ? 'bg-marker-700/45' : 'bg-ink/30'}`}
+          style={
+            axis === 'x'
+              ? { left: `${segment.start * 100}%`, width: `${(segment.end - segment.start) * 100}%`, top: 0, bottom: 0 }
+              : { top: `${segment.start * 100}%`, height: `${(segment.end - segment.start) * 100}%`, left: 0, right: 0 }
+          }
+        />
+      ))}
       {!reduced && (
         <m.div
           data-timeline-rule="accent"
@@ -195,6 +239,10 @@ function DesktopTimeline({
   // — see `TimelineCaptionLayout.clearancePx`'s doc comment) so the rule's
   // plain `top: 50%` stays exactly centered.
   const layout = layoutPhaseCaptions(phases, scaffold);
+  // The solo -> team handoff (empty for every all-solo/all-team project —
+  // all six today), see `findHandoffs`'s doc comment in `src/lib/timeline.ts`.
+  const handoffs = findHandoffs(phases, scaffold);
+  const hasHandoff = handoffs.length > 0;
 
   return (
     <div
@@ -202,13 +250,14 @@ function DesktopTimeline({
       style={{ paddingTop: layout.clearancePx, paddingBottom: layout.clearancePx }}
     >
       {/* Decorative scaffold — rule, ticks, connectors. Real content (phase
-          captions) lives outside this aria-hidden wrapper below. The extra
-          `pr-24` on the outer container reserves room for the "still open"
-          terminus label so it never bleeds past the column's right edge —
-          it's positioned at the rule's end (100%), inside that reserved
-          space, never outside the component's own box. */}
+          captions, and the handoff marker) lives outside this aria-hidden
+          wrapper below. The extra `pr-24` on the outer container reserves
+          room for the "still open" terminus label so it never bleeds past
+          the column's right edge — it's positioned at the rule's end
+          (100%), inside that reserved space, never outside the component's
+          own box. */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
-        <TimelineRule axis="x" progress={progress} reduced={reduced} />
+        <TimelineRule axis="x" progress={progress} reduced={reduced} handoffPositions={handoffs.map((h) => h.position)} />
         {scaffold.ticks.map((tick) => (
           <DesktopTickDot key={tick.date} tick={tick} progress={progress} reduced={reduced} />
         ))}
@@ -233,8 +282,40 @@ function DesktopTimeline({
           key={`${assignment.phase.from}-${assignment.phase.title}`}
           assignment={assignment}
           offsetPx={(assignment.side === 'above' ? layout.above : layout.below).offsets[assignment.lane]}
+          showModeTag={hasHandoff}
         />
       ))}
+
+      {/* The handoff itself — real, non-`aria-hidden` content (this is the
+          "and then the team took over" moment Dom asked to make visible),
+          sitting directly on the rule rather than above/below like a phase
+          caption. Renders nothing at all for the six all-solo projects
+          today (`handoffs` is empty). */}
+      {handoffs.map((handoff) => (
+        <DesktopHandoffMarker key={handoff.position} handoff={handoff} />
+      ))}
+    </div>
+  );
+}
+
+/** The labelled divider marking where a project's timeline hands off from a
+ * solo chapter to a team one — real text (never `aria-hidden`), sitting
+ * right on the rule. Always rendered, no motion: same reasoning as
+ * `GapLabel` — this is meaning a reader needs, not decoration, so it can't
+ * be gated behind a scroll-driven opacity that starts (or freezes) at 0. */
+function DesktopHandoffMarker({ handoff }: { handoff: TimelineHandoff }) {
+  return (
+    <div
+      className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col-reverse items-center gap-1 whitespace-nowrap"
+      style={{ left: `${handoff.position * 100}%` }}
+    >
+      {/* DOM order [dot, label]; `flex-col-reverse` renders the label above
+          the dot, which sits right on the rule (matching the tick dots'
+          own `top-1/2 -translate-y-1/2` centering). */}
+      <span aria-hidden="true" className="h-2.5 w-2.5 rotate-45 bg-marker-700" />
+      <span className="rounded-full border border-marker-700/40 bg-[color-mix(in_srgb,var(--marker-700)_12%,var(--paper-raised))] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-ink">
+        The team joins
+      </span>
     </div>
   );
 }
@@ -288,6 +369,7 @@ function GapLabel({ gap }: { gap: { position: number; days: number } }) {
 function DesktopPhaseCaption({
   assignment,
   offsetPx,
+  showModeTag,
 }: {
   assignment: PhaseCaptionAssignment;
   /** Distance (px) from the rule's centerline to this caption's near edge —
@@ -296,6 +378,9 @@ function DesktopPhaseCaption({
    * into a second lane still reads as connected to the rule, just further
    * out, rather than floating. */
   offsetPx: number;
+  /** True only when this project's timeline has a solo -> team handoff —
+   * see `phaseToneLabel`'s doc comment. */
+  showModeTag: boolean;
 }) {
   const { phase, position, side } = assignment;
   const prefersReducedMotion = useReducedMotion();
@@ -332,7 +417,7 @@ function DesktopPhaseCaption({
       >
         <line x1="1" y1="0" x2="1" y2={offsetPx} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
-      <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{TONE_LABEL[phase.tone]}</p>
+      <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{phaseToneLabel(phase, showModeTag)}</p>
       <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
     </m.div>
   );
@@ -353,25 +438,31 @@ function MobileTimeline({
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
-  // Interleave ticks, gaps, and phases into one date-ordered flow so a
-  // phase caption reads directly after the commit(s) it's describing
-  // (spec §2.2: "Mobile: inline below their anchor... never a separate tab
-  // stop") and a gap's duration is stamped in the same honest position it
-  // occupies on the desktop rule, not silently dropped on mobile.
+  // Interleave ticks, gaps, phases, AND any solo -> team handoff into one
+  // date-ordered flow so a phase caption reads directly after the
+  // commit(s) it's describing (spec §2.2: "Mobile: inline below their
+  // anchor... never a separate tab stop"), a gap's duration is stamped in
+  // the same honest position it occupies on the desktop rule, and the
+  // handoff (if any) reads exactly where it happens chronologically, not
+  // bolted on at the top/bottom.
   type Row =
     | { position: number; kind: 'tick'; tick: TimelineTick }
     | { position: number; kind: 'phase'; phase: ProcessPhase }
-    | { position: number; kind: 'gap'; gap: { position: number; days: number } };
+    | { position: number; kind: 'gap'; gap: { position: number; days: number } }
+    | { position: number; kind: 'handoff'; handoff: TimelineHandoff };
+  const handoffs = findHandoffs(phases, scaffold);
+  const hasHandoff = handoffs.length > 0;
   const rows: Row[] = [
     ...scaffold.ticks.map((tick): Row => ({ position: tick.position, kind: 'tick', tick })),
     ...phases.map((phase): Row => ({ position: phaseAnchorPosition(phase, scaffold), kind: 'phase', phase })),
     ...scaffold.gaps.map((gap): Row => ({ position: gap.position, kind: 'gap', gap })),
+    ...handoffs.map((handoff): Row => ({ position: handoff.position, kind: 'handoff', handoff })),
   ].sort((a, b) => a.position - b.position);
 
   return (
     <div className="relative pl-8 lg:hidden">
       <div className="pointer-events-none absolute inset-y-0 left-[15px] w-px" aria-hidden="true">
-        <TimelineRule axis="y" progress={progress} reduced={reduced} />
+        <TimelineRule axis="y" progress={progress} reduced={reduced} handoffPositions={handoffs.map((h) => h.position)} />
       </div>
 
       <div className="flex flex-col gap-4">
@@ -382,7 +473,12 @@ function MobileTimeline({
           if (row.kind === 'gap') {
             return <MobileGapRow key={`gap-${row.gap.position}`} gap={row.gap} />;
           }
-          return <MobilePhaseRow key={`phase-${row.phase.from}-${row.phase.title}`} phase={row.phase} />;
+          if (row.kind === 'handoff') {
+            return <MobileHandoffRow key={`handoff-${row.handoff.position}`} />;
+          }
+          return (
+            <MobilePhaseRow key={`phase-${row.phase.from}-${row.phase.title}`} phase={row.phase} showModeTag={hasHandoff} />
+          );
         })}
         {scaffold.isOpenEnded && (
           <p className="relative font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
@@ -392,6 +488,19 @@ function MobileTimeline({
         )}
       </div>
     </div>
+  );
+}
+
+/** Mobile's equivalent of `DesktopHandoffMarker` — a plain flow row (no
+ * absolute positioning needed; the vertical rail is already reading order),
+ * so the handoff reads at exactly the point it falls in the interleaved
+ * flow. Always rendered, no motion — same reasoning as `MobileGapRow`. */
+function MobileHandoffRow() {
+  return (
+    <p className="relative font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-marker-700">
+      <span aria-hidden="true" className="absolute -left-8 top-1 h-2 w-2 rotate-45 bg-marker-700" />
+      The team joins
+    </p>
   );
 }
 
@@ -423,7 +532,7 @@ function MobileGapRow({ gap }: { gap: { position: number; days: number } }) {
   );
 }
 
-function MobilePhaseRow({ phase }: { phase: ProcessPhase }) {
+function MobilePhaseRow({ phase, showModeTag }: { phase: ProcessPhase; showModeTag: boolean }) {
   const prefersReducedMotion = useReducedMotion();
   const motionProps = prefersReducedMotion
     ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
@@ -436,7 +545,7 @@ function MobilePhaseRow({ phase }: { phase: ProcessPhase }) {
 
   return (
     <m.div className="pl-1" {...motionProps}>
-      <p className="mb-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{TONE_LABEL[phase.tone]}</p>
+      <p className="mb-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{phaseToneLabel(phase, showModeTag)}</p>
       <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
     </m.div>
   );

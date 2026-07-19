@@ -6,11 +6,15 @@ import {
   sortPosts,
   filterVisiblePosts,
   normalizePost,
+  deriveBuildMode,
+  normalizeProject,
 } from './loader';
 import {
   ProjectFrontmatterSchema,
   PostFrontmatterSchema,
   type Project,
+  type ProjectFrontmatter,
+  type ProcessPhase,
   type Post,
   type PostFrontmatter,
 } from './schemas';
@@ -30,6 +34,26 @@ function rawPost(overrides: Partial<PostFrontmatter> = {}): PostFrontmatter & { 
 
 function projectFile(frontmatterYaml: string, body = 'Body.'): string {
   return `---\n${frontmatterYaml}\n---\n\n${body}`;
+}
+
+function rawProject(overrides: Partial<ProjectFrontmatter> = {}): ProjectFrontmatter & { slug: string; body: string } {
+  return {
+    title: 'Test Project',
+    summary: 'A test project.',
+    stack: ['Vite'],
+    status: 'shipped',
+    media: [],
+    featured: false,
+    date: '2026-01-01',
+    template: 'standard',
+    ...overrides,
+    slug: 'test-project',
+    body: 'Body.',
+  } as ProjectFrontmatter & { slug: string; body: string };
+}
+
+function phaseWithMode(mode: ProcessPhase['mode']): ProcessPhase {
+  return { from: '2026-01-01', title: 'A phase', narrative: 'narrative text', tone: 'build', mode };
 }
 
 const baseProjectFrontmatter = `title: "Test Project"
@@ -311,5 +335,58 @@ describe('filterVisiblePosts — draft gating on PROD', () => {
   it('excludes drafts when isProd is true (production build)', () => {
     const visible = filterVisiblePosts(posts, true);
     expect(visible.map((p) => p.slug)).toEqual(['published']);
+  });
+});
+
+describe('deriveBuildMode — 2026-07-19 solo/team handoff (Dom: "started out as a solo project... and then at one point we had the team look at it")', () => {
+  it('is "solo" when a project has no `process`/phases at all (every project today)', () => {
+    expect(deriveBuildMode(undefined)).toBe('solo');
+    expect(deriveBuildMode([])).toBe('solo');
+  });
+
+  it('is "solo" when every phase is solo', () => {
+    expect(deriveBuildMode([phaseWithMode('solo'), phaseWithMode('solo')])).toBe('solo');
+  });
+
+  it('is "team" when every phase is team', () => {
+    expect(deriveBuildMode([phaseWithMode('team'), phaseWithMode('team')])).toBe('team');
+  });
+
+  it('is "solo-to-team" when a project has both solo and team phases, regardless of array order', () => {
+    expect(deriveBuildMode([phaseWithMode('solo'), phaseWithMode('team')])).toBe('solo-to-team');
+    expect(deriveBuildMode([phaseWithMode('team'), phaseWithMode('solo')])).toBe('solo-to-team');
+  });
+});
+
+describe('normalizeProject — buildMode derivation (same loader-level pattern as normalizePost)', () => {
+  it('derives `buildMode: "solo"` for a project with no `process` field', () => {
+    const project = normalizeProject(rawProject());
+    expect(project.buildMode).toBe('solo');
+  });
+
+  it('derives `buildMode` from `process.phases`, never as a second authored field', () => {
+    const project = normalizeProject(
+      rawProject({
+        process: {
+          commits: [{ date: '2026-01-01', count: 1, isCleanupSweep: false }],
+          phases: [phaseWithMode('solo'), phaseWithMode('team')],
+        },
+      }),
+    );
+    expect(project.buildMode).toBe('solo-to-team');
+  });
+
+  it('preserves every other field untouched (slug, body, title, etc.)', () => {
+    const project = normalizeProject(rawProject({ title: 'Preserved Title' }));
+    expect(project.slug).toBe('test-project');
+    expect(project.body).toBe('Body.');
+    expect(project.title).toBe('Preserved Title');
+  });
+
+  it('the six real project frontmatter files all normalize to `buildMode: "solo"` (none author a `process.phases[].mode` of "team" yet — backward-compatibility snapshot)', () => {
+    for (const status of ['shipped', 'in-progress', 'archived'] as const) {
+      const project = normalizeProject(rawProject({ status }));
+      expect(project.buildMode).toBe('solo');
+    }
   });
 });

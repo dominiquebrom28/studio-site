@@ -7,6 +7,8 @@ import {
   computeSideCaptionLayout,
   layoutPhaseCaptions,
   estimateCaptionHeightPx,
+  findHandoffs,
+  buildRuleSegments,
   CAPTION_COLLISION_FRACTION,
   CAPTION_CHARS_PER_LINE,
   CAPTION_LINE_HEIGHT_PX,
@@ -22,7 +24,7 @@ function burst(date: string, count: number, overrides: Partial<CommitBurst> = {}
 }
 
 function phase(from: string, to: string | undefined, narrative: string, overrides: Partial<ProcessPhase> = {}): ProcessPhase {
-  return { from, to, title: 'A phase', narrative, tone: 'build', ...overrides };
+  return { from, to, title: 'A phase', narrative, tone: 'build', mode: 'solo', ...overrides };
 }
 
 /** A narrative of an exact character length — lets clearance-math tests
@@ -383,5 +385,83 @@ describe('layoutPhaseCaptions', () => {
     ];
     const layout = layoutPhaseCaptions(phases, scaffold);
     expect(layout.assignments.map((a) => a.phase.title)).toEqual(['First', 'Second']);
+  });
+});
+
+describe('findHandoffs', () => {
+  it('finds no handoff for an all-solo project (every project today)', () => {
+    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-02-01', 1)], 'shipped');
+    const phases = [
+      phase('2026-01-01', undefined, 'solo phase one'),
+      phase('2026-02-01', undefined, 'solo phase two'),
+    ];
+    expect(findHandoffs(phases, scaffold)).toEqual([]);
+  });
+
+  it('finds no handoff for an all-team project', () => {
+    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-02-01', 1)], 'shipped');
+    const phases = [
+      phase('2026-01-01', undefined, 'team phase one', { mode: 'team' }),
+      phase('2026-02-01', undefined, 'team phase two', { mode: 'team' }),
+    ];
+    expect(findHandoffs(phases, scaffold)).toEqual([]);
+  });
+
+  it('finds exactly one handoff at the midpoint between the last solo phase and the first team phase', () => {
+    // Domain 2026-01-01 -> 2026-01-11 (10 days). Solo at day 0, team at day 10.
+    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-01-11', 1)], 'shipped');
+    const phases = [
+      phase('2026-01-01', undefined, 'started solo', { mode: 'solo' }),
+      phase('2026-01-11', undefined, 'the team joined', { mode: 'team' }),
+    ];
+    const handoffs = findHandoffs(phases, scaffold);
+    expect(handoffs).toHaveLength(1);
+    expect(handoffs[0].position).toBeCloseTo(0.5, 5);
+  });
+
+  it('finds the handoff correctly regardless of input array order (uses chronological position, not array order)', () => {
+    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-01-11', 1)], 'shipped');
+    const phases = [
+      phase('2026-01-11', undefined, 'the team joined', { mode: 'team' }),
+      phase('2026-01-01', undefined, 'started solo', { mode: 'solo' }),
+    ];
+    const handoffs = findHandoffs(phases, scaffold);
+    expect(handoffs).toHaveLength(1);
+    expect(handoffs[0].position).toBeCloseTo(0.5, 5);
+  });
+
+  it('finds every solo->team transition when phases toggle more than once', () => {
+    const scaffold = buildTimelineScaffold([burst('2026-01-01', 1), burst('2026-01-31', 1)], 'shipped');
+    const phases = [
+      phase('2026-01-01', undefined, 'solo start', { mode: 'solo' }),
+      phase('2026-01-11', undefined, 'team helps briefly', { mode: 'team' }),
+      phase('2026-01-21', undefined, 'back to solo', { mode: 'solo' }),
+      phase('2026-01-31', undefined, 'team again', { mode: 'team' }),
+    ];
+    const handoffs = findHandoffs(phases, scaffold);
+    expect(handoffs).toHaveLength(2);
+  });
+});
+
+describe('buildRuleSegments', () => {
+  it('returns a single solo segment spanning the whole rule when there are no handoffs (pixel-identical to the old unsplit rule)', () => {
+    expect(buildRuleSegments([])).toEqual([{ start: 0, end: 1, mode: 'solo' }]);
+  });
+
+  it('splits into a solo segment then a team segment at one handoff', () => {
+    const segments = buildRuleSegments([0.5]);
+    expect(segments).toEqual([
+      { start: 0, end: 0.5, mode: 'solo' },
+      { start: 0.5, end: 1, mode: 'team' },
+    ]);
+  });
+
+  it('alternates solo/team across multiple handoffs, in position order regardless of input order', () => {
+    const segments = buildRuleSegments([0.7, 0.3]);
+    expect(segments).toEqual([
+      { start: 0, end: 0.3, mode: 'solo' },
+      { start: 0.3, end: 0.7, mode: 'team' },
+      { start: 0.7, end: 1, mode: 'solo' },
+    ]);
   });
 });

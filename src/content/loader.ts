@@ -4,6 +4,9 @@ import {
   ProjectFrontmatterSchema,
   PostFrontmatterSchema,
   type Project,
+  type ProjectBuildMode,
+  type ProjectFrontmatter,
+  type ProcessPhase,
   type Post,
   type PostFrontmatter,
 } from './schemas';
@@ -113,6 +116,33 @@ export function normalizePost(raw: PostFrontmatter & { slug: string; body: strin
   return { ...rest, authors, author: authors[0] };
 }
 
+/**
+ * Derives a project's overall build-mode from its phases' individually
+ * authored `mode` values (2026-07-19, Dom: a project has a solo chapter and,
+ * later, a team chapter — ON THE SAME TIMELINE — not a permanent label).
+ * `'solo'` when a project has no `process` at all (all six projects today),
+ * matching every phase's own `mode` default.
+ */
+export function deriveBuildMode(phases: readonly Pick<ProcessPhase, 'mode'>[] | undefined): ProjectBuildMode {
+  if (!phases || phases.length === 0) return 'solo';
+  const hasSolo = phases.some((phase) => phase.mode === 'solo');
+  const hasTeam = phases.some((phase) => phase.mode === 'team');
+  if (hasSolo && hasTeam) return 'solo-to-team';
+  return hasTeam ? 'team' : 'solo';
+}
+
+/**
+ * Normalizes a raw parsed project (post-Zod, pre-derived) to the `Project`
+ * shape every component reads — same loader-level derivation pattern as
+ * `normalizePost` above: `buildMode` is computed here, once, from the
+ * authored `process.phases[].mode` values, rather than being a second
+ * frontmatter field a content file could set inconsistently with its own
+ * phases.
+ */
+export function normalizeProject(raw: ProjectFrontmatter & { slug: string; body: string }): Project {
+  return { ...raw, buildMode: deriveBuildMode(raw.process?.phases) };
+}
+
 // Drafts (posts) are filtered only in production so they preview in `npm run
 // dev` but never ship (spec §3.3). Projects don't have a draft flag in the
 // schema; `status` is the only lifecycle field and every status is public.
@@ -161,5 +191,9 @@ export function sortPosts(posts: Post[]): Post[] {
   });
 }
 
-export const projects: readonly Project[] = Object.freeze(sortProjects(allProjectsRaw as Project[]));
+const normalizedProjects = (allProjectsRaw as (ProjectFrontmatter & { slug: string; body: string })[]).map(
+  normalizeProject,
+);
+
+export const projects: readonly Project[] = Object.freeze(sortProjects(normalizedProjects));
 export const posts: readonly Post[] = Object.freeze(sortPosts(visiblePosts as Post[]));

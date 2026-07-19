@@ -3,6 +3,7 @@ import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import type { Project } from '@/content';
 import { Chip } from './ui/Badge';
 import { statusLabel, statusToneClass } from '@/content/status';
+import { buildModeEyebrow, singleSittingEyebrow } from '@/content/buildMode';
 
 const BACK_EASE = [0.34, 1.56, 0.64, 1] as const;
 const SETTLE_EASE = [0.16, 1, 0.3, 1] as const;
@@ -35,7 +36,14 @@ export function ProjectHero({ project }: { project: Project }) {
   const parallaxRaw = useTransform(scrollY, (v) => v * 0.175);
   const parallaxY = useTransform(parallaxRaw, (v) => Math.max(-40, Math.min(40, v)));
 
-  const eyebrowLabel = project.template === 'single-sitting' ? 'ONE SITTING · SOLO BUILD' : 'SOLO BUILD · NO AGENT TEAM';
+  // `buildMode` is DERIVED (loader.ts's `normalizeProject`) from
+  // `process.phases[].mode`, never authored directly — see
+  // `src/content/buildMode.ts` for the copy table (flagged there for Dom's
+  // sign-off on the new `team`/`solo-to-team` wording; `solo`'s wording is
+  // unchanged from what Dom already approved).
+  const eyebrowLabel = (project.template === 'single-sitting' ? singleSittingEyebrow : buildModeEyebrow)[
+    project.buildMode
+  ];
 
   const eyebrowMotion = prefersReducedMotion
     ? { initial: { y: 0 }, animate: { y: 0 } }

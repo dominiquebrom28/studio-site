@@ -12,10 +12,24 @@ export default function ProjectsIndex() {
       <Seo title="Projects" description="The projects the studio has built — honest write-ups, stack, what worked and what didn't." />
       <h1 className="mb-2">Projects</h1>
       <p className="mb-4 text-ink-muted">What the team has actually shipped, in progress, or shelved.</p>
-      <p className="mb-8 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
         <span className="text-success">●</span> shipped &nbsp;
         <span className="text-warning">●</span> in-progress &nbsp;
         <span>●</span> archived
+      </p>
+      {/* A light legend rather than grouping the grid by build-mode — with
+          six solo projects and zero team ones today, splitting the grid
+          into sections would mean one populated group and one empty one,
+          which reads as more decisive than the current reality actually
+          is. A project's card already carries its own build-mode chip (see
+          `ProjectCard`), and — per Dom's revised idea — a project that
+          started solo and had the team join later shows that handoff right
+          on its own timeline, not as a separate category here. This line
+          just names the convention once so the per-card chips read as a
+          deliberate axis, not random variation; it holds up unchanged
+          whether the mix is 6-and-0 or 5-and-2 later. */}
+      <p className="mb-8 max-w-prose text-sm text-ink-muted">
+        Every project is tagged solo or team on its card — and if the team joined partway through, that handoff shows up right on the project's own timeline.
       </p>
 
       {projects.length > 0 ? (

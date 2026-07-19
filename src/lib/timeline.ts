@@ -365,3 +365,70 @@ export function layoutPhaseCaptions(
   const below = computeSideCaptionLayout(assignments, 'below');
   return { assignments, above, below, clearancePx: Math.max(above.clearancePx, below.clearancePx) };
 }
+
+/* ------------------------------------------------------------------------ */
+/* The solo -> team handoff (2026-07-19, Dom: "started out as a solo       */
+/* project... and then at one point we had the team look at it").          */
+/* ------------------------------------------------------------------------ */
+//
+// A project is not permanently solo or team — it's a chronology, and the
+// team showing up (if it ever does) is just a later point on the SAME
+// rule this module already draws. `findHandoffs` locates that point (or
+// points, if a project's phases genuinely toggle more than once) purely
+// from each phase's `mode`, in real chronological order — never from
+// array order, so hand-authored phase lists still resolve correctly.
+
+export interface TimelineHandoff {
+  /** 0-1 rule position — the midpoint between the last solo phase and the
+   * first team phase immediately following it. */
+  position: number;
+}
+
+/**
+ * Every point where a solo phase is immediately followed (in real
+ * chronological order) by a team phase. Empty for an all-solo or all-team
+ * project (all six today) — callers should render NOTHING extra in that
+ * case, per the brief's "must stay legible when 100% solo" requirement.
+ */
+export function findHandoffs(
+  phases: readonly ProcessPhase[],
+  scaffold: Pick<TimelineScaffold, 'domainStart' | 'domainEnd'>,
+): TimelineHandoff[] {
+  const sorted = [...phases]
+    .map((phase) => ({ phase, position: phaseAnchorPosition(phase, scaffold) }))
+    .sort((a, b) => a.position - b.position);
+
+  const handoffs: TimelineHandoff[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i - 1].phase.mode === 'solo' && sorted[i].phase.mode === 'team') {
+      handoffs.push({ position: (sorted[i - 1].position + sorted[i].position) / 2 });
+    }
+  }
+  return handoffs;
+}
+
+/** A rule segment for `TimelineRule`'s "the rule itself changes treatment
+ * after the handoff" cue — `mode` picks the segment's color. */
+export interface RuleSegment {
+  start: number;
+  end: number;
+  mode: 'solo' | 'team';
+}
+
+/**
+ * Splits the [0,1] rule into alternating solo/team segments at each handoff
+ * position. Returns a single all-`'solo'` segment spanning the whole rule
+ * when `handoffPositions` is empty — pixel-identical to the previous
+ * single, unsplit rule `<div>`, so every all-solo project (all six today)
+ * renders exactly as it did before this feature existed.
+ */
+export function buildRuleSegments(handoffPositions: readonly number[]): RuleSegment[] {
+  const sortedBoundaries = [...handoffPositions].sort((a, b) => a - b);
+  const bounds = [0, ...sortedBoundaries, 1];
+  const segments: RuleSegment[] = [];
+  for (let i = 0; i < bounds.length - 1; i++) {
+    if (bounds[i] === bounds[i + 1]) continue; // guards a handoff at exactly 0 or 1
+    segments.push({ start: bounds[i], end: bounds[i + 1], mode: i % 2 === 0 ? 'solo' : 'team' });
+  }
+  return segments.length > 0 ? segments : [{ start: 0, end: 1, mode: 'solo' }];
+}
