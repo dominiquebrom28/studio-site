@@ -47,13 +47,16 @@ jobs:
       - name: Test
         run: npm test
 
-      # Real-DOM mount (jsdom + StrictMode) of every key route — catches the
-      # class of bug a `renderToStaticMarkup` harness structurally cannot
-      # (double-invoke-only bugs; see src/smoke/routes.smoke.test.tsx's
+      # Real-DOM mount (jsdom + StrictMode) of every static route AND every
+      # committed project/post (full coverage, not a sample of one — see
+      # src/smoke/routes.smoke.test.tsx's "COVERAGE — NO SAMPLING" note) —
+      # catches the class of bug a `renderToStaticMarkup` harness
+      # structurally cannot (double-invoke-only bugs; see that file's
       # header comment for the 2026-07-18 dead-TOC-anchor incident this
-      # gate exists because of). Cheap (~3s) — kept IN this required job
-      # rather than a separate opt-in one, since it directly guards a
-      # pattern that has now shipped a P0 four runs running.
+      # gate exists because of). Cheap (~4s for 16 routes today) — kept IN
+      # this required job rather than a separate opt-in one, since it
+      # directly guards a pattern that has now shipped a P0 four runs
+      # running.
       - name: Smoke test (real DOM mount, StrictMode)
         run: npm run test:smoke
 

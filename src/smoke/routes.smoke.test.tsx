@@ -43,6 +43,21 @@ import { getAllProjects, getAllPosts } from '@/content';
  * project/post slug that doesn't exist is a dead link the same way a dead
  * `#anchor` is), and zero `console.error` calls happen during mount.
  *
+ * COVERAGE — NO SAMPLING: every static route, EVERY committed project detail
+ * page, and EVERY committed post (all of them, not `[0]`/one-of-each) gets
+ * its own mounted test case below. An earlier version of this suite only
+ * mounted `getAllProjects()[0]` and `getAllPosts()[0]` — that made the
+ * per-route checks (anchors, h1, console errors) look like general coverage
+ * when they were really "one of each kind renders." A per-post dead anchor
+ * in any post other than index 0 was invisible to it (caught in review,
+ * 2026-07-19 — falsified by planting a dead anchor in
+ * `2026-07-16-the-day-the-repos-got-honest.md`, which the sampled version
+ * missed and the current full-coverage version catches; see the fix
+ * commit). If this suite is ever changed back to sampling N-of-M content
+ * routes for cost reasons, that must be stated explicitly right here — a
+ * gate that silently covers less than it appears to is exactly the failure
+ * mode ("green build, broken page") this whole suite exists to prevent.
+ *
  * WHAT THIS DELIBERATELY DOES NOT COVER (consciously, not an oversight):
  * design-token/visual collisions (class 1 above) and responsive/mobile
  * reading order (class 2) are not DOM-structure problems — a node can be in
@@ -69,9 +84,10 @@ import { getAllProjects, getAllPosts } from '@/content';
 // Static routes always exist. Dynamic routes are pulled from the REAL
 // content set (not fixtures) so this suite exercises whatever is actually
 // committed right now — including the Markdown/TOC path (BlogPost) and the
-// project-detail path.
-const project = getAllProjects()[0];
-const post = getAllPosts()[0];
+// project-detail path. ALL projects and ALL posts, not a sample of one —
+// see the "COVERAGE — NO SAMPLING" note above.
+const allProjects = getAllProjects();
+const allPosts = getAllPosts();
 
 interface RouteCase {
   label: string;
@@ -84,14 +100,9 @@ const routeCases: RouteCase[] = [
   { label: 'blog index', path: '/blog' },
   { label: 'cast', path: '/cast' },
   { label: 'not found (unknown path)', path: '/this-route-does-not-exist' },
+  ...allProjects.map((project) => ({ label: `project detail: ${project.slug}`, path: `/projects/${project.slug}` })),
+  ...allPosts.map((post) => ({ label: `blog post: ${post.slug}`, path: `/blog/${post.slug}` })),
 ];
-
-if (project) {
-  routeCases.push({ label: 'project detail', path: `/projects/${project.slug}` });
-}
-if (post) {
-  routeCases.push({ label: 'blog post', path: `/blog/${post.slug}` });
-}
 
 // The set of internal paths this app can actually resolve to a real page —
 // used to catch a dead `href="/..."` link the same way we catch a dead
