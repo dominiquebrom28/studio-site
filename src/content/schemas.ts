@@ -92,6 +92,16 @@ export const PostFrontmatterSchema = z.object({
   author: z.string().min(1).default('Dom'),
   cover: z.string().optional(),
   draft: z.boolean().default(false),
+  // Same-day tie-break for `sortPosts` (loader.ts). Optional and additive —
+  // every existing post has no `order` and keeps parsing unchanged.
+  // Direction is deliberately spelled out here because an ordering field
+  // whose direction is ambiguous is its own bug: HIGHER `order` = LATER in
+  // the day = sorts FIRST (same convention as "the newest thing is on
+  // top" — a post published at 21:00 with `order: 2` outranks one at 10:00
+  // with `order: 1` on the same date). Posts on the same date that omit
+  // `order` sort AFTER every post on that date that declares one; see
+  // `sortPosts` for the full tie-break chain (date -> order -> slug).
+  order: z.number().int().optional(),
 });
 
 export type PostFrontmatter = z.infer<typeof PostFrontmatterSchema>;

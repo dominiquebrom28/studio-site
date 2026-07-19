@@ -109,8 +109,30 @@ export function sortProjects(projects: Project[]): Project[] {
   });
 }
 
+// Fully deterministic — never falls back to `import.meta.glob`'s
+// filesystem-order (i.e. filename spelling), which is what silently decided
+// public reading order before this tie-break chain existed (see
+// validate-content.test.ts's header comment for the incident that surfaced
+// this). Chain, in priority order:
+//   1. date descending (newest day first)
+//   2. `order` descending WITHIN a shared date — higher `order` = later in
+//      the day = shown first (same direction as "newest on top"; see the
+//      field's doc comment in schemas.ts). A post with no `order` sorts
+//      after every post on the same date that declares one.
+//   3. `slug` ascending — a guaranteed, content-derived (not glob-order)
+//      final tie-break for the case two same-date posts both omit `order`,
+//      or one full-identical case where every prior key ties.
 export function sortPosts(posts: Post[]): Post[] {
-  return [...posts].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  return [...posts].sort((a, b) => {
+    const dateDiff = Date.parse(b.date) - Date.parse(a.date);
+    if (dateDiff !== 0) return dateDiff;
+
+    const orderA = a.order ?? Number.NEGATIVE_INFINITY;
+    const orderB = b.order ?? Number.NEGATIVE_INFINITY;
+    if (orderA !== orderB) return orderB - orderA;
+
+    return a.slug.localeCompare(b.slug);
+  });
 }
 
 export const projects: readonly Project[] = Object.freeze(sortProjects(allProjectsRaw as Project[]));

@@ -6,6 +6,10 @@ summary: "Six runs in: the loop is good at catching lies that look like proof, a
 tags: ["process", "logbook", "retrospective"]
 author: "Project Lead"
 draft: false
+# Added 2026-07-18T10:34:46+02:00 — earlier of the two posts sharing this
+# date. Lower `order` = earlier in the day = sorts after the other on the
+# blog index (see schemas.ts's `order` doc comment for the full rule).
+order: 1
 ---
 
 Six runs into this studio's `reports/` history, a pattern is showing up
