@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { m, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
 import {
@@ -7,6 +7,7 @@ import {
   findHandoffs,
   layoutPhaseCaptions,
   phaseAnchorPosition,
+  type CaptionHeights,
   type PhaseCaptionAssignment,
   type TimelineHandoff,
   type TimelineScaffold,
@@ -219,6 +220,85 @@ function TimelineRule({
 /* Desktop: horizontal rule, alternating above/below phase captions        */
 /* ---------------------------------------------------------------------- */
 
+/**
+ * Measures every desktop phase caption's REAL rendered content height —
+ * NOT an estimate (2026-07-19, second fix: a character-count estimator lived
+ * here briefly and was verifiably wrong, in the direction that causes
+ * overlap, because rendered height depends on wrap points, not character
+ * count — see `src/lib/timeline.ts`'s doc comment on this history).
+ *
+ * Two layers, deliberately:
+ * 1. A SYNCHRONOUS read (`el.getBoundingClientRect().height`) inside
+ *    `useLayoutEffect`. `useLayoutEffect` runs after the DOM commits but
+ *    BEFORE the browser paints, and setting state inside it flushes a
+ *    correction in that same pre-paint window — so in any real browser, a
+ *    reader never actually sees the pre-measurement fallback render. This
+ *    is also why the motion resting-state rule still holds: reaching the
+ *    correct layout depends on `useLayoutEffect`'s ordering guarantee, not
+ *    on an animation frame ever running (rAF can be frozen/dead and this
+ *    still resolves).
+ * 2. A `ResizeObserver` on the same elements, for everything a one-time
+ *    read can't catch — a web font finishing its swap after first paint,
+ *    a content edit in dev. Its callback isn't guaranteed synchronous
+ *    (unlike the read above), so this layer is a best-effort correction,
+ *    not the first-paint guarantee.
+ *
+ * If neither is available (`ResizeObserver` undefined — jsdom without the
+ * `src/smoke/setup.ts` stub, or a very old browser), heights simply stay
+ * unmeasured and every caption uses `FALLBACK_CAPTION_HEIGHT_PX` — a safe,
+ * generous constant, never a collapsed or overlapping layout.
+ */
+function useMeasuredCaptionHeights(phases: readonly ProcessPhase[]): {
+  heights: CaptionHeights;
+  registerCaptionRef: (index: number) => (el: HTMLElement | null) => void;
+} {
+  const [heights, setHeights] = useState<Record<number, number>>({});
+  const elementsRef = useRef<Map<number, HTMLElement>>(new Map());
+
+  const registerCaptionRef = useCallback(
+    (index: number) => (el: HTMLElement | null) => {
+      if (el) elementsRef.current.set(index, el);
+      else elementsRef.current.delete(index);
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    // `phases` changing identity means a different project's captions are
+    // now mounted (ProjectDetail can stay mounted across a route change to
+    // a different project's page) — every previous measurement describes
+    // content that no longer exists, so start clean rather than showing a
+    // stale, unrelated height even for one frame.
+    setHeights({});
+
+    const elements = elementsRef.current;
+
+    function measureAll() {
+      setHeights((prev) => {
+        let changed = false;
+        const next: Record<number, number> = { ...prev };
+        for (const [index, el] of elements) {
+          const height = Math.ceil(el.getBoundingClientRect().height);
+          if (height > 0 && next[index] !== height) {
+            next[index] = height;
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }
+
+    measureAll();
+
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => measureAll());
+    for (const el of elements.values()) observer.observe(el);
+    return () => observer.disconnect();
+  }, [phases]);
+
+  return { heights, registerCaptionRef };
+}
+
 function DesktopTimeline({
   scaffold,
   phases,
@@ -230,15 +310,16 @@ function DesktopTimeline({
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
-  // Side/lane assignment (collision-avoidance) + the resulting vertical
-  // clearance both live in `src/lib/timeline.ts` as pure, unit-tested
-  // functions — see that file's "Desktop caption collision-avoidance"
-  // section for the full reasoning. `clearancePx` replaces the previous
-  // flat `pt-[22rem] pb-[22rem]` (352px): it's content-derived per project,
-  // applied to BOTH paddingTop and paddingBottom (kept symmetric on purpose
-  // — see `TimelineCaptionLayout.clearancePx`'s doc comment) so the rule's
-  // plain `top: 50%` stays exactly centered.
-  const layout = layoutPhaseCaptions(phases, scaffold);
+  // Side/lane assignment (collision-avoidance) lives in `src/lib/timeline.ts`
+  // as pure, unit-tested functions — see that file's "Desktop caption
+  // collision-avoidance" section. `clearancePx` replaces the previous flat
+  // `pt-[22rem] pb-[22rem]` (352px): it's derived from REAL measured caption
+  // heights (`useMeasuredCaptionHeights` above), applied to BOTH
+  // paddingTop and paddingBottom (kept symmetric on purpose — see
+  // `TimelineCaptionLayout.clearancePx`'s doc comment) so the rule's plain
+  // `top: 50%` stays exactly centered.
+  const { heights, registerCaptionRef } = useMeasuredCaptionHeights(phases);
+  const layout = layoutPhaseCaptions(phases, scaffold, heights);
   // The solo -> team handoff (empty for every all-solo/all-team project —
   // all six today), see `findHandoffs`'s doc comment in `src/lib/timeline.ts`.
   const handoffs = findHandoffs(phases, scaffold);
@@ -283,6 +364,7 @@ function DesktopTimeline({
           assignment={assignment}
           offsetPx={(assignment.side === 'above' ? layout.above : layout.below).offsets[assignment.lane]}
           showModeTag={hasHandoff}
+          contentRef={registerCaptionRef(assignment.index)}
         />
       ))}
 
@@ -370,6 +452,7 @@ function DesktopPhaseCaption({
   assignment,
   offsetPx,
   showModeTag,
+  contentRef,
 }: {
   assignment: PhaseCaptionAssignment;
   /** Distance (px) from the rule's centerline to this caption's near edge —
@@ -381,6 +464,10 @@ function DesktopPhaseCaption({
   /** True only when this project's timeline has a solo -> team handoff —
    * see `phaseToneLabel`'s doc comment. */
   showModeTag: boolean;
+  /** Attached to the tone-label + narrative wrapper (NOT the connector) —
+   * `useMeasuredCaptionHeights`' real DOM measurement point. See that
+   * hook's doc comment for why this replaced a character-count estimate. */
+  contentRef: (el: HTMLElement | null) => void;
 }) {
   const { phase, position, side } = assignment;
   const prefersReducedMotion = useReducedMotion();
@@ -417,8 +504,13 @@ function DesktopPhaseCaption({
       >
         <line x1="1" y1="0" x2="1" y2={offsetPx} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
-      <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{phaseToneLabel(phase, showModeTag)}</p>
-      <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
+      {/* The measured element: tone label + narrative, excluding the
+          connector above (whose length is `offsetPx` — a LANE property,
+          not this caption's own content height). */}
+      <div ref={contentRef}>
+        <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{phaseToneLabel(phase, showModeTag)}</p>
+        <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
+      </div>
     </m.div>
   );
 }

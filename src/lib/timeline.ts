@@ -268,29 +268,41 @@ function claimLane(lastPositionPerLane: number[], position: number, minGap: numb
 /* measured (LoveDiary, 322px); it was never meant to reserve room for TWO  */
 /* stacked lanes on a busy side, and it's needlessly large for every        */
 /* project whose captions are shorter than that one measurement.            */
+/*                                                                            */
+/* 2026-07-19, SECOND FIX: a character-count HEIGHT ESTIMATOR lived here    */
+/* briefly and was wrong in exactly the direction that causes overlap — a   */
+/* browser's real caption heights (Dom's MensApp measurement: 226, 264,     */
+/* 434, 472px) depend on where the text actually WRAPS, which character     */
+/* count cannot predict (identical counts can differ by a whole line; one   */
+/* long word can cost 20px). Estimating a quantity the browser already      */
+/* knows exactly was the bug, twice over. This module now takes REAL        */
+/* measured heights as a plain input — see `useMeasuredCaptionHeights` in   */
+/* BuildTimeline.tsx for where those numbers come from (`ResizeObserver` +  */
+/* a synchronous `useLayoutEffect` read). The packing/stacking MATH below   */
+/* is unchanged and still pure/testable; only the numbers it's fed changed. */
 /* ------------------------------------------------------------------------ */
 
-/**
- * Rough caption box height, estimated from its narrative's character count
- * (this module has no DOM access, so an actual rendered height isn't
- * available) — used ONLY to size reserved vertical clearance, never to hide
- * or truncate real content. Calibrated against LoveDiary's day-two
- * narrative (456 characters), the one real measurement on record (322px,
- * measured in real Chrome per the prior desktop-caption-overlap fix): at
- * `CAPTION_CHARS_PER_LINE` characters/line and `CAPTION_LINE_HEIGHT_PX`
- * per line, this reproduces that measurement within a few px.
- */
-export const CAPTION_CHARS_PER_LINE = 34; // ~224px (`w-56`) box at text-sm (14px)
-export const CAPTION_LINE_HEIGHT_PX = 19; // text-sm + leading-snug (1.375)
-/** Tone label line + its bottom margin (`mb-1`) — the fixed "chrome" above
- * every caption's narrative text. */
-export const CAPTION_CHROME_PX = 21;
+/** Real measured caption heights (px), keyed by `PhaseCaptionAssignment.index`
+ * (the phase's original array index) — NOT estimated. A phase absent from
+ * this map hasn't been measured yet (first paint, before the DOM
+ * measurement effect has run) and falls back to `FALLBACK_CAPTION_HEIGHT_PX`. */
+export type CaptionHeights = Readonly<Record<number, number>>;
 
-export function estimateCaptionHeightPx(phase: Pick<ProcessPhase, 'narrative'>): number {
-  const narrative = phase.narrative.trim();
-  const lines = Math.max(1, Math.ceil(narrative.length / CAPTION_CHARS_PER_LINE));
-  return CAPTION_CHROME_PX + lines * CAPTION_LINE_HEIGHT_PX;
-}
+/**
+ * Used ONLY for a caption that hasn't been measured yet — first paint,
+ * before `useMeasuredCaptionHeights`'s `useLayoutEffect` has run. This is a
+ * generic safety net (comfortably larger than every real height Dom
+ * measured across MensApp, up to 472px), not a per-project or per-caption
+ * estimate — the exact category of "guess" that caused this bug twice.
+ * Real measurements always override it as soon as they land, which (per
+ * `useLayoutEffect`'s ordering) is before the browser paints, in any real
+ * browser — so in practice this value is rarely, if ever, actually seen. Its
+ * only job is to guarantee "not a collapsed/overlapping layout" if
+ * measurement is unavailable at all (e.g. jsdom without a `ResizeObserver`
+ * stub) — it does not need to be, and deliberately is not, tuned per
+ * content.
+ */
+export const FALLBACK_CAPTION_HEIGHT_PX = 520;
 
 /** Matches the connector's existing length in `DesktopPhaseCaption` (the
  * `height="28"` SVG) — the gap between the rule and a lane-0 caption's near
@@ -316,13 +328,18 @@ export interface SideCaptionLayout {
 }
 
 /** Computes one side's (above or below) lane offsets and required
- * clearance from a full set of assignments — the max estimated caption
- * height per lane, stacked outward from the rule. */
-export function computeSideCaptionLayout(assignments: readonly PhaseCaptionAssignment[], side: CaptionSide): SideCaptionLayout {
+ * clearance from a full set of assignments — the max REAL measured caption
+ * height per lane (falling back to `FALLBACK_CAPTION_HEIGHT_PX` for any
+ * phase not yet measured), stacked outward from the rule. */
+export function computeSideCaptionLayout(
+  assignments: readonly PhaseCaptionAssignment[],
+  side: CaptionSide,
+  measuredHeights: CaptionHeights = {},
+): SideCaptionLayout {
   const laneMaxHeights: number[] = [];
   for (const assignment of assignments) {
     if (assignment.side !== side) continue;
-    const height = estimateCaptionHeightPx(assignment.phase);
+    const height = measuredHeights[assignment.index] ?? FALLBACK_CAPTION_HEIGHT_PX;
     laneMaxHeights[assignment.lane] = Math.max(laneMaxHeights[assignment.lane] ?? 0, height);
   }
 
@@ -354,15 +371,17 @@ export interface TimelineCaptionLayout {
 
 /** The single entry point `BuildTimeline` calls: side/lane assignment +
  * per-side offsets + the one clearance value both `paddingTop` and
- * `paddingBottom` should use. */
+ * `paddingBottom` should use. `measuredHeights` is REAL DOM measurement
+ * (or empty, pre-measurement) — see `CaptionHeights`'s doc comment. */
 export function layoutPhaseCaptions(
   phases: readonly ProcessPhase[],
   scaffold: Pick<TimelineScaffold, 'domainStart' | 'domainEnd'>,
+  measuredHeights: CaptionHeights = {},
   minGap: number = CAPTION_COLLISION_FRACTION,
 ): TimelineCaptionLayout {
   const assignments = assignPhaseCaptionLanes(phases, scaffold, minGap);
-  const above = computeSideCaptionLayout(assignments, 'above');
-  const below = computeSideCaptionLayout(assignments, 'below');
+  const above = computeSideCaptionLayout(assignments, 'above', measuredHeights);
+  const below = computeSideCaptionLayout(assignments, 'below', measuredHeights);
   return { assignments, above, below, clearancePx: Math.max(above.clearancePx, below.clearancePx) };
 }
 

@@ -32,3 +32,25 @@ class NoOpIntersectionObserver implements IntersectionObserver {
   }
 }
 window.IntersectionObserver = NoOpIntersectionObserver as unknown as typeof IntersectionObserver;
+
+/**
+ * jsdom has no `ResizeObserver` at all either — `BuildTimeline`'s
+ * `useMeasuredCaptionHeights` (2026-07-19, replacing a character-count
+ * height ESTIMATE with real DOM measurement, after that estimate was found
+ * to genuinely overlap captions in a real browser) constructs one per
+ * mounted project-detail page with a `process` block. A no-op observer that
+ * never fires is the correct, honest stub here, same reasoning as
+ * `NoOpIntersectionObserver` above: this suite only asserts on structural
+ * DOM and the motion resting-state (never on measured pixel values, which
+ * jsdom can't produce anyway — `getBoundingClientRect()` always returns
+ * zeros here), so a dead observer never masks anything this suite could
+ * have caught. `useMeasuredCaptionHeights`'s `FALLBACK_CAPTION_HEIGHT_PX`
+ * keeps the layout in a valid, non-collapsed state when — as here —
+ * measurement never actually arrives.
+ */
+class NoOpResizeObserver implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+window.ResizeObserver = NoOpResizeObserver as unknown as typeof ResizeObserver;
