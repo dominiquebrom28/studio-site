@@ -120,13 +120,25 @@ function DesktopTimeline({
   const ruleStyle = reduced ? { scaleX: 1 } : { scaleX: progress };
 
   return (
-    <div className="relative mb-6 hidden pt-24 pb-24 pr-24 lg:block">
+    <div className="relative mb-6 hidden pt-[22rem] pb-[22rem] pr-24 lg:block">
       {/* Decorative scaffold — rule, ticks, connectors. Real content (phase
           captions) lives outside this aria-hidden wrapper below. The extra
           `pr-24` on the outer container reserves room for the "still open"
           terminus label so it never bleeds past the column's right edge —
           it's positioned at the rule's end (100%), inside that reserved
-          space, never outside the component's own box. */}
+          space, never outside the component's own box.
+
+          `pt-[22rem]`/`pb-[22rem]` (was `pt-24 pb-24`, 96px): a phase caption
+          is `w-56` (224px) with up to 3 sentences of body text, and its box
+          is anchored by its OUTER edge (`bottom-[calc(50%+28px)]` / `top-...`)
+          growing away from the rule as content wraps — absolutely-positioned
+          content is never clipped by a parent's padding, so 96px of headroom
+          was nowhere near enough: measured caption heights across all five
+          standard-template projects range up to 322px (lovediary), and
+          several exceeded 96px enough to overlap the "The process" H2 above
+          and the commit-log `<details>`/media gallery below (QA finding —
+          verified via real Chrome, not just this dev tool). 352px clears the
+          tallest measured caption with headroom for future copy edits. */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
         <m.div className="h-px w-full origin-left bg-ink/30" style={ruleStyle} />
         {scaffold.ticks.map((tick) => (
