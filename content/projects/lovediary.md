@@ -4,7 +4,7 @@ slug: "lovediary"
 summary: "A couples' timeline app for logging relationship moments — polished single-player, but its partner sync is UI-only fake."
 stack: ["Next.js", "React", "TypeScript", "Tailwind CSS", "Zustand", "framer-motion"]
 status: "in-progress"
-repo: "https://github.com/dominiquebrom28/lovediary"
+liveUrl: "https://lovediary-zeta.vercel.app"
 featured: false
 order: 5
 date: "2026-05-03"

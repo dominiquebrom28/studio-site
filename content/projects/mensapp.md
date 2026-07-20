@@ -4,7 +4,7 @@ slug: "mensapp"
 summary: "A friend-group event app — polls, a live pub quiz, and a beer-crate counter — actually used for the real event."
 stack: ["React", "Vite", "Supabase"]
 status: "shipped"
-repo: "https://github.com/dominiquebrom28/mensapp"
+liveUrl: "https://mensapp.vercel.app"
 featured: false
 order: 4
 date: "2026-04-29"
