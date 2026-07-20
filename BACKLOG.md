@@ -175,7 +175,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       bullet and all 5 backlog chips against the post's own body — no new
       factual claim introduced. **Caveat: all 159 tests are pure logic; a
       browser pass is still warranted.** DOM-3 is now unblocked.)_
-- [ ] **DOM-3 — Agent-interaction storytelling.** Dom: "create a story about
+- [x] **DOM-3 — Agent-interaction storytelling.** Dom: "create a story about
       the multiple agents interacting with each other, how they work together
       on tasks." The reports already contain real drama (QA passing a harness
       that measured the wrong thing, browser verification overruling four
@@ -183,6 +183,21 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       cast-page copy that dramatize REAL events in the named characters'
       voices, with the same event-sourcing discipline as the persona bible.
       Needs DOM-1 (names) and benefits from DOM-2 (multi-voice format).
+      _(2026-07-20, team/2026-07-20-dom3-story, PR #28 — awaiting Dom. "Red Is
+      Not Self-Justifying": four real catches in four voices (first genuinely
+      multi-author post — Project Lead, qa-tester, frontend-dev, designer with
+      per-section bylines). Marketer wrote from reports/ only, with a
+      claim-by-claim source table the lead verified before landing; the things
+      deliberately NOT dramatized (Otto's falsification payoff the report
+      never names, the unresolved smoke flake) are listed in the PR. **The
+      post immediately proved its own thesis:** the content-validation gate
+      failed it with "no author field found" because the gate read only
+      `author` while blog-format-v2 made `authors[]` mutually exclusive with
+      it — the first real multi-author post was exactly the case the gate
+      never covered. Third wrong-gate incident in three days; fixed +
+      falsified with a fake cast name in the same PR. Cast-page copy NOT
+      included — one reviewable concern per PR; posts can carry DOM-3 forward
+      as more events accumulate.)_
 - [ ] **DOM-4 — Project visuals: screenshots + short animations.** Dom: the
       project pages are "a wall of text… create screenshots, but preferably
       short animations — that's what works best in the market." Market
@@ -324,13 +339,24 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       Decide whether to source real images or drop the field. _Source: named
       product gap; flagged in reports/2026-07-17.md and again by frontend-dev
       this run._
-- [ ] **MEDIUM — RSS/Atom feed + `sitemap.xml`.** The site is a blog with no
+- [x] **MEDIUM — RSS/Atom feed + `sitemap.xml`.** The site is a blog with no
       feed and no sitemap. _Source: Google Search Central recommends sites use
       **both** — a sitemap to describe the full URL set and an RSS/Atom feed to
       describe recent changes — for optimal crawling
       (developers.google.com/search/blog/2014/10/best-practices-for-xml-sitemaps-rssatom).
       Both are cheap to generate at build time from the existing loader, and a
       feed is table stakes for a developer logbook that wants readers._
+      _(2026-07-20, team/2026-07-20-feed-sitemap, PR #29 — awaiting Dom.
+      `npm run build` now emits `dist/sitemap.xml` + `dist/feed.xml` (RSS 2.0)
+      and appends the Sitemap directive to robots.txt. Zero new deps — the
+      generator runs the REAL content loader via Vite's own `ssrLoadModule`
+      instead of adding tsx/ts-node, so sort rules and draft semantics can
+      never drift from the site's. frontend-dev verified empirically that
+      `import.meta.env.PROD` is false under ssrLoadModule and therefore
+      passes `isProd: true` explicitly — proven with a synthetic draft probe
+      post, not assumed. 23 new unit tests; lead independently rebuilt and
+      xmllint-verified both artifacts (15 URLs / 5 items). Open question for
+      Dom in the PR: `/feed.xml` vs `/rss.xml`.)_
 - [ ] **LOW — Non-ASCII heading slugs collapse.** `slugifyHeading` strips
       non-Latin characters entirely (`Über café ñ 中文标题` → `ber-caf`), so two
       headings differing only in non-Latin content collide before de-dup runs.
@@ -340,7 +366,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 
 ### Added 2026-07-19 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — `liveUrl` is set by zero projects (and 2 of 6 have no `repo`).**
+- [x] **HIGH — `liveUrl` is set by zero projects (and 2 of 6 have no `repo`).**
       `liveUrl` is in the schema AND rendered in two places in
       `ProjectDetail.tsx` — and no project file sets it, so the markup is
       permanently dead. `portfolio` and `chart-token-playground` also have no
@@ -354,6 +380,18 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       click are repeatedly cited as the highest-signal portfolio element
       (hyperskill.org "Building a Developer Portfolio in 2026: What Actually
       Gets Attention"; techtimes.com 2026 tech-portfolio guide)._
+      _(2026-07-20, team/2026-07-20-live-urls, PR #27 — awaiting Dom. The
+      caveat WAS the live state: pizzaparty/mensapp/lovediary repos are
+      PRIVATE, so three of six project pages were shipping "Repository →"
+      links that 404 for every logged-out reader — invisible to Dom precisely
+      because he's always logged in. All three have working Vercel
+      deployments (200 + page titles verified as the real apps), so each dead
+      repo link became a live demo link. soulforge is genuinely public and
+      keeps its repo link; portfolio/chart-token-playground keep nothing.
+      Open decision flagged to Dom: making the three repos public restores
+      both links — a three-line revert. Bonus finding: studio-site itself is
+      live at doms-ai-studio.vercel.app, which the deployed-smoke job from
+      PR #20 was built for — see the new SMOKE_URL item below.)_
 - [ ] **MEDIUM — Component-level test infrastructure is missing repo-wide.**
       `vitest.config.ts` restricts `include` to `src/**/*.test.ts`, so a
       `.tsx` test would not even run, and there is no jsdom. Every "N tests
@@ -413,6 +451,44 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       blind — it is to make failures capturable (retain vitest output in CI,
       consider `--retry=0` plus an explicit repeat run) so the next occurrence
       is diagnosable. _Source: lead health check of `main`, 2026-07-19._
+
+### Added 2026-07-20 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Set the `SMOKE_URL` repo variable so `deployed-smoke` checks
+      something.** The deployed-URL smoke job from PR #20 is wired correctly
+      (`vars.SMOKE_URL` → `scripts/check-deployed-routes.mjs`) but the
+      variable has never been set, so every run since has printed "SKIPPED —
+      no deployed URL supplied" and gone green in 7 seconds. The site IS
+      deployed — https://doms-ai-studio.vercel.app confirmed live 2026-07-20 —
+      so the gate's designed skip path has silently become its permanent
+      behavior. One-time Dom action, no PR:
+      `gh variable set SMOKE_URL --body "https://doms-ai-studio.vercel.app"`
+      (or repo Settings → Variables). _Source: 2026-07-20 run — found while
+      confirming CI on PR #26; the skip prints loudly in the log but nothing
+      surfaces it on the PR checks screen, which is exactly the
+      "green-but-covering-nothing" pattern PR #20 itself was built to end._
+- [ ] **MEDIUM — Backfill the missing 2026-07-19 evening run record.** PR #25
+      (project page v2 — six commits, a full redesign, shipped and merged
+      same-day) has no `reports/` entry; the 07-19 report predates it. The
+      session also left its logbook post UNCOMMITTED in the working tree
+      (landed by PR #26) and a second unfinished worktree
+      (`team/2026-07-20-fix-post-count`, zero commits — but holding an
+      UNCOMMITTED pin-by-slug fix for the same brittle assertion PR #26
+      fixes; left in place in case that session is still live). Consequence,
+      stated in PR #26 rather than smoothed over: the post's precise figures
+      (37px/18px overlaps, the 51px/224px argument) currently trace to the
+      session's own account, not to a run record. Reconstruct what's
+      reconstructable from git + the PR #25 body, and say plainly what isn't.
+      _Source: 2026-07-20 run reconciliation; PROJECT-BRIEF hard rule "every
+      run ends with a report in reports/"._
+- [ ] **MEDIUM — Post-merge integration check for same-file test edits.**
+      PRs #26 and #28 carry an intentionally identical `index.test.ts` hunk
+      (both needed it to stay independently green; identical-content merges
+      are clean). Harmless here, but the pattern "two open PRs edit the same
+      test file" now has a precedent, and `main` after both merge should get
+      one full-gate run. Cheap: it's what the post-merge health check already
+      does — this item just says to keep doing it and to watch that file.
+      _Source: 2026-07-20 run, lead decision log._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
