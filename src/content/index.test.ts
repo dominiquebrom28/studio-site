@@ -38,13 +38,35 @@ describe('content loader — real repo content', () => {
   });
 
   // blog-format-v2 §3's backward-compatibility promise, verified against the
-  // REAL content directory: all five pre-existing posts (single `author`
-  // string, no `authors`/`tldr`/`backlogRefs` field) must still parse with
-  // zero edits, and the loader's `normalizePost` must give every one of them
-  // a populated `authors` array whose first element equals `author`.
+  // REAL content directory: the pre-existing posts (single `author` string,
+  // no `authors`/`tldr`/`backlogRefs` field) must still parse with zero
+  // edits, and the loader's `normalizePost` must give every post a populated
+  // `authors` array whose first element equals `author`.
+  //
+  // This deliberately does NOT assert a post count. It used to
+  // (`expect(posts.length).toBe(5)`), which meant publishing a blog post —
+  // the single thing this site exists to do — turned the suite red and
+  // invited the author to "fix" the number without reading what broke. The
+  // regression it was actually reaching for is *named legacy posts still
+  // parsing*, so that is what LEGACY_POSTS pins; the invariant itself is
+  // asserted over every post, however many there are.
+  const LEGACY_POSTS = [
+    'i-gave-claude-a-dev-team',
+    'the-day-the-repos-got-honest',
+    'teaching-the-studio-to-merge-itself',
+    'we-hired-someone-to-look-at-the-page',
+    'what-the-green-checkmarks-missed',
+  ];
+
+  it('the pre-blog-format-v2 posts all still load, unedited', () => {
+    for (const slug of LEGACY_POSTS) {
+      expect(getPostBySlug(slug), `legacy post ${slug} no longer loads`).toBeDefined();
+    }
+  });
+
   it('every real committed post gets a populated `authors` array, with `author` always equal to `authors[0]`', () => {
     const posts = getAllPosts();
-    expect(posts.length).toBe(5);
+    expect(posts.length).toBeGreaterThanOrEqual(LEGACY_POSTS.length);
     for (const post of posts) {
       expect(post.authors.length).toBeGreaterThan(0);
       expect(post.authors.length).toBeLessThanOrEqual(4);
