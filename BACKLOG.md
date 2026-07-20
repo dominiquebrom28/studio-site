@@ -481,7 +481,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       reconstructable from git + the PR #25 body, and say plainly what isn't.
       _Source: 2026-07-20 run reconciliation; PROJECT-BRIEF hard rule "every
       run ends with a report in reports/"._
-- [ ] **MEDIUM — Post-merge integration check for same-file test edits.**
+- [x] **MEDIUM — Post-merge integration check for same-file test edits.**
       PRs #26 and #28 carry an intentionally identical `index.test.ts` hunk
       (both needed it to stay independently green; identical-content merges
       are clean). Harmless here, but the pattern "two open PRs edit the same
@@ -489,6 +489,9 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       one full-gate run. Cheap: it's what the post-merge health check already
       does — this item just says to keep doing it and to watch that file.
       _Source: 2026-07-20 run, lead decision log._
+      _(2026-07-20, same run — Dom merged #26–#29 while the run was live, so
+      the check ran immediately: 241/241, all gates green, twin hunks merged
+      clean, feed/sitemap auto-updated to 7 posts/17 URLs.)_
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
