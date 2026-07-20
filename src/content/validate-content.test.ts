@@ -81,6 +81,16 @@ function normalizeAuthors(value: unknown): string[] {
   return [];
 }
 
+/** blog-format-v2 made `authors[]` and `author` MUTUALLY EXCLUSIVE (schema
+ * `.refine`), so a multi-author post carries `authors` and no `author` at
+ * all. This gate originally read only `data.author` — which meant the first
+ * real multi-author post ever published failed it with "no author field
+ * found" while being perfectly valid. The gate was wrong, not the content
+ * (again — see the same-date rule, PR #24). Read whichever field is set. */
+function authorsOf(data: Record<string, unknown>): string[] {
+  return normalizeAuthors(data.authors ?? data.author);
+}
+
 const VALID_AUTHOR_NAMES = new Set<string>([...cast.map((member) => member.name), 'Dom']);
 
 describe('content validation — post frontmatter (real content/posts)', () => {
@@ -171,8 +181,8 @@ describe('content validation — post frontmatter (real content/posts)', () => {
   describe('author resolves to a cast member or "Dom"', () => {
     for (const post of posts) {
       it(`${post.filename}`, () => {
-        const authors = normalizeAuthors(post.data.author);
-        expect(authors.length, `"${post.filename}": no author field found`).toBeGreaterThan(0);
+        const authors = authorsOf(post.data);
+        expect(authors.length, `"${post.filename}": no author/authors field found`).toBeGreaterThan(0);
         for (const author of authors) {
           expect(
             VALID_AUTHOR_NAMES.has(author),
