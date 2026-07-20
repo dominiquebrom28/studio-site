@@ -4,7 +4,7 @@ slug: "pizzaparty"
 summary: "Spin the wheel, eat the pizza — a polished demo whose coupon/partner features were scaffolded and never built."
 stack: ["HTML", "JavaScript", "Tailwind CSS", "Canvas API"]
 status: "archived"
-repo: "https://github.com/dominiquebrom28/pizzaparty"
+liveUrl: "https://pizzaparty-mu.vercel.app"
 featured: false
 order: 6
 date: "2026-05-01"
