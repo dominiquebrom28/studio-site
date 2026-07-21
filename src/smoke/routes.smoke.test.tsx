@@ -116,6 +116,11 @@ const KNOWN_PATHS = new Set<string>([
   '/cast',
   ...getAllProjects().map((p) => `/projects/${p.slug}`),
   ...getAllPosts().map((p) => `/blog/${p.slug}`),
+  // Not a SPA route — a static file `vite build` + generate-seo-files.mjs
+  // write straight into dist/ (Footer's RSS link). Real and resolvable in
+  // every deployed environment, just never rendered by React Router, so it
+  // has to be listed here explicitly rather than derived from `routes.tsx`.
+  '/feed.xml',
 ]);
 
 function isKnownInternalPath(href: string): boolean {

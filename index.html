@@ -12,6 +12,32 @@
          whatever origin actually served this page (prod, a Vercel preview,
          or localhost), so it needs no build-time templating of its own. -->
     <link rel="alternate" type="application/rss+xml" title="Dom's AI Studio — RSS Feed" href="/feed.xml" />
+
+    <!-- Favicon set (SEO/social-asset P0) — favicon.svg is the primary
+         (modern browsers), favicon-32.png + apple-touch-icon.png are the
+         raster fallbacks non-SVG-favicon browsers and iOS home-screen
+         bookmarks need. Root-relative, same reasoning as the feed link above. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Default OG/Twitter social-share tags for the initial paint and for
+         unfurl bots that don't execute JS — `src/components/Seo.tsx`
+         overwrites these per-route once React mounts. `og:image`/
+         `twitter:image` here are intentionally absolute (the confirmed-live
+         production URL, same default as SITE_URL in
+         scripts/generate-seo-files.mjs) because OG crawlers require an
+         absolute URL and cannot resolve a root-relative one against an
+         unknown origin the way a browser or feed reader can. -->
+    <meta property="og:title" content="Dom's AI Studio" />
+    <meta property="og:description" content="Dom's AI Studio — 1 human + 10 AI characters building software in the open. Portfolio and process, written down as it happens." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://doms-ai-studio.vercel.app/" />
+    <meta property="og:image" content="https://doms-ai-studio.vercel.app/og-default.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://doms-ai-studio.vercel.app/og-default.png" />
+    <link rel="canonical" href="https://doms-ai-studio.vercel.app/" />
+
     <title>Dom's AI Studio</title>
     <script>
       // Runs before paint — sets the color-scheme class from the persisted
