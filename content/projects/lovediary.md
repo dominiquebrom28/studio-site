@@ -5,6 +5,7 @@ summary: "A couples' timeline app for logging relationship moments — polished 
 stack: ["Next.js", "React", "TypeScript", "Tailwind CSS", "Zustand", "framer-motion"]
 status: "in-progress"
 liveUrl: "https://lovediary-zeta.vercel.app"
+repo: "https://github.com/dominiquebrom28/lovediary"
 featured: false
 order: 5
 date: "2026-05-03"

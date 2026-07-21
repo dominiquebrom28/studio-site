@@ -5,6 +5,7 @@ summary: "A friend-group event app — polls, a live pub quiz, and a beer-crate 
 stack: ["React", "Vite", "Supabase"]
 status: "shipped"
 liveUrl: "https://mensapp.vercel.app"
+repo: "https://github.com/dominiquebrom28/mensapp"
 featured: false
 order: 4
 date: "2026-04-29"
