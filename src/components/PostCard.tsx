@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Post } from '@/content';
+import { getCastMemberByName } from '@/content/cast';
+import { CharacterAvatar } from './ui/CharacterAvatar';
 import { Chip } from './ui/Badge';
 
 function formatDate(iso: string): string {
@@ -16,6 +18,14 @@ export function PostCard({
   headingLevel?: 2 | 3;
 }) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  // Resolve the primary author to a cast character so the blog index carries
+  // the same avatar-stamp byline the post page does (design-brief §5) — the
+  // one page the ten characters were entirely absent from before. No nested
+  // <Link> here: the whole card is already a link, so the stamp is a plain
+  // stamp, not a Cast link. A non-cast author (e.g. "Dom") falls back to
+  // plain text, exactly like Byline does.
+  const member = getCastMemberByName(post.author);
+  const extraAuthors = post.authors.length - 1;
 
   return (
     <Link
@@ -28,7 +38,20 @@ export function PostCard({
       <Heading className="card-title mb-1">{post.title}</Heading>
       <p className="mb-3 line-clamp-2 text-sm text-ink-muted">{post.summary}</p>
       <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ink-muted">
-        <span>by {post.author}</span>
+        {member ? (
+          <span className="inline-flex items-center gap-1.5">
+            <CharacterAvatar id={member.id} tintVar={member.tintVar} name={member.name} size="inline" />
+            <span>
+              {member.firstName}
+              {extraAuthors > 0 && ` +${extraAuthors}`}
+            </span>
+          </span>
+        ) : (
+          <span>
+            by {post.author}
+            {extraAuthors > 0 && ` +${extraAuthors}`}
+          </span>
+        )}
         {post.tags.length > 0 && <span aria-hidden="true">·</span>}
         <div className="flex flex-wrap gap-1.5">
           {post.tags.map((tag) => (
