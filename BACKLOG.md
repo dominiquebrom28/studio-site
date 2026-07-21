@@ -560,6 +560,84 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       less careful agent. Whatever sets the worktree base for these runs should
       point at studio-site. _Source: frontend-dev env note, 2026-07-21 run._
 
+### Critical review findings (2026-07-21) — whole team + Judge
+
+Full record in `reports/2026-07-21-review.md`. Impact-ranked; several shipped
+same-day (marked). Theme: **declared-but-not-delivered** — an honesty-branded
+site whose provenance device is still decorative.
+
+- [x] **P0 — Hero overclaim (provenance).** Hero promised "a real reviewer and a
+      real commit hash"; pages ship only a byline. _(Fixed 2026-07-21, PR #37 —
+      copy softened to the truth; the rich claim returns when the provenance
+      model ships.)_
+- [ ] **P0 — No favicon / OG image / social meta.** Every shared link unfurls
+      blank; `Seo.tsx` has no `og:image`/`twitter:card`/`canonical`; SEO meta is
+      CSR-only so unfurl bots see nothing. _(IN FLIGHT: team/2026-07-21-seo-social,
+      visual-media — favicon + default OG + meta + footer RSS.)_
+- [ ] **P0 — No next step / conversion path.** No contact, email, CTA, or "who
+      is Dom" anywhere — an engaged reader is a 100% leak. Even an honest
+      "experiment log, here's Dom's real portfolio/LinkedIn" exit closes it.
+      _Source: marketer._
+- [ ] **P1 — Security headers / CSP in `vercel.json`.** Spec §46 mandates CSP +
+      HSTS + `X-Frame-Options` + `nosniff` + `Referrer-Policy`; none ship. No
+      live exploit (static, no-auth — Judge downgraded from P0), but it's a
+      spec-required control. **The CSP MUST hash/nonce the inline theme-bootstrap
+      script in `index.html` or dark-mode-before-paint breaks.** _Source:
+      devops/security/architect._
+- [x] **P1 — Content-validation gate was non-blocking.** A non-required CI job
+      that green-passed but gated nothing (a content PR could auto-merge without
+      it). _(Fixed 2026-07-21, PR #36 — promoted into the required `build` job;
+      stale "currently RED" comment removed, gate is green.)_
+- [x] **P1 — `sortProjects`/`isoDate` data bugs.** _(Fixed 2026-07-21, PR #36 —
+      slug tie-break + regression test; canonical `YYYY-MM-DD`.)_ The third
+      backend item — a **draft-exclusion / feed-generator regression test**
+      (currently a one-time manual proof) — remains open (P1).
+- [x] **P1 — Blog index missing cast avatars.** _(Fixed 2026-07-21, PR #37 —
+      cast avatar stamp + name, honest `+N` for multi-author.)_
+- [ ] **P1 — Interaction-test backfill (extends component-test infra).** Zero
+      interaction coverage on: `Header` mobile drawer + `useFocusTrap` (a binding
+      §9 a11y mechanism), `ThemeToggle`, `ShareRow` clipboard (never clicked by
+      any test), `BylineGroup`/`joinNames` overflow (live in the 4-author post).
+      Also a dead `triggerRef` in `Header.tsx` a test would force resolving.
+      _Source: qa + frontend-dev._
+- [ ] **P1 — Automated a11y tooling.** No `axe`/`vitest-axe` anywhere; §9 is
+      "binding WCAG 2.2 AA" with checkable rules (target sizes, focus outlines,
+      heading skips) that nothing asserts. Add `axe()` to the component-test
+      config against Header (both drawer states), BlogPost, ProjectDetail, Home.
+      _Source: qa._
+- [ ] **P1 — Real-browser responsive/visual testing.** jsdom can't evaluate
+      media queries, so the 2026-07-17 mobile-reading-order P0 class is
+      structurally uncatchable and the never-done "QA pass — responsive" item
+      cannot be honestly closed. Needs Playwright (or similar) at 375/768/1280
+      against `dist/`. _Source: qa. Relates to the existing HIGH smoke-test item._
+- [ ] **P1 — Provenance model IMPLEMENTATION (the hero device is still a
+      byline).** The spec shipped (2026-07-19, PR #19); the generator/schema/
+      strip-wiring did not. `ProvenanceStrip` renders `author` only and isn't on
+      `ProjectDetail` at all. This is the review's #1 strategic gap — the site's
+      whole differentiator. _Source: architect/designer/marketer + Judge._
+- [ ] **P1 — Positioning disambiguation.** "An AI dev team builds software" hero
+      over a grid of Dom's SOLO builds; the "SOLO BUILD · NO AGENT TEAM" tag is
+      only on detail pages. Add it to `ProjectCard` and/or a clarifier under the
+      Projects H1 — **placement/wording is Dom's call.** _Source: marketer._
+- [ ] **P1 — Dead-field / retired-device cleanup.** Render or remove post
+      `cover`; wire `.riso-offset` into its three spec'd spots (H2 underline,
+      blockquote bar, provenance icon) or update the brief; formally deprecate
+      `MarginNote` in the design brief (superseded by `Callout` — currently
+      described as shipping in 6 passages). _Source: designer/frontend/backend/
+      visual-media — the same declared-not-delivered pattern as the P0 spine._
+- [ ] **P2 batch (from the review — see `reports/2026-07-21-review.md`).** Lint
+      into CI; scheduled `npm audit` + drop `*.test.*` from the auto-merge
+      allowlist; error tracking (Sentry free tier) once DOM-4's client JS lands;
+      SEO-generator loader-contract test; build-time check that
+      `cover`/`media[].src`/`poster` paths exist on disk; dedupe the
+      ProjectDetail footer + share a `vitest.jsdom.base` config; `BuildTimeline`
+      double-mount; Markdown AST-wiring test; team-size "9→10" note in the
+      founding post; GitHub link → the `studio-site` repo + a `reports/` deep
+      link; recompress the 885KB hero PNG (install `pngquant`); ProjectCard
+      cover-aspect capture discipline; per-post/per-project OG images +
+      prerender-for-bots (follow-up to the favicon/OG P0); make the flaky-smoke
+      failure capturable in CI (reinforces the existing MEDIUM item).
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
