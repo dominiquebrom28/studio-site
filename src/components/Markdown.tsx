@@ -3,10 +3,11 @@ import remarkGfm from 'remark-gfm';
 import type { ReactNode } from 'react';
 import { Prose } from './ui/Prose';
 import { Callout } from './Callout';
+import { MarginNote } from './MarginNote';
 import { PullQuote } from './PullQuote';
 import { SectionByline } from './SectionByline';
 import { slugifyHeading, headingIdsByLine, sectionBylinesByLine } from '@/content/toc';
-import { classifyBlockquote, stripCalloutLabel } from '@/lib/calloutTone';
+import { classifyBlockquote, classifyMarginNote, stripCalloutLabel, stripMarginNoteLabel } from '@/lib/calloutTone';
 
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
@@ -74,10 +75,12 @@ function flattenToText(node: ReactNode): string {
  *   `line → names[]` map (`content/toc.ts`), the exact same by-line lookup
  *   shape as `headingIds` above. Everything else renders as an ordinary
  *   `<p>`.
- * - `blockquote`: classified once, read-only, via `classifyBlockquote`
- *   (`src/lib/calloutTone.ts`) — a bold `Note:`/`Win:`/`Watch-out:` first
- *   line renders `Callout`; anything else renders `PullQuote` (today's
- *   unchanged default blockquote treatment).
+ * - `blockquote`: classified once, read-only, via `classifyMarginNote` then
+ *   `classifyBlockquote` (`src/lib/calloutTone.ts`) — three-way, checked in
+ *   that order so the two label grammars never fight over one blockquote: a
+ *   bold `Margin note — {CastName}:` first line renders `MarginNote`; a bold
+ *   `Note:`/`Win:`/`Watch-out:` first line renders `Callout`; anything else
+ *   renders `PullQuote` (today's unchanged default blockquote treatment).
  */
 export function Markdown({ children, ruled = false }: { children: string; ruled?: boolean }) {
   const headingIds = headingIdsByLine(children);
@@ -107,6 +110,10 @@ export function Markdown({ children, ruled = false }: { children: string; ruled?
             return <p {...rest}>{paragraphChildren}</p>;
           },
           blockquote({ children: quoteChildren }) {
+            const marginNoteName = classifyMarginNote(quoteChildren);
+            if (marginNoteName) {
+              return <MarginNote name={marginNoteName}>{stripMarginNoteLabel(quoteChildren)}</MarginNote>;
+            }
             const tone = classifyBlockquote(quoteChildren);
             if (tone) {
               return <Callout tone={tone}>{stripCalloutLabel(quoteChildren)}</Callout>;
