@@ -69,45 +69,18 @@ jobs:
       - name: Component test (jsdom, Testing Library)
         run: npm run test:component
 
-      - name: Build
-        run: npm run build
-
-  # Content-validation gate (BACKLOG "Content-validation gate in CI",
-  # 2026-07-18): date-matches-filename, no-shared-dates, and author-resolves
-  # -to-cast rules over content/posts/*.md (src/content/validate-content.test.ts;
-  # two more of the five rules — unique slugs, summary length — are already
-  # enforced for free by the existing Zod schema + loader.ts, independent of
-  # this job). Deliberately its OWN job, not a step inside `build`:
-  #
-  #   - It is currently RED against real committed content (a genuine
-  #     finding — see the PR description / devops report, not a bug in the
-  #     check): two posts dated 2026-07-18 share that date with no
-  #     tie-break. Per instructions this was reported, not silently patched.
-  #   - Because of that, this job is NOT added to branch protection and does
-  #     NOT gate merges yet — it runs on every PR so the violation stays
-  #     visible, but a red X here won't block anything until Dom either (a)
-  #     fixes the current content (assign one of the two posts a distinct
-  #     date, or add an explicit tie-break field) or (b) decides to make
-  #     this required regardless. Once (a) is done, add "validate-content"
-  #     to the branch-protection required-checks list the same way `build`
-  #     is documented in .github/AUTO-MERGE-SETUP.md.
-  validate-content:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
+      # Content-validation gate (BACKLOG "Content-validation gate in CI"):
+      # date-matches-filename, canonical YYYY-MM-DD, same-day posts each
+      # declare a distinct `order`, author/authors resolve to a cast member.
+      # Promoted from a separate NON-required job into this required `build`
+      # job on 2026-07-21: as its own job it green-passed but gated nothing —
+      # a content-only PR could `safe-auto` auto-merge without ever running it
+      # (found in the 2026-07-21 team review). Currently green (24/24).
       - name: Validate content frontmatter
         run: npm run validate:content
+
+      - name: Build
+        run: npm run build
 
   # Plain HTTP smoke check against a REAL deployed URL (Vercel preview or
   # production) — see scripts/check-deployed-routes.mjs's header comment for

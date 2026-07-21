@@ -229,6 +229,19 @@ describe('sortProjects', () => {
     sortProjects(projects);
     expect(projects).toEqual(original);
   });
+
+  it('breaks a full order+date tie deterministically by slug, never glob order', () => {
+    // Two projects sharing BOTH `order` and `date` must not fall back to
+    // input (import.meta.glob / filename) order. Passing them in reverse slug
+    // order proves the sort re-derives order from content, not position — the
+    // same guarantee sortPosts carries, added here 2026-07-21.
+    const projects = [
+      { slug: 'zebra', order: 1, date: '2026-01-01' },
+      { slug: 'apple', order: 1, date: '2026-01-01' },
+    ] as unknown as Project[];
+    const sorted = sortProjects(projects);
+    expect(sorted.map((p) => p.slug)).toEqual(['apple', 'zebra']);
+  });
 });
 
 describe('sortPosts', () => {
