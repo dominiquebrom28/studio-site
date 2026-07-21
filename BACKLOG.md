@@ -324,13 +324,37 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       that neither is named in any report. Flags a deploy blocker: the
       generator needs full git history and `ci.yml` sets no `fetch-depth`
       while Vercel shallow-clones.)_
-- [ ] **MEDIUM — `MarginNote` component.** designer → frontend-dev: the design
+- [x] **MEDIUM — `MarginNote` component.** designer → frontend-dev: the design
       brief specifies margin notes on project detail and blog post (desktop:
       anchored into the rail at their true vertical position; mobile: inline
       sticky-note blocks under their anchor paragraph, per §9 never hidden).
       _Source: design-brief §5 + §6 component inventory. The component does not
       exist anywhere in `src/` — flagged by frontend-dev during the blog-engine
       pass as a whole undelivered piece of the design system, not a blog gap._
+      _(2026-07-21, team/2026-07-21-margin-note, PR #33 — awaiting Dom. Designer
+      spec first, which surfaced that **project-detail no longer has a rail**
+      (project-page-v2 replaced §5's 68/32 split with a single centered column),
+      so the desktop lane primarily serves blog posts. **Shipped the spec's
+      sanctioned inline-everywhere v1**, not the anchored desktop lane: the lane
+      needs portal + `ResizeObserver` + collision math off `getBoundingClientRect`,
+      and jsdom (the repo's only test env) returns all-zero rects, so a test of
+      that math would be fake-green — shipping unfalsifiable measurement code
+      fails the bar. Inline v1 is fully §9-compliant, authored like `Callout`
+      (no new syntax), zero layout changes, zero new deps. Falsified the §5/§9
+      reading-order invariant (red→green). 253 unit + 7 component tests green.
+      Desktop anchored lane logged as a fast-follow below.)_
+- [ ] **MEDIUM — `MarginNote` desktop anchored lane (fast-follow).** The
+      inline-everywhere v1 shipped 2026-07-21; the design-brief §5/§6 desktop
+      treatment — notes anchored into a dedicated non-sticky lane at their true
+      vertical position, connector SVG reused from `BuildTimeline`
+      (`DesktopPhaseCaption`) — is deferred because its position/collision math
+      can't be honestly tested under jsdom. `MarginNoteProps` (`{children, name}`)
+      does not need to change to add it. Needs either a real-browser test
+      (Playwright on `dist/`, i.e. the deployed-smoke lane from PR #20) or a
+      deliberate decision to ship it review-only. Sequence after a real page
+      actually authors a `Margin note —` so there's something to anchor.
+      _Source: 2026-07-21 run; designer spec §2/§6 + frontend-dev implementation
+      note._
 - [ ] ~~**MEDIUM — Cover images for projects and posts.**~~ **SUPERSEDED by
       DOM-4** (2026-07-18 evening) — covers become the still-frame subset of
       the full visuals pipeline. Original text kept for context: `cover` is already in
@@ -392,7 +416,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       both links — a three-line revert. Bonus finding: studio-site itself is
       live at doms-ai-studio.vercel.app, which the deployed-smoke job from
       PR #20 was built for — see the new SMOKE_URL item below.)_
-- [ ] **MEDIUM — Component-level test infrastructure is missing repo-wide.**
+- [x] **MEDIUM — Component-level test infrastructure is missing repo-wide.**
       `vitest.config.ts` restricts `include` to `src/**/*.test.ts`, so a
       `.tsx` test would not even run, and there is no jsdom. Every "N tests
       green" figure this project has ever reported is pure logic/schema
@@ -405,6 +429,16 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       _Source: qa-tester flagged the gap during the DOM-4 review and could not
       close it; frontend-dev independently confirmed it. Sequence AFTER #20 and
       #21 merge._
+      _(2026-07-21, team/2026-07-21-component-test-infra, PR #32 — awaiting Dom.
+      New `vitest.component.config.ts` (jsdom + React plugin, `src/**/*.test.tsx`,
+      reuses `src/smoke/setup.ts`) + `test:component` script + a CI step; **zero
+      new deps** (jsdom/testing-library already present). First real interaction
+      test — `MediaGallery.test.tsx`, 6 tests — targets exactly the DOM-4
+      play/stop focus fix. **Falsified:** keying the button to force
+      unmount/remount turned the focus-retention assertion RED with
+      `document.activeElement === BODY` — the precise 07-19 bug — green when
+      reverted. Lead independently re-ran → 6/6. Gates: 241 unit + 24 smoke + 6
+      component + 24 content, build + lint clean.)_
 - [ ] **MEDIUM — Performance budget for the now-image-heavy project pages.**
       DOM-4 puts GIFs and PNGs on pages that were previously text-only, which
       changes this site's performance profile for the first time. Define and
@@ -467,7 +501,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       confirming CI on PR #26; the skip prints loudly in the log but nothing
       surfaces it on the PR checks screen, which is exactly the
       "green-but-covering-nothing" pattern PR #20 itself was built to end._
-- [ ] **MEDIUM — Backfill the missing 2026-07-19 evening run record.** PR #25
+- [x] **MEDIUM — Backfill the missing 2026-07-19 evening run record.** PR #25
       (project page v2 — six commits, a full redesign, shipped and merged
       same-day) has no `reports/` entry; the 07-19 report predates it. The
       session also left its logbook post UNCOMMITTED in the working tree
@@ -481,6 +515,14 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       reconstructable from git + the PR #25 body, and say plainly what isn't.
       _Source: 2026-07-20 run reconciliation; PROJECT-BRIEF hard rule "every
       run ends with a report in reports/"._
+      _(2026-07-21, team/2026-07-21-backlog-and-report — `reports/2026-07-19-evening.md`,
+      every figure tagged git / PR-claim / not-reconstructable. Doing it
+      mechanically against `main...<branchtip>` rather than trusting the PR list
+      **surfaced a new finding neither the 07-20 report nor this backlog knew:**
+      after PR #25's true-merge point (`47ef724`, 14:05 CEST) SIX further commits
+      (14:49–15:36) were never merged — a whole "team rebuild model" feature
+      (`buildMode`, +1264/−119, 11 files, a 459-line `docs/team-rebuild-model.md`),
+      absent from `main`. Logged as its own item below.)_
 - [ ] **MEDIUM — Post-merge integration check for same-file test edits.**
       PRs #26 and #28 carry an intentionally identical `index.test.ts` hunk
       (both needed it to stay independently green; identical-content merges
@@ -489,6 +531,34 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       one full-gate run. Cheap: it's what the post-merge health check already
       does — this item just says to keep doing it and to watch that file.
       _Source: 2026-07-20 run, lead decision log._
+
+### Added 2026-07-21 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Unmerged feature tail stranded on `team/2026-07-19-project-page-v2`
+      (`buildMode` / "team rebuild model").** Found by the 2026-07-21 backfill
+      doing git archaeology (`main...<branchtip>`), not visible from the PR list.
+      PR #25 was a **true merge at commit `47ef724`** (2026-07-19 14:05 CEST);
+      **six later commits (14:49–15:36) were never merged and are absent from
+      `main`:** `+1264/−119` across 11 files — a new `src/content/buildMode.ts`,
+      a 459-line `docs/team-rebuild-model.md`, `schemas.ts` additions, and
+      changes to `BuildTimeline`, `ProjectCard`, `ProjectsIndex`, `loader.ts`,
+      `timeline.ts` with new tests. Two of the six are literally
+      "Supersede… model," so this may be a **deliberately abandoned design
+      direction** OR unfinished-but-wanted work — **[not reconstructable] from
+      git; Dom's call.** Options: (a) rebase/cherry-pick the tail onto a fresh
+      branch, review it, finish + merge; (b) decide it's superseded and delete
+      the branch (its leftover worktree still sits at `26c0d1c`). Either way the
+      branch should not keep silently holding tested, documented, unmerged
+      feature work. _Source: reports/2026-07-19-evening.md, 2026-07-21 run._
+- [ ] **LOW — Worktree isolation is wired to the wrong repo for studio-site
+      runs.** Two frontend-dev agents this run were launched with
+      `isolation: worktree` into a worktree of the **SoulForge game repo**
+      (this session's primary cwd), not studio-site — no studio-site files
+      present. Both detected it and hand-created a correct worktree under
+      `/Users/doom/Documents/VibeCodeProjects/studio-site/.claude/worktrees/`,
+      so no harm, but it wastes a recovery step every spawn and is a trap for a
+      less careful agent. Whatever sets the worktree base for these runs should
+      point at studio-site. _Source: frontend-dev env note, 2026-07-21 run._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
