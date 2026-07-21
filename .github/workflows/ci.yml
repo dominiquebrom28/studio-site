@@ -60,6 +60,15 @@ jobs:
       - name: Smoke test (real DOM mount, StrictMode)
         run: npm run test:smoke
 
+      # Component-level interaction tests (BACKLOG "Component-level test
+      # infrastructure is missing repo-wide") — jsdom + Testing Library
+      # mounts of individual components (src/**/*.test.tsx), asserting on
+      # real rendered DOM/clicks/focus rather than only props or a full-route
+      # smoke mount. See vitest.component.config.ts's header comment for how
+      # this differs from the `test` and `test:smoke` steps above it.
+      - name: Component test (jsdom, Testing Library)
+        run: npm run test:component
+
       - name: Build
         run: npm run build
 
