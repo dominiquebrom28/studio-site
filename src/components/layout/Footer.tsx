@@ -21,6 +21,9 @@ export function Footer() {
           <Link to="/cast" className="min-h-11 inline-flex items-center text-ink-muted hover:text-ink hover:underline">
             Cast
           </Link>
+          <a href="/feed.xml" className="min-h-11 inline-flex items-center text-ink-muted hover:text-ink hover:underline">
+            RSS
+          </a>
           <a
             href={GITHUB_URL}
             target="_blank"

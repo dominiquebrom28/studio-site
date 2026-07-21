@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Dom's AI Studio">
+  <rect width="24" height="24" rx="3" fill="#C1440E" />
+  <g fill="none" stroke="#211B14" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 6c-1.8-1.2-4-1.5-6.5-1v13c2.5-.5 4.7-.2 6.5 1 1.8-1.2 4-1.5 6.5-1V5c-2.5-.5-4.7-.2-6.5 1Z" />
+    <path d="M12 6v13" />
+    <path d="M7 8.5h2.2M7 11.5h2.2M14.8 8.5H17M14.8 11.5H17" />
+  </g>
+</svg>
