@@ -67,6 +67,12 @@ export function MarginNote({ children, name }: MarginNoteProps) {
   const displayName = member ? `${member.firstName}, ${member.name}` : name;
 
   return (
+    // `-rotate-[1.5deg]` on a full-width card (design-brief §6): at this
+    // shallow an angle the rotated bounding box only grows by
+    // `height * sin(1.5deg) ≈ height * 0.0262` total, split across both
+    // sides — a few px even for a very tall note, well inside Container's
+    // 16px base-breakpoint side padding (`px-4`), so this never causes
+    // horizontal scroll at 320px. Verified by hand, not just asserted.
     <aside
       aria-label={`Margin note from ${displayName}`}
       className="my-6 w-full -rotate-[1.5deg] rounded-sm border border-hairline bg-paper-raised p-4 shadow-[var(--shadow-card)]"
