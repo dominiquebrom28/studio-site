@@ -10,9 +10,21 @@ const urlOrEmpty = z
   })
   .optional();
 
-const isoDate = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
-  message: 'must be a valid ISO date string (e.g. "2026-07-15")',
-});
+// Canonical calendar date, `YYYY-MM-DD` only. The regex pins the FORMAT (a
+// bare `Date.parse` refine accepts "July 18, 2026", "2026/07/18",
+// "2026-07-18T00:00:00Z" etc. — all of which then ship malformed into
+// sitemap `<lastmod>` and, worse, silently defeat the same-day `order`
+// tie-break, since two posts on the same calendar day written in different
+// string forms group into different date buckets); the refine pins that the
+// canonical string is also a REAL date (rejects "2026-13-45").
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'must be a canonical date "YYYY-MM-DD" (e.g. "2026-07-15")',
+  })
+  .refine((value) => !Number.isNaN(Date.parse(value)), {
+    message: 'must be a real calendar date (e.g. "2026-07-15")',
+  });
 
 // Project media gallery item (DOM-4: screenshots + short animations).
 // `kind` distinguishes a still screenshot from a captured animation (GIF);

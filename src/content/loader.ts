@@ -131,7 +131,14 @@ export function sortProjects(projects: Project[]): Project[] {
     const orderA = a.order ?? Number.POSITIVE_INFINITY;
     const orderB = b.order ?? Number.POSITIVE_INFINITY;
     if (orderA !== orderB) return orderA - orderB;
-    return Date.parse(b.date) - Date.parse(a.date);
+    const dateDiff = Date.parse(b.date) - Date.parse(a.date);
+    if (dateDiff !== 0) return dateDiff;
+    // Final tie-break: content-derived slug, never `import.meta.glob`'s
+    // filesystem (filename-spelling) order. Two projects sharing BOTH `order`
+    // and `date` otherwise fall back to glob order — the exact nondeterminism
+    // `sortPosts` below was fixed for on 2026-07-18 but which was never closed
+    // here in the sibling function.
+    return a.slug.localeCompare(b.slug);
   });
 }
 
