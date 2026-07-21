@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createElement, isValidElement, type ReactNode } from 'react';
-import { classifyBlockquote, stripCalloutLabel } from './calloutTone';
+import { classifyBlockquote, classifyMarginNote, stripCalloutLabel, stripMarginNoteLabel } from './calloutTone';
 
 /**
  * Builds the same React-element shape react-markdown hands the `blockquote`
@@ -101,5 +101,71 @@ describe('stripCalloutLabel', () => {
   it('is a true no-op for an unrecognized bold label', () => {
     const children = paragraph(strong('Important:'), ' Something else.');
     expect(stripCalloutLabel(children)).toBe(children);
+  });
+});
+
+describe('classifyMarginNote', () => {
+  it('classifies a bold "Margin note — {Name}:" first line, capturing the raw name', () => {
+    const children = paragraph(strong('Margin note — designer:'), ' Nice riff, but true.');
+    expect(classifyMarginNote(children)).toBe('designer');
+  });
+
+  it('is case-insensitive on the "Margin note" prefix', () => {
+    const children = paragraph(strong('MARGIN NOTE — architect:'), ' Something dry.');
+    expect(classifyMarginNote(children)).toBe('architect');
+  });
+
+  it('accepts a plain hyphen separator, not only an em dash', () => {
+    const children = paragraph(strong('Margin note - qa:'), ' Adversarial as ever.');
+    expect(classifyMarginNote(children)).toBe('qa');
+  });
+
+  it('captures a hyphenated cast name correctly (does not truncate at the interior hyphen)', () => {
+    const children = paragraph(strong('Margin note — frontend-dev:'), ' Two SoulForge scars, remember.');
+    expect(classifyMarginNote(children)).toBe('frontend-dev');
+  });
+
+  it('captures a name unresolved by the cast list too — classification never resolves names', () => {
+    const children = paragraph(strong('Margin note — Dom:'), ' The human, not a cast member.');
+    expect(classifyMarginNote(children)).toBe('Dom');
+  });
+
+  it('returns null (no margin note) when the label has no name after the dash', () => {
+    const children = paragraph(strong('Margin note —:'), ' Missing the name entirely.');
+    expect(classifyMarginNote(children)).toBeNull();
+  });
+
+  it('returns null for an ordinary Callout label — the two grammars do not overlap', () => {
+    const children = paragraph(strong('Note:'), ' An ordinary callout, not a margin note.');
+    expect(classifyMarginNote(children)).toBeNull();
+  });
+
+  it('returns null for an ordinary blockquote with no bold label', () => {
+    const children = paragraph('Just a pull quote.');
+    expect(classifyMarginNote(children)).toBeNull();
+  });
+
+  it('returns null for empty/absent children', () => {
+    expect(classifyMarginNote(undefined)).toBeNull();
+    expect(classifyMarginNote([])).toBeNull();
+    expect(classifyMarginNote(null)).toBeNull();
+  });
+});
+
+describe('stripMarginNoteLabel', () => {
+  it('removes the bold label and the single following space from the first paragraph', () => {
+    const children = paragraph(strong('Margin note — designer:'), ' Nice riff, but true.');
+    const stripped = stripMarginNoteLabel(children);
+    expect(firstParagraphText(stripped)).toEqual(['Nice riff, but true.']);
+  });
+
+  it('is a true no-op (same reference) for a shape classifyMarginNote would not call a margin note', () => {
+    const children = paragraph('Just plain text, no label.');
+    expect(stripMarginNoteLabel(children)).toBe(children);
+  });
+
+  it('is a true no-op for a Callout label — never mangles a Callout blockquote', () => {
+    const children = paragraph(strong('Win:'), ' A real callout, untouched by the margin-note stripper.');
+    expect(stripMarginNoteLabel(children)).toBe(children);
   });
 });
