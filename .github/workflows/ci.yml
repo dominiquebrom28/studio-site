@@ -26,8 +26,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # `fetch-depth: 0` (full history, not the default shallow clone) is a
+      # hard requirement of the provenance generator (`scripts/provenance/
+      # generate.mjs`, `npm run pretest`/`prebuild`): it resolves each
+      # report's `produced` files via `git log --diff-filter=A`, which needs
+      # complete history. A shallow clone doesn't error there — it silently
+      # truncates results — so the generator itself hard-fails the build if
+      # it detects a shallow clone (docs/provenance-model.md §5.2/§5.3) as a
+      # second line of defense; this is the fix, not just the catch.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -46,6 +56,15 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Human-readable provenance table (file -> author -> reviewer -> judge
+      # -> commit -> tokens), run so it lands in this check's log — the
+      # mitigation docs/provenance-model.md §5.3 names for the artifact
+      # itself never being committed/visible in a PR diff. No-ops cleanly
+      # (prints "no records yet") until a report ships a `yaml provenance`
+      # block (§12 PR 6, backfill).
+      - name: Provenance table
+        run: npm run provenance:print
 
       # Real-DOM mount (jsdom + StrictMode) of every static route AND every
       # committed project/post (full coverage, not a sample of one — see
