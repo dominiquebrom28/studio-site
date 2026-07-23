@@ -16,6 +16,14 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
+  // Passed to `useFocusTrap` below as the definitive focus-return target on
+  // close (design-brief §9 keyboard order / §6 "returns focus to the
+  // trigger"). Deliberately NOT left for the hook's own
+  // `document.activeElement` fallback to handle alone: a mouse click does
+  // not reliably focus the clicked `<button>` first (real Safari desktop,
+  // and jsdom, both skip it), so relying on ambient `activeElement` alone
+  // silently fails to return focus to this button for exactly the input
+  // method (mouse/touch) most drawer users will have used to open it.
   const triggerRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
 
@@ -39,7 +47,7 @@ export function Header() {
     };
   }, [drawerOpen]);
 
-  useFocusTrap(drawerRef, drawerOpen, () => setDrawerOpen(false));
+  useFocusTrap(drawerRef, drawerOpen, () => setDrawerOpen(false), triggerRef);
 
   return (
     <header
