@@ -6,6 +6,30 @@ stack: ["Next.js", "React", "TypeScript", "Tailwind CSS", "Zustand", "framer-mot
 status: "in-progress"
 liveUrl: "https://lovediary-zeta.vercel.app"
 repo: "https://github.com/dominiquebrom28/lovediary"
+cover: "/images/projects/lovediary/lovediary-hero-desktop.png"
+media:
+  - src: "/images/projects/lovediary/lovediary-flow.gif"
+    poster: "/images/projects/lovediary/lovediary-flow-poster.jpg"
+    alt: "LoveDiary flow: the desktop hero and timeline, opening the Instagram-style Story mode and swiping through two moment slides (including a real mid-swipe transition frame), then the Settings drawer showing the 'Partner Connection' invite code, the Theme tab with the Parchment/Midnight/Sage picker, and the whole page switching live to the dark Midnight theme."
+    caption: "7-frame, ~8s walkthrough of the timeline, story mode, and live theme switching, all real interactions at 1280x800."
+    kind: "animation"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/lovediary/lovediary-hero-desktop.png"
+    alt: "LoveDiary desktop hero: full-width restaurant photo, 'You & Your Partner' headline, 'Together for 3y 4m', and the Our Timeline section with category filter chips below."
+    caption: "LoveDiary desktop hero, default Parchment theme."
+    kind: "still"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/lovediary/lovediary-hero-mobile.png"
+    alt: "LoveDiary mobile hero: the same full-bleed photo and headline reflowed to a single column."
+    caption: "LoveDiary hero, mobile."
+    kind: "still"
+    viewport: "mobile"
+    width: 375
+    height: 812
 featured: false
 order: 5
 date: "2026-05-03"

@@ -6,6 +6,30 @@ stack: ["HTML", "JavaScript", "Tailwind CSS", "Canvas API"]
 status: "archived"
 liveUrl: "https://pizzaparty-mu.vercel.app"
 repo: "https://github.com/dominiquebrom28/pizzaparty"
+cover: "/images/projects/pizzaparty/pizzaparty-hero-mobile.png"
+media:
+  - src: "/images/projects/pizzaparty/pizzaparty-flow.gif"
+    poster: "/images/projects/pizzaparty/pizzaparty-flow-poster.jpg"
+    alt: "Pizza Roulette flow on mobile: excluding Mushrooms and Seafood in the ingredient sheet (wheel updates live to 28 pizzas), setting party size to 2, spinning twice — including a mid-spin blurred wheel frame — landing on Carbonara then Stracciatella (each with a real 'Coupon coming soon' notice and two Maastricht restaurant names, no working links), and the final Party Summary screen with the Fate Acceptor bonus and total points."
+    caption: "7-frame, ~8s honest walkthrough of a full spin party — filter, configure, spin twice, summary — at 375x812."
+    kind: "animation"
+    viewport: "mobile"
+    width: 375
+    height: 812
+  - src: "/images/projects/pizzaparty/pizzaparty-hero-mobile.png"
+    alt: "Pizza Roulette home screen on mobile: the ingredient-accurate pizza wheel with 42 pizzas loaded, pizza count and exclude-ingredients controls, and a red 'Start Spinning!' button."
+    caption: "Pizza Roulette default mobile screen, fresh session (0 pts, no cooldown)."
+    kind: "still"
+    viewport: "mobile"
+    width: 375
+    height: 812
+  - src: "/images/projects/pizzaparty/pizzaparty-hero-desktop.png"
+    alt: "Pizza Roulette on a 1280x800 desktop viewport: the same mobile-width layout centered with empty space on both sides."
+    caption: "Pizza Roulette on desktop — a genuinely mobile-first layout, not a responsive redesign."
+    kind: "still"
+    viewport: "desktop"
+    width: 1280
+    height: 800
 featured: false
 order: 6
 date: "2026-05-01"

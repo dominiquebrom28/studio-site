@@ -6,6 +6,22 @@ stack: ["React", "Vite", "Supabase"]
 status: "shipped"
 liveUrl: "https://mensapp.vercel.app"
 repo: "https://github.com/dominiquebrom28/mensapp"
+cover: "/images/projects/mensapp/mensapp-login-desktop.png"
+media:
+  - src: "/images/projects/mensapp/mensapp-login-desktop.png"
+    alt: "MensDay login screen on a 1280x800 desktop viewport: a dark amber beer-themed 'Welcome back' card with username and PIN fields and a 'New here? Request access' link."
+    caption: "MensDay's public login gate — the only screen reachable without an account. The app is real username+PIN gated auth for a closed friend group; no test credentials were available, so the polls/quiz/beer-counter flow could not be captured this run."
+    kind: "still"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/mensapp/mensapp-login-mobile.png"
+    alt: "MensDay login screen on mobile, same dark amber theme and login form, full-width stacked layout."
+    caption: "MensDay login gate, mobile."
+    kind: "still"
+    viewport: "mobile"
+    width: 375
+    height: 812
 featured: false
 order: 4
 date: "2026-04-29"

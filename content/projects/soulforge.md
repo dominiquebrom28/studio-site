@@ -5,6 +5,37 @@ summary: "A life-RPG habit tracker in pixel-art — one intense build day, then 
 stack: ["Vite", "React", "TypeScript", "Phaser", "Zustand", "Supabase"]
 status: "in-progress"
 repo: "https://github.com/dominiquebrom28/soulforge"
+cover: "/images/projects/soulforge/soulforge-hero-desktop.png"
+media:
+  - src: "/images/projects/soulforge/soulforge-flow.gif"
+    poster: "/images/projects/soulforge/soulforge-flow-poster.jpg"
+    alt: "SoulForge flow: the character creator with live sprite composition (switching hairstyle to Curly and equipping a Sword, both reflected instantly on the preview sprite), then entering the walkable world showing all seven interactive elements — Habit Shrine (rock), Journal tent, Leo's Campfire, Todo Board — with companion dog Leo and full-screen movement/jump/interact controls."
+    caption: "3-frame, ~5.4s walkthrough of character creation and entering the world, 1280x800."
+    kind: "animation"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/soulforge/soulforge-hero-desktop.png"
+    alt: "SoulForge character-creation screen: a live LPC pixel-art sprite preview next to Name/Body/Hairstyle/Hair colour/Eyes/Weapon controls, with an orange 'Enter the World' button below."
+    caption: "SoulForge's character creator, default Wanderer."
+    kind: "still"
+    viewport: "desktop"
+    width: 1280
+    height: 800
+  - src: "/images/projects/soulforge/soulforge-hero-mobile.png"
+    alt: "SoulForge walkable world on mobile: the player character and companion dog Leo standing between the Journal tent and Leo's Campfire, with an on-screen directional pad and interact button overlaid at the bottom."
+    caption: "SoulForge's world on mobile, with touch controls."
+    kind: "still"
+    viewport: "mobile"
+    width: 375
+    height: 812
+  - src: "/images/projects/soulforge/soulforge-explore-mobile.png"
+    alt: "SoulForge world, camera panned left after walking: the Journal tent centered, Leo the dog and the player character entering frame from the right."
+    caption: "Walking toward the Journal tent using the on-screen D-pad."
+    kind: "still"
+    viewport: "mobile"
+    width: 375
+    height: 812
 featured: true
 order: 1
 date: "2026-06-15"
