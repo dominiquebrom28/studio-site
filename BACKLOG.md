@@ -227,6 +227,17 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       CAPTIONS.md and posters verified pixel-by-pixel against ffmpeg frame 0.
       **Still outstanding: capture for SoulForge, PizzaParty, MensApp,
       LoveDiary** — the latter three need their dev servers checked first.)_
+      _(**CAPTURE COMPLETE 2026-07-23**, team/2026-07-23-dom4-capture, PR #45
+      — awaiting Dom. 19 assets, motion-first. The dev-server framing was the
+      three-run blocker and turned out unnecessary: pizzaparty/mensapp/
+      lovediary were shot from their live Vercel deployments; only SoulForge
+      ran locally (existing branch, never switched). MensApp is username+PIN
+      gated → ships its login gate as the honest visual; **open question for
+      Dom: test credentials for a real flow capture, or keep the gate?**
+      Posters lead-verified pixel-wise as GIF frame 0. Lucas's found-while-
+      shooting bugs (LoveDiary black story slide, SoulForge input quirks,
+      stale soulforge-static launch config) are in the run report — other
+      repos' bugs, not backlog items here.)_
 - [x] **DOM-5 — Hire a visual-media agent.** Dom: "if we need a new
       visual-design agent, you have all freedom to hire one on your own —
       document this process." Decision: yes — no existing agent has browser/
@@ -570,20 +581,30 @@ site whose provenance device is still decorative.
       real commit hash"; pages ship only a byline. _(Fixed 2026-07-21, PR #37 —
       copy softened to the truth; the rich claim returns when the provenance
       model ships.)_
-- [ ] **P0 — No favicon / OG image / social meta.** Every shared link unfurls
+- [x] **P0 — No favicon / OG image / social meta.** Every shared link unfurls
       blank; `Seo.tsx` has no `og:image`/`twitter:card`/`canonical`; SEO meta is
-      CSR-only so unfurl bots see nothing. _(IN FLIGHT: team/2026-07-21-seo-social,
-      visual-media — favicon + default OG + meta + footer RSS.)_
+      CSR-only so unfurl bots see nothing. _(2026-07-21,
+      team/2026-07-21-seo-social — **merged same day as PR #39**; this checkbox
+      lagged two days behind the merge and was healed by the 2026-07-23
+      reconciliation. Third backlog-misreports-its-own-state incident.)_
 - [ ] **P0 — No next step / conversion path.** No contact, email, CTA, or "who
       is Dom" anywhere — an engaged reader is a 100% leak. Even an honest
       "experiment log, here's Dom's real portfolio/LinkedIn" exit closes it.
       _Source: marketer._
-- [ ] **P1 — Security headers / CSP in `vercel.json`.** Spec §46 mandates CSP +
+- [x] **P1 — Security headers / CSP in `vercel.json`.** Spec §46 mandates CSP +
       HSTS + `X-Frame-Options` + `nosniff` + `Referrer-Policy`; none ship. No
       live exploit (static, no-auth — Judge downgraded from P0), but it's a
       spec-required control. **The CSP MUST hash/nonce the inline theme-bootstrap
       script in `index.html` or dark-mode-before-paint breaks.** _Source:
       devops/security/architect._
+      _(2026-07-23, team/2026-07-23-security-headers, PR #42 — awaiting Dom.
+      All six headers; inline script sha256-hashed with a 9-test build-time
+      hash guard in default `npm test` (drift = red CI, not a silent prod
+      theme break). `font-src data:` derived from evidence — Vite inlines
+      small @fontsource subsets into built CSS. HSTS deliberately without
+      `preload` (irreversible; Dom's call). security-auditor PASS, 4 P2
+      notes. **Merge requires the preview-deploy header check in the PR
+      body** — vercel.json headers are unverifiable on the Vite dev server.)_
 - [x] **P1 — Content-validation gate was non-blocking.** A non-required CI job
       that green-passed but gated nothing (a content PR could auto-merge without
       it). _(Fixed 2026-07-21, PR #36 — promoted into the required `build` job;
@@ -594,17 +615,31 @@ site whose provenance device is still decorative.
       (currently a one-time manual proof) — remains open (P1).
 - [x] **P1 — Blog index missing cast avatars.** _(Fixed 2026-07-21, PR #37 —
       cast avatar stamp + name, honest `+N` for multi-author.)_
-- [ ] **P1 — Interaction-test backfill (extends component-test infra).** Zero
+- [x] **P1 — Interaction-test backfill (extends component-test infra).** Zero
       interaction coverage on: `Header` mobile drawer + `useFocusTrap` (a binding
       §9 a11y mechanism), `ThemeToggle`, `ShareRow` clipboard (never clicked by
       any test), `BylineGroup`/`joinNames` overflow (live in the 4-author post).
       Also a dead `triggerRef` in `Header.tsx` a test would force resolving.
       _Source: qa + frontend-dev._
-- [ ] **P1 — Automated a11y tooling.** No `axe`/`vitest-axe` anywhere; §9 is
+      _(2026-07-23, team/2026-07-23-test-hardening, PR #43 — awaiting Dom,
+      grouped with the axe item below. 5 new component-test files, all
+      falsified red→green. **The dead `triggerRef` was hiding a real bug**:
+      mouse clicks don't reliably focus the clicked button (jsdom + Safari),
+      so a mouse-opened drawer returned focus to `<body>` on close — fixed by
+      wiring `triggerRef` through `useFocusTrap` as the definitive return
+      target, exactly the resolution this item predicted a test would force.)_
+- [x] **P1 — Automated a11y tooling.** No `axe`/`vitest-axe` anywhere; §9 is
       "binding WCAG 2.2 AA" with checkable rules (target sizes, focus outlines,
       heading skips) that nothing asserts. Add `axe()` to the component-test
       config against Header (both drawer states), BlogPost, ProjectDetail, Home.
       _Source: qa._
+      _(2026-07-23, PR #43 with the item above. `axe-core@4.12.1` direct —
+      vitest-axe rejected as effectively unmaintained. Zero violations on all
+      four surfaces; one rule (`landmark-unique`) excluded on one scan with a
+      written jsdom-only justification; `color-contrast` documented as
+      structurally unverifiable in jsdom (no canvas) rather than claimed —
+      contrast remains covered only by the design brief's hand-computed
+      table, which the Playwright item below could someday automate.)_
 - [ ] **P1 — Real-browser responsive/visual testing.** jsdom can't evaluate
       media queries, so the 2026-07-17 mobile-reading-order P0 class is
       structurally uncatchable and the never-done "QA pass — responsive" item
@@ -615,6 +650,27 @@ site whose provenance device is still decorative.
       strip-wiring did not. `ProvenanceStrip` renders `author` only and isn't on
       `ProjectDetail` at all. This is the review's #1 strategic gap — the site's
       whole differentiator. _Source: architect/designer/marketer + Judge._
+      _(**PARTIAL — engine shipped 2026-07-23**, team/2026-07-23-provenance-
+      engine, PR #44 — awaiting Dom: spec §12 PRs 2–3 (schema, block parser,
+      git-joined generator, 60 dedicated tests, zero new deps). Adversarial
+      QA caught a real P1 pre-merge — a directory as `produced` path silently
+      yielded a valid record — fixed + falsified. Zero real blocks yet on
+      purpose; `provenance:print` truthfully says "no records yet". The
+      report-block format is now binding (see "Run report format" below).
+      **Remaining: PR 4 loader join → PR 5 strip v2 → PR 6 backfill (lead;
+      review what stays blank) → PR 7 project-detail enablement (Dom
+      checkpoint) + the Vercel full-clone devops item below.** Strip still a
+      byline until 4–5 land, so this item stays open.)_
+- [ ] **P1 — Vercel deploy must full-clone (provenance deploy blocker).**
+      devops: the provenance generator hard-fails on shallow clones by design
+      (spec §5.2 — `git log --diff-filter=A` silently truncates there, which
+      would turn an infra failure into a false "no commit yet" claim). CI now
+      fetches full history (PR #44 sets `fetch-depth: 0`), but **Vercel
+      shallow-clones by default**, so the first deploy after PR 4 lands will
+      fail loudly unless Vercel's build is configured to full-clone (or the
+      deploy build skips the generator — rejected by the spec). Sequence
+      BEFORE spec §12 PR 4 merges. _Source: docs/provenance-model.md §5.2
+      flagged it 07-19; PR #44 makes it concrete._
 - [ ] **P1 — Positioning disambiguation.** "An AI dev team builds software" hero
       over a grid of Dom's SOLO builds; the "SOLO BUILD · NO AGENT TEAM" tag is
       only on detail pages. Add it to `ProjectCard` and/or a clarifier under the
@@ -636,7 +692,13 @@ site whose provenance device is still decorative.
       link; recompress the 885KB hero PNG (install `pngquant`); ProjectCard
       cover-aspect capture discipline; per-post/per-project OG images +
       prerender-for-bots (follow-up to the favicon/OG P0); make the flaky-smoke
-      failure capturable in CI (reinforces the existing MEDIUM item).
+      failure capturable in CI (reinforces the existing MEDIUM item);
+      **dist-side CSP hash assertion** (security-auditor P2 on PR #42: the
+      hash guard reads source `index.html`, the browser gets
+      `dist/index.html` — byte-identical today, lead-verified, but a Vite
+      version bump could change emission; assert against `dist/` post-build);
+      tighten `style-src 'unsafe-inline'` once a real-browser CSP check
+      exists (security-auditor P2, needs the Playwright lane).
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
@@ -648,3 +710,35 @@ reports surface work worth doing — but never reorder Dom's edits.
 - **Decisions made** and why
 - **For Dom to review** — the branch, plus any open questions
 - **Learnings** — anything blog-worthy: surprises, failures, costs, wins
+
+### Provenance blocks (binding since 2026-07-23 — see `docs/provenance-model.md`)
+
+Each shipped item that **created files** gets one fenced `yaml provenance`
+block appended to the report. Prose above it is unchanged and never parsed;
+the block feeds the site's provenance generator (PR #44). Rules (spec §4.1):
+`produced` lists repo-relative paths of files this run **created** (a path
+may appear in at most one report, ever — this is a creation record, not an
+edit log); `judge: null` is a positive claim ("explicitly not
+Judge-reviewed"), omit the key only if genuinely unknown; never split a
+combined token figure across items; `authors`/`reviewers[].by` must resolve
+to a cast `name` (the discipline string, e.g. "marketer", "Project Lead") or
+the literal `"Dom"`. Forgetting the block is self-correcting — the site
+shows "no run record" — so **never invent one to fill the gap**, and a run
+that created no content files should say so in prose rather than force a
+block.
+
+````
+```yaml provenance
+item: example-item
+title: Example item
+branch: team/YYYY-MM-DD-example
+produced:
+  - content/posts/YYYY-MM-DD-example.md
+authors: ["marketer"]
+reviewers:
+  - by: "Project Lead"
+    kind: fact-check
+judge: null
+tokens: { approx: 150000, scope: run }
+```
+````
