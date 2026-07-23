@@ -235,6 +235,66 @@ describe('generateProvenance — failure table (§5.2)', () => {
     expect(gitRunner).not.toHaveBeenCalled();
   });
 
+  it('a `produced` path that is a DIRECTORY, not a file -> build fails, and git is never touched (§4.1, QA P1 2026-07-23)', async () => {
+    const gitRunner = makeGitRunner();
+    try {
+      await generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('produced-is-directory'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof ProvenanceValidationError>;
+      expect(err.issues).toHaveLength(1);
+      expect(err.issues[0]).toContain('content/a-directory');
+      expect(err.issues[0]).toContain('directory');
+    }
+    expect(gitRunner).not.toHaveBeenCalled();
+  });
+
+  it('the SAME item claiming the same `produced` path twice within ONE report names the report + item once, not "both X and X" (QA P2 2026-07-23)', async () => {
+    const gitRunner = makeGitRunner();
+    try {
+      await generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('duplicate-same-report'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof ProvenanceValidationError>;
+      expect(err.issues).toHaveLength(1);
+      expect(err.issues[0]).toContain('content/happy-item.md');
+      expect(err.issues[0]).toContain('claimed twice within reports/duplicate-same-report/2026-01-13-duplicate-same-report.md');
+      expect(err.issues[0]).toContain('item "same-item"');
+      expect(err.issues[0]).toContain('remove one of the duplicate blocks');
+      // The old, uninformative phrasing ("claimed by both X and X") must be gone.
+      expect(err.issues[0]).not.toMatch(/claimed by both .* and .*claimed by both/);
+    }
+    expect(gitRunner).not.toHaveBeenCalled();
+  });
+
+  it('two DIFFERENT items in the same report claiming the same `produced` path names both items', async () => {
+    try {
+      await generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('duplicate-same-report-different-items'),
+        loadModules: fakeLoadModules,
+        gitRunner: makeGitRunner(),
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof ProvenanceValidationError>;
+      expect(err.issues).toHaveLength(1);
+      expect(err.issues[0]).toContain('reports/duplicate-same-report-different-items/2026-01-14-duplicate-same-report-different-items.md');
+      expect(err.issues[0]).toContain('item "item-a"');
+      expect(err.issues[0]).toContain('item "item-b"');
+    }
+  });
+
   it('git command failure (not installed / not a repo) -> loud ProvenanceGitError, distinct from a validation error', async () => {
     const gitRunner = makeGitRunner({ failOn: (args) => args[0] === 'rev-parse' });
     await expect(

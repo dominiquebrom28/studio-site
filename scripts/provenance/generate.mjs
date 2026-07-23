@@ -26,7 +26,7 @@
  * dependency needed.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
@@ -210,14 +210,41 @@ export async function generateProvenance({
 
       const existing = producedIndex.get(relPath);
       if (existing) {
-        // §5.2 row: "Two reports claim the same `produced` path" -> build fails.
-        issues.push(`Duplicate \`produced\` path "${relPath}": claimed by both ${existing.label} and ${label}`);
+        // §5.2 row: "Two reports claim the same `produced` path" -> build
+        // fails. The intra-report case (both claims come from the SAME
+        // report) gets a distinct, more actionable message — "claimed by
+        // both X and X" (same report/item on both sides) told you nothing
+        // about which of two blocks to delete. QA P2 (2026-07-23).
+        if (existing.entry.reportPath === entry.reportPath) {
+          if (existing.entry.block.item === entry.block.item) {
+            issues.push(
+              `Duplicate \`produced\` path "${relPath}": claimed twice within ${entry.reportPath} (item "${entry.block.item}") — remove one of the duplicate blocks`,
+            );
+          } else {
+            issues.push(
+              `Duplicate \`produced\` path "${relPath}": claimed by two different items within ${entry.reportPath} (item "${existing.entry.block.item}" and item "${entry.block.item}") — remove one of the duplicate blocks`,
+            );
+          }
+        } else {
+          issues.push(`Duplicate \`produced\` path "${relPath}": claimed by both ${existing.label} and ${label}`);
+        }
         continue;
       }
 
-      if (!existsSync(path.join(repoRoot, relPath))) {
+      const absolutePath = path.join(repoRoot, relPath);
+      if (!existsSync(absolutePath)) {
         // §5.2 row: "A `produced` path does not exist on disk" -> build fails.
         issues.push(`${label}: produced path "${relPath}" does not exist on disk`);
+        continue;
+      }
+
+      // §4.1: "`produced` lists repo-relative paths of files this run
+      // created" — FILES, not directories. `existsSync` is true for a
+      // directory and `git log --diff-filter=A -- <dir>` succeeds too, so
+      // without this check a directory would silently produce a valid
+      // (and misleading) record. QA P1 (2026-07-23).
+      if (!statSync(absolutePath).isFile()) {
+        issues.push(`${label}: produced path "${relPath}" is a directory, not a file — \`produced\` lists files only (§4.1)`);
         continue;
       }
 
