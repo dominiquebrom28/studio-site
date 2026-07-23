@@ -131,6 +131,22 @@ Public helper API from `src/content/index.ts`:
 - `getFeaturedProjects(limit): Project[]`
 - `getLatestPosts(limit): Post[]`
 
+### 3.4 Provenance (derived, not authored)
+
+A third data source, additive to §3.1/§3.2 and specified in full in
+`docs/provenance-model.md`: each shipped item in a run report
+(`reports/*.md`) gains a small fenced `` ```yaml provenance `` block
+(authors, reviewers, Judge verdict, token cost, the files it produced). A
+build-time generator (`scripts/provenance/`, §4) joins that block against
+`git log` to resolve a real commit per file, and writes
+`src/content/provenance.generated.json` — a map from repo-relative file path
+to a `ProvenanceRecord` (`src/content/provenance-schema.ts`). **Zero new
+frontmatter fields.** `Post`/`Project` gain an optional `provenance` field
+once `loader.ts` attaches records by path (provenance-model.md §12, PR 4 —
+not yet wired as of this section landing). The decisive reason it's derived
+from reports rather than hand-authored in frontmatter is falsifiability, not
+convenience — see provenance-model.md §2 for the full argument.
+
 ---
 
 ## 4. Component / module breakdown
@@ -140,6 +156,7 @@ Work packages. **[Indep]** = can be built in parallel against agreed interfaces;
 ### Foundation (build first — everything depends on it)
 - **P0 · Content loader + schemas** (`src/content/`) — §3. Zod schemas, `gray-matter` parse, glob, helper API, unit tests for validation/sorting/slug rules. **[Dep: none]** This is the critical path; unblocks all pages.
 - **P0 · App shell + routing** (`src/App.tsx`, `src/router.tsx`) — route table (§2), `react-router` setup, lazy-loaded route components, scroll-to-top on nav. **[Dep: none, parallel with loader]**
+- **P0 · Provenance generator** (`scripts/provenance/`) — §3.4, full spec in `docs/provenance-model.md`. Build-time-only Node scripts (not React modules): `parse.mjs` extracts `` ```yaml provenance `` blocks from `reports/*.md`, Zod-validates them (`src/content/provenance-schema.ts`) and cross-checks `authors`/`reviewers[].by` against `src/content/cast.ts`; `generate.mjs` resolves each `produced` file's adding commit via `git log --diff-filter=A` (`execFile`, array args) and writes the gitignored `src/content/provenance.generated.json`. Wired into `predev`/`prebuild`/`pretest`; a shallow git clone or a validation failure is a loud build error (provenance-model.md §5.2), never a silent fallback. **[Dep: none — parallel with the content loader; the artifact is consumed by `loader.ts` starting PR 4 of the provenance-model implementation plan, not by this PR.]**
 
 ### Layout shell (shared)
 - **P1 · Layout** (`src/components/layout/`) — `RootLayout` (header + footer + `<Outlet/>`), `Header` (logo, nav links, active state), `Footer` (links, "built by an AI team" note). Tailwind, responsive from 320px, keyboard-navigable, skip-to-content link. **[Dep: routing skeleton; parallel with loader]**

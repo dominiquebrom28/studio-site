@@ -1,0 +1,302 @@
+import { describe, it, expect, vi } from 'vitest';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { generateProvenance, ProvenanceGitError } from './generate.mjs';
+import { ProvenanceValidationError } from './parse.mjs';
+import { ProvenanceBlockSchema, ProvenanceRecordSchema } from '../../src/content/provenance-schema';
+import { cast } from '../../src/content/cast';
+
+const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
+const FIXTURES_ROOT = path.join(DIRNAME, '__fixtures__', 'repo');
+
+function reportsDir(scenario: string): string {
+  return path.join(FIXTURES_ROOT, 'reports', scenario);
+}
+
+/**
+ * Test double for the Vite `ssrLoadModule` boot in `generate.mjs`'s real
+ * `loadContentModules`: returns the REAL schemas/cast (imported directly by
+ * Vitest, which — unlike a bare `node` process — can import `.ts` with no
+ * loader) rather than a duplicated/mocked shape, so this suite fails the
+ * moment the real schema and the generator's expectations of it drift.
+ */
+async function fakeLoadModules() {
+  return {
+    ProvenanceBlockSchema,
+    ProvenanceRecordSchema,
+    castNames: cast.map((member) => member.name),
+  };
+}
+
+type GitRunnerArgs = { cwd: string; args: string[] };
+
+/** Builds an injectable `gitRunner` for `generateProvenance`. `logOutputs`
+ * maps a produced path to the `git log --diff-filter=A ...` stdout that
+ * should be "returned" for it (default: empty = no commit yet). */
+function makeGitRunner({
+  isShallow = 'false',
+  logOutputs = {},
+  failOn,
+}: {
+  isShallow?: string;
+  logOutputs?: Record<string, string>;
+  failOn?: (args: string[]) => boolean;
+} = {}) {
+  return vi.fn(({ args }: GitRunnerArgs): string => {
+    if (failOn?.(args)) {
+      throw new Error('simulated git failure');
+    }
+    if (args[0] === 'rev-parse') return `${isShallow}\n`;
+    if (args[0] === 'log') {
+      const producedPath = args[args.length - 1];
+      return logOutputs[producedPath] ?? '';
+    }
+    throw new Error(`unexpected git invocation in test double: ${args.join(' ')}`);
+  });
+}
+
+const REAL_COMMIT_LINE = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x002026-07-21T14:29:06+02:00\n';
+
+describe('generateProvenance — zero-blocks case (§9 / caution: must be fast and error-free)', () => {
+  it('returns {} for a reports dir with no yaml provenance blocks, WITHOUT ever calling git', async () => {
+    const gitRunner = makeGitRunner();
+    const records = await generateProvenance({
+      repoRoot: FIXTURES_ROOT,
+      reportsDir: reportsDir('no-block'),
+      loadModules: fakeLoadModules,
+      gitRunner,
+    });
+    expect(records).toEqual({});
+    expect(gitRunner).not.toHaveBeenCalled();
+  });
+
+  it('returns {} for a reports dir that does not exist on disk', async () => {
+    const gitRunner = makeGitRunner();
+    const records = await generateProvenance({
+      repoRoot: FIXTURES_ROOT,
+      reportsDir: reportsDir('does-not-exist'),
+      loadModules: fakeLoadModules,
+      gitRunner,
+    });
+    expect(records).toEqual({});
+    expect(gitRunner).not.toHaveBeenCalled();
+  });
+});
+
+describe('generateProvenance — happy path / commit resolution', () => {
+  it('resolves a real commit for a produced path git has history for', async () => {
+    const records = await generateProvenance({
+      repoRoot: FIXTURES_ROOT,
+      reportsDir: reportsDir('happy'),
+      loadModules: fakeLoadModules,
+      gitRunner: makeGitRunner({ logOutputs: { 'content/happy-item.md': REAL_COMMIT_LINE } }),
+    });
+    expect(Object.keys(records)).toEqual(['content/happy-item.md']);
+    const record = records['content/happy-item.md'];
+    expect(record.commit).toEqual({
+      hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      short: 'aaaaaaaaaaaa',
+      date: '2026-07-21T14:29:06+02:00',
+    });
+    expect(record.runId).toBe('2026-01-01-happy');
+    expect(record.reportPath).toBe('reports/happy/2026-01-01-happy.md');
+    expect(record.item).toBe('happy-item');
+    expect(record.branch).toBe('team/2026-01-01-happy');
+    expect(record.judge).toBeNull();
+    expect(record.tokens).toBeNull();
+    // Every record is re-validated against the real ProvenanceRecordSchema
+    // before being returned — assert that holds, not just that it "looks
+    // right".
+    expect(() => ProvenanceRecordSchema.parse(record)).not.toThrow();
+  });
+
+  it('§5.2: file exists but has no commit yet -> commit: null, build succeeds (distinct from a git failure)', async () => {
+    const records = await generateProvenance({
+      repoRoot: FIXTURES_ROOT,
+      reportsDir: reportsDir('happy'),
+      loadModules: fakeLoadModules,
+      gitRunner: makeGitRunner({ logOutputs: {} }), // empty stdout for every `git log` call
+    });
+    expect(records['content/happy-item.md'].commit).toBeNull();
+  });
+
+  it('carries judge/tokens objects and branch-omission through multi-item reports untouched', async () => {
+    const records = await generateProvenance({
+      repoRoot: FIXTURES_ROOT,
+      reportsDir: reportsDir('multi-item'),
+      loadModules: fakeLoadModules,
+      gitRunner: makeGitRunner({
+        logOutputs: {
+          'content/multi-item-a.md': REAL_COMMIT_LINE,
+          'content/multi-item-b.md': REAL_COMMIT_LINE,
+        },
+      }),
+    });
+    expect(Object.keys(records).sort()).toEqual(['content/multi-item-a.md', 'content/multi-item-b.md']);
+    expect(records['content/multi-item-a.md'].judge).toBeNull();
+    expect(records['content/multi-item-a.md']).not.toHaveProperty('branch');
+    expect(records['content/multi-item-b.md'].judge).toEqual({ verdict: 'PASS', round: 1, score: 91, outOf: 100 });
+    expect(records['content/multi-item-b.md'].tokens).toEqual({ approx: 12000, scope: 'run' });
+  });
+
+  it('the judge/tokens key being entirely absent in the block stays entirely absent in the record (the third, "unrecorded" state)', async () => {
+    const records = await generateProvenance({
+      repoRoot: FIXTURES_ROOT,
+      reportsDir: reportsDir('no-judge-key'),
+      loadModules: fakeLoadModules,
+      gitRunner: makeGitRunner({ logOutputs: { 'content/no-judge-item.md': REAL_COMMIT_LINE } }),
+    });
+    const record = records['content/no-judge-item.md'];
+    expect('judge' in record).toBe(false);
+    expect('tokens' in record).toBe(false);
+  });
+
+  it('picks the OLDEST add-commit when git log --diff-filter=A returns multiple hits (added, deleted, re-added)', async () => {
+    const olderLine = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\x002020-01-01T00:00:00+00:00';
+    const newerLine = 'cccccccccccccccccccccccccccccccccccccccc'.slice(0, 40) + '\x002025-01-01T00:00:00+00:00';
+    // git log's default order is newest-first, so the OLDER commit is the
+    // LAST line — the test double mirrors that ordering exactly.
+    const multiHit = `${newerLine}\n${olderLine}\n`;
+    const records = await generateProvenance({
+      repoRoot: FIXTURES_ROOT,
+      reportsDir: reportsDir('happy'),
+      loadModules: fakeLoadModules,
+      gitRunner: makeGitRunner({ logOutputs: { 'content/happy-item.md': multiHit } }),
+    });
+    expect(records['content/happy-item.md'].commit?.date).toBe('2020-01-01T00:00:00+00:00');
+  });
+});
+
+describe('generateProvenance — failure table (§5.2)', () => {
+  it('duplicate `produced` path across two reports -> build fails, naming both reports, and git is never touched', async () => {
+    const gitRunner = makeGitRunner();
+    await expect(
+      generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('duplicate'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      }),
+    ).rejects.toThrow(ProvenanceValidationError);
+    expect(gitRunner).not.toHaveBeenCalled();
+
+    try {
+      await generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('duplicate'),
+        loadModules: fakeLoadModules,
+        gitRunner: makeGitRunner(),
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof ProvenanceValidationError>;
+      expect(err.issues).toHaveLength(1);
+      expect(err.issues[0]).toContain('content/dup-target.md');
+      expect(err.issues[0]).toContain('reports/duplicate/2026-01-02-a.md');
+      expect(err.issues[0]).toContain('reports/duplicate/2026-01-02-b.md');
+    }
+  });
+
+  it('a dangling `produced` path (does not exist on disk) -> build fails, and git is never touched', async () => {
+    const gitRunner = makeGitRunner();
+    try {
+      await generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('dangling'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof ProvenanceValidationError>;
+      expect(err.issues).toHaveLength(1);
+      expect(err.issues[0]).toContain('content/does-not-exist.md');
+      expect(err.issues[0]).toContain('does not exist on disk');
+    }
+    expect(gitRunner).not.toHaveBeenCalled();
+  });
+
+  it('a `produced` path that attempts to escape the repo root ("..") -> build fails, and git is never touched (§7)', async () => {
+    const gitRunner = makeGitRunner();
+    try {
+      await generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('escape'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof ProvenanceValidationError>;
+      expect(err.issues).toHaveLength(1);
+      expect(err.issues[0]).toContain('../outside-repo.md');
+      expect(err.issues[0]).toMatch(/escape the repo root|repo-relative/);
+    }
+    expect(gitRunner).not.toHaveBeenCalled();
+  });
+
+  it('git command failure (not installed / not a repo) -> loud ProvenanceGitError, distinct from a validation error', async () => {
+    const gitRunner = makeGitRunner({ failOn: (args) => args[0] === 'rev-parse' });
+    await expect(
+      generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('happy'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      }),
+    ).rejects.toThrow(ProvenanceGitError);
+  });
+
+  it('shallow clone detected (`git rev-parse --is-shallow-repository` -> true) -> loud ProvenanceGitError naming fetch-depth', async () => {
+    const gitRunner = makeGitRunner({ isShallow: 'true' });
+    try {
+      await generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('happy'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      });
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(ProvenanceGitError);
+      expect((error as Error).message).toContain('shallow');
+      expect((error as Error).message).toContain('fetch-depth');
+    }
+  });
+
+  it('`git log` itself failing (after a clean, non-shallow `rev-parse`) -> loud ProvenanceGitError', async () => {
+    const gitRunner = makeGitRunner({ failOn: (args) => args[0] === 'log' });
+    await expect(
+      generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('happy'),
+        loadModules: fakeLoadModules,
+        gitRunner,
+      }),
+    ).rejects.toThrow(ProvenanceGitError);
+  });
+
+  it('a schema-invalid block still fails loudly through the full generate path (not just parse)', async () => {
+    await expect(
+      generateProvenance({
+        repoRoot: FIXTURES_ROOT,
+        reportsDir: reportsDir('bad-schema'),
+        loadModules: fakeLoadModules,
+        gitRunner: makeGitRunner(),
+      }),
+    ).rejects.toThrow(ProvenanceValidationError);
+  });
+});
+
+describe('generateProvenance — against the REAL reports/ directory', () => {
+  it('parses cleanly today (2026-07-23): zero yaml provenance blocks shipped yet, zero records, zero errors', async () => {
+    const REPO_ROOT = path.resolve(DIRNAME, '..', '..');
+    const records = await generateProvenance({
+      repoRoot: REPO_ROOT,
+      reportsDir: path.join(REPO_ROOT, 'reports'),
+      loadModules: fakeLoadModules,
+      gitRunner: makeGitRunner(),
+    });
+    expect(records).toEqual({});
+  });
+});

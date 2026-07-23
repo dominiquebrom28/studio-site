@@ -4,16 +4,21 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/provenance/generate.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/provenance/generate.mjs",
     "build": "tsc -b && vite build && node scripts/generate-seo-files.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
+    "pretest": "node scripts/provenance/generate.mjs",
     "test": "vitest run",
     "test:smoke": "vitest run --config vitest.smoke.config.ts",
     "test:component": "vitest run --config vitest.component.config.ts",
     "validate:content": "vitest run --config vitest.content.config.ts",
-    "smoke:deployed": "node scripts/check-deployed-routes.mjs"
+    "smoke:deployed": "node scripts/check-deployed-routes.mjs",
+    "provenance:generate": "node scripts/provenance/generate.mjs",
+    "provenance:print": "node scripts/provenance/print.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.2.9",

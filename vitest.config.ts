@@ -16,7 +16,12 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    // `scripts/**/*.test.ts` added for the provenance parser/generator
+    // (`scripts/provenance/*.mjs`) — colocated with the `.mjs` files they
+    // test, same convention as every other suite in this config living
+    // next to its source. Node-environment content tests otherwise; this is
+    // no exception (no DOM, pure functions + fixture files on disk).
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
     // Excluded here on purpose — this is the content-validation GATE, run
     // (and reported on) separately via `npm run validate:content` /
     // vitest.content.config.ts. See that config's header comment.
