@@ -198,8 +198,22 @@ Failure modes, each with an explicit and different outcome:
 
 **Two infrastructure requirements this creates, both concrete:**
 
-1. `.github/workflows/ci.yml` must set `actions/checkout@v4` with `fetch-depth: 0`. The default shallow clone breaks `git log --diff-filter=A` and would trip the hard-fail above on every PR. *(Verified 2026-07-19: the workflow currently sets no `fetch-depth`.)*
-2. Vercel shallow-clones too. Deploy config must enable full clone, **or** the deploy build must tolerate it — and it must not, per the rule above. **This is a devops task and a launch blocker for the feature**, flagged here so it is not discovered at deploy.
+1. `.github/workflows/ci.yml` must set `actions/checkout@v4` with `fetch-depth: 0`. The default shallow clone breaks `git log --diff-filter=A` and would trip the hard-fail above on every PR. *(Fixed 2026-07-23, PR #44 — `checkout@v4` now sets `fetch-depth: 0`.)*
+2. Vercel shallow-clones too. Deploy config must enable full clone, **or** the deploy build must tolerate it — and it must not, per the rule above.
+
+   **Fixed 2026-07-24 (devops, team/2026-07-24-vercel-full-clone), in-repo, no dashboard step required.** `vercel.json`'s `buildCommand` is now:
+
+   ```
+   git fetch --unshallow --no-tags || true; npm run build
+   ```
+
+   Vercel's Git integration checks out the repo with real `git` (so `.git` is present) but truncated to a shallow clone — the same shape as the pre-fix CI default, just not user-configurable via `fetch-depth` the way `actions/checkout` is. Running `git fetch --unshallow` as the first step of the build command converts that shallow checkout to a full one *before* `npm run build` (and therefore `prebuild` → `generate.mjs` → `assertGitAvailable`) ever runs.
+
+   The trailing `|| true` looks like it could reopen the exact silent-failure hole this section exists to close, so it's worth stating precisely why it doesn't: `--unshallow` errors if the repo is *already* a complete clone ("`--unshallow` on a complete repository does not make sense"), which is a legitimate, harmless outcome that must not fail the build. `|| true` swallows *that* case only. It does **not** swallow "the repo is still shallow" — if the fetch fails for any other reason (network, no `.git`, etc.), the repository remains shallow, and `assertGitAvailable`'s own `git rev-parse --is-shallow-repository` check — run unconditionally moments later inside `npm run build` — still hard-fails the build with the loud, specific error from row 5 of the table above. The `buildCommand` fetch is an optimization/likely-fix, not the enforcement point; `assertGitAvailable` remains the single source of truth for "is history actually complete," so a soft-failing unshallow can never downgrade an infra failure into a false "no commit yet" claim.
+
+   Verified by `scripts/provenance/vercelFullClone.test.ts` (run in default `npm test`): asserts `buildCommand` exists, runs the unshallow before `npm run build`, fails soft (`|| true`) rather than aborting, and that the PR #42 security headers are untouched.
+
+   **Not used, and why:** the `VERCEL_DEEP_CLONE=1` project environment variable is Vercel's own documented lever for this exact problem, but it is a dashboard/project-settings value — it is read by Vercel's checkout step itself, which runs *before* any `vercel.json` `build.env`-scoped variable is available, so it cannot be set from inside this repo. It would be a reasonable *defense-in-depth* addition (skips the extra fetch round-trip entirely) but is not required — the `buildCommand` fix above is sufficient on its own and needs no Dom action to take effect on the next deploy. Documented here as an optional follow-up rather than a blocker.
 
 ### 5.3 The downside I am accepting
 
@@ -308,7 +322,7 @@ This is a personal logbook with eleven content files. Not building:
 ## 11. Risks
 
 - **Report-block discipline decays.** Runs stop writing the block; provenance quietly stops appearing on new content. *Most likely failure.* Mitigation: it is visible on the live site (new posts say "no run record"), the format lives in `BACKLOG.md`'s "Run report format" section which every run reads, and two reference examples ship in PR 1. Deliberately no CI gate forcing a block — that would push a run toward inventing one to go green.
-- **Shallow clones break the build** in CI or on Vercel. Concrete and near-certain if not pre-empted; §5.2 names both fixes. This is the likeliest thing to blow up at deploy.
+- **Shallow clones break the build** in CI or on Vercel. Concrete and near-certain if not pre-empted; §5.2 names both fixes. *(Both fixed: CI via `fetch-depth: 0` (PR #44), Vercel via the `buildCommand` unshallow (2026-07-24) — see §5.2 for the residual "already-shallow-again" risk if a future `vercel.json` edit drops the `buildCommand`, which `vercelFullClone.test.ts` guards against.)*
 - **Scope creep into a "runs" section.** The data will look like it wants a dashboard. It doesn't. §9 is the defence.
 - **Backfill temptation.** Whoever writes the backfill PR will feel the pull to fill in the two unrecoverable posts and to split the combined token figures. *This is the single highest-risk moment in the item.* PR 6 should be reviewed specifically for what it left blank, and the reviewer should expect blanks.
 - **DOM-2 changes `author` to multi-author** while this is in flight. Low impact — the schema already takes an array — but sequence PR 4/5 against DOM-2's schema change if both are live in the same week.
