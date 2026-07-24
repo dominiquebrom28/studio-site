@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Project } from '@/content';
 import { statusLabel, statusToneClass } from '@/content/status';
+import { soloBuildLabel } from '@/content/soloBuild';
 import { Chip } from './ui/Badge';
 
 export function ProjectCard({
@@ -36,10 +37,24 @@ export function ProjectCard({
         )}
       </div>
       <div className="p-4">
-        <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
-            {project.date.slice(0, 4)}
-          </span>
+        {/* Eyebrow row (design-brief §3 card pattern: mono label(s) before
+            the headline). `flex-wrap` so the solo-build tag — the longest
+            item here — drops to its own line on narrow cards instead of
+            overflowing or forcing a horizontal scroll (BACKLOG P1
+            positioning-disambiguation: this must survive a 320px card with
+            zero layout breakage, not just the widest grid column). */}
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {/* Gated on `project.soloBuild`, driven by content frontmatter —
+                never a hard-coded slug list (see src/content/soloBuild.ts).
+                Reuses the exact wording that already shipped on the detail
+                page's hero (`ProjectHero`) so a reader sees one consistent
+                claim in both places. */}
+            {project.soloBuild && <Chip>{soloBuildLabel(project.template)}</Chip>}
+            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
+              {project.date.slice(0, 4)}
+            </span>
+          </div>
           <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.06em] ${statusToneClass[project.status]}`}>
             ● {statusLabel[project.status]}
           </span>

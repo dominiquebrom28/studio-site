@@ -33,6 +33,7 @@ media:
 featured: false
 order: 5
 date: "2026-05-03"
+soloBuild: true
 goal:
   text: |-
     LoveDiary reads like a personal project built for a couple rather than a market — a private, aesthetic timeline for logging the moments in a relationship as something closer to a shared scrapbook than a productivity app.

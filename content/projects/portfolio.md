@@ -31,6 +31,7 @@ media:
 featured: true
 order: 2
 date: "2026-07-06"
+soloBuild: true
 goal:
   text: |-
     "Same designer, same work, four different creative directions. Each one is a live, working concept — open them, feel them, react. The winner gets built out across the whole site." That's the stated purpose, straight from the portfolio's own ConceptIndex.tsx.

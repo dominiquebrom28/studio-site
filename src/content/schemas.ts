@@ -183,6 +183,29 @@ export const ProjectFrontmatterSchema = z.object({
   // discriminant with no `project.template ?? 'standard'` fallback logic
   // scattered through components.
   template: z.enum(['standard', 'single-sitting']).default('standard'),
+  // BACKLOG P1 "positioning disambiguation" — before this field existed,
+  // `ProjectHero` hard-coded the "SOLO BUILD · NO AGENT TEAM" eyebrow chip
+  // as unconditional page furniture (see the old inline ternary this
+  // replaced), which was only ever true because all six projects that
+  // exist today happen to be Dom's pre-team solo work. That's a landmine:
+  // the hero claims "an AI dev team builds software," the grid underneath
+  // it is 100% solo builds, and there was no DATA distinguishing a future
+  // team-built project from those six — a new project file would have
+  // silently inherited a false "SOLO BUILD" claim (or, if someone patched
+  // the hard-code, silently lost the honest tag on the six that actually
+  // earned it). `soloBuild` makes the distinction explicit, per-project
+  // content instead of an unstated global assumption.
+  //
+  // Defaults to `true` — not because "solo" is a neutral default in the
+  // abstract, but because it's the exact behavior every existing project
+  // already had (strict backward compatibility, same pattern as
+  // `template`'s default above) AND because it's the honest failure mode:
+  // if a future project file forgets to set this, the site UNDER-claims
+  // the AI team's involvement rather than over-claiming it, which is the
+  // safer direction to fail in given PROJECT-BRIEF.md's "never invent
+  // results" rule. A team-built project must explicitly opt out with
+  // `soloBuild: false`.
+  soloBuild: z.boolean().default(true),
 });
 
 export type ProjectFrontmatter = z.infer<typeof ProjectFrontmatterSchema>;

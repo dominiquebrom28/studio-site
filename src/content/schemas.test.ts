@@ -251,6 +251,24 @@ describe('ProjectFrontmatterSchema', () => {
       expect(ProjectFrontmatterSchema.parse(validProject).template).toBe('standard');
     });
 
+    describe('`soloBuild` (BACKLOG P1 positioning-disambiguation)', () => {
+      it('defaults to `true` when absent — matches every project file that predates this field', () => {
+        expect(ProjectFrontmatterSchema.parse(validProject).soloBuild).toBe(true);
+      });
+
+      it('accepts an explicit `soloBuild: false` for a future team-built project', () => {
+        expect(ProjectFrontmatterSchema.parse({ ...validProject, soloBuild: false }).soloBuild).toBe(false);
+      });
+
+      it('accepts an explicit `soloBuild: true`', () => {
+        expect(ProjectFrontmatterSchema.parse({ ...validProject, soloBuild: true }).soloBuild).toBe(true);
+      });
+
+      it('rejects a non-boolean `soloBuild` value', () => {
+        expect(() => ProjectFrontmatterSchema.parse({ ...validProject, soloBuild: 'yes' })).toThrow();
+      });
+    });
+
     it('leaves `goal`, `brief`, `process` undefined when absent', () => {
       const result = ProjectFrontmatterSchema.parse(validProject);
       expect(result.goal).toBeUndefined();

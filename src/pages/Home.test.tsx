@@ -41,3 +41,32 @@ describe('Home — accessibility (axe)', () => {
     expect(results.violations).toEqual([]);
   });
 });
+
+/**
+ * BACKLOG P1 "positioning disambiguation" — the hero above "Recent builds"
+ * claims "an AI dev team builds software"; every real project currently in
+ * `content/projects/*.md` is solo work (`soloBuild: true`). Both the
+ * per-card tag and the section's own clarifier sentence must actually be
+ * present against real committed content, not just asserted in isolation
+ * against a synthetic fixture.
+ */
+describe('Home — solo/team build disambiguation', () => {
+  it('surfaces the clarifier sentence and at least one solo-build tag in the "Recent builds" grid', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <main>
+          <Routes>
+            <Route path="/" element={<Home />} />
+          </Routes>
+        </main>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Recent builds' })).toBeTruthy();
+    });
+
+    expect(screen.getByText(/predate this AI team/i)).toBeTruthy();
+    expect(screen.getAllByText('SOLO BUILD · NO AGENT TEAM').length).toBeGreaterThan(0);
+  });
+});

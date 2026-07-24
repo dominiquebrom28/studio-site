@@ -51,12 +51,26 @@ export default function Home() {
 
       <section className="py-12 sm:py-16">
         <Container>
-          <div className="mb-6 flex items-baseline justify-between gap-4">
+          <div className="mb-2 flex items-baseline justify-between gap-4">
             <h2>Recent builds</h2>
             <Link to="/projects" className="font-mono text-sm text-marker-700 hover:underline">
               View all →
             </Link>
           </div>
+          {/* BACKLOG P1 "positioning disambiguation" — this grid sits directly
+              under a hero claiming "an AI dev team builds software," but is
+              (today) entirely Dom's pre-team solo work. Same quiet
+              body-text treatment as the Projects index, shortened since the
+              index carries the fuller explanation one click away. */}
+          {featuredProjects.length > 0 && (
+            <p className="mb-6 text-sm text-ink-muted">
+              Cards marked{' '}
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em]">
+                SOLO BUILD · NO AGENT TEAM
+              </span>{' '}
+              predate this AI team — built by Dom alone.
+            </p>
+          )}
           {featuredProjects.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {featuredProjects.map((project) => (
