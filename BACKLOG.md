@@ -570,6 +570,41 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       so no harm, but it wastes a recovery step every spawn and is a trap for a
       less careful agent. Whatever sets the worktree base for these runs should
       point at studio-site. _Source: frontend-dev env note, 2026-07-21 run._
+      _(Workaround proven 2026-07-24: the lead hand-created five worktrees under
+      the scratchpad with `git worktree add` + a symlinked `node_modules` and
+      ran five agents fully in parallel with zero branch collisions. Worth
+      making the default rather than a per-run improvisation. One wrinkle found:
+      an agent that runs `npm install` gets its symlink **replaced** by a real
+      local `node_modules` — safer than a shared write, but it means a
+      dependency-adding lane silently stops sharing the cache.)_
+
+- [ ] **MEDIUM — Two scheduled tasks share one working checkout and can collide.**
+      During the 2026-07-24 run, `studio-site-build` found the main checkout at
+      `/Users/doom/Documents/VibeCodeProjects/studio-site` sitting on
+      `team/2026-07-23-logbook` with a fresh commit — the `daily-logbook` task
+      was running **concurrently in the same checkout**, and PR numbering
+      interleaved (#47, #49 came from that session while this one opened #48,
+      #50–#53). No damage this time only because the build run had already
+      moved all its work into separate worktrees. But `git checkout` in one
+      session while the other is mid-build is a real corruption/false-verify
+      hazard, and the two tasks' schedules are not coordinated. Fix options:
+      give each scheduled task its own worktree by default (see the item
+      above), or serialize the two schedules, or have each task assert the
+      checkout is on a branch it owns before touching it. _Source: Project Lead,
+      2026-07-24 run — observed, not hypothetical._
+
+- [ ] **LOW — `npm install` drift between `package.json` and the local
+      `node_modules`.** PR #43 added `axe-core` to devDependencies and merged,
+      but nobody ran `npm install` in the main checkout — so on 2026-07-24
+      `npm run build` and `npm run typecheck` failed repo-wide with
+      `Cannot find module 'axe-core'` across four `.test.tsx` files, and the
+      first agent to hit it lost time proving the breakage pre-existed its own
+      branch. CI is unaffected (it runs `npm ci`), so this is a local-only
+      trap that CI structurally cannot catch — which is exactly why it went
+      unnoticed for a day. Cheap fix: a `postmerge`/`post-checkout` git hook,
+      or a preflight check in the run playbook that diffs `package.json`
+      against installed packages before any agent is dispatched. _Source:
+      devops + Project Lead, 2026-07-24 run._
 
 ### Critical review findings (2026-07-21) — whole team + Judge
 
@@ -587,10 +622,31 @@ site whose provenance device is still decorative.
       team/2026-07-21-seo-social — **merged same day as PR #39**; this checkbox
       lagged two days behind the merge and was healed by the 2026-07-23
       reconciliation. Third backlog-misreports-its-own-state incident.)_
-- [ ] **P0 — No next step / conversion path.** No contact, email, CTA, or "who
+- [x] **P0 — No next step / conversion path.** No contact, email, CTA, or "who
       is Dom" anywhere — an engaged reader is a 100% leak. Even an honest
       "experiment log, here's Dom's real portfolio/LinkedIn" exit closes it.
       _Source: marketer._
+      _(2026-07-24, team/2026-07-24-conversion-path, PR #50 — awaiting Dom.
+      **The last open P0 on the board.** marketer spec'd it, frontend-dev
+      built it. Decision: a single "WHO'S BEHIND THIS" block in `Footer.tsx`,
+      NOT a new `/about` route — `RootLayout` mounts the footer globally, so
+      one component edit closes the leak at every disengagement point (end of
+      a post, end of a project page, everywhere), and `docs/spec.md` §2's
+      deferral of `/about` to "phase 2" stays intact. Ships with GitHub as the
+      sole CTA; `DOM_PORTFOLIO_URL`/`DOM_LINKEDIN_URL`/`DOM_EMAIL` exist as
+      genuinely EMPTY constants (not placeholder domains) with a comment
+      telling future contributors not to fill them in — every optional element
+      gates on non-empty, so wiring one up later is a one-line edit. No
+      `mailto:` ships. 13 tests, 6 falsified red first; axe clean; eyebrow is
+      a `<p>` not an `<h2>` so it doesn't inject a stray heading into every
+      page's outline. **The dev overrode its own brief and was right**: the
+      brief said "the ten AI characters", but persona-bible §35 and
+      design-brief §155/§236 bind the numeral "10 AI characters" and
+      design-brief §7 names the footer specifically — lead verified against
+      both docs. **Three open Dom decisions, none blocking**: supply a
+      portfolio URL? supply LinkedIn? approve publishing an email — which is
+      two gates, not one, since having the address on file is separate from
+      consenting to publish it.)_
 - [x] **P1 — Security headers / CSP in `vercel.json`.** Spec §46 mandates CSP +
       HSTS + `X-Frame-Options` + `nosniff` + `Referrer-Policy`; none ship. No
       live exploit (static, no-auth — Judge downgraded from P0), but it's a
@@ -716,7 +772,30 @@ site whose provenance device is still decorative.
       review what stays blank) → PR 7 project-detail enablement (Dom
       checkpoint) + the Vercel full-clone devops item below.** Strip still a
       byline until 4–5 land, so this item stays open.)_
-- [ ] **P1 — Vercel deploy must full-clone (provenance deploy blocker).**
+      _(**PRs 4+5 SHIPPED 2026-07-24**, team/2026-07-24-provenance-strip-v2,
+      PR #52 — awaiting Dom, **merge after PR #48**. The strip is no longer a
+      byline. PR 4: `loader.ts` attaches `provenance?` joined by repo-relative
+      path; the hard part was that `import.meta.glob` can't distinguish
+      "artifact missing" from "artifact present but empty" and a plain `import`
+      throws an unhelpful Vite resolution error — solved with an exported
+      `resolveProvenanceArtifact()` that throws a specific, actionable error
+      naming `provenance:generate`, preserving §5.2's "infra failure must never
+      look like a legitimate no-commit claim". PR 5: full/partial/none states,
+      inline + rail variants, graded-paper Judge badge, commit/run links built
+      from a hardcoded `REPO_BASE` + schema-validated 40-hex hash and **never
+      read from content** (closes the spec's one named injection path). Also
+      wired `.riso-offset`, which was spec'd in design-brief §6 but was dead
+      CSS used nowhere — one of the three spots the dead-field item below
+      lists. 65 component tests, axe clean on all 6 new states; falsification
+      **caught a weak assertion** (`toThrow(/provenance:generate/)` passed
+      against both failure branches; tightened). **Zero real records still
+      exist, on purpose** — `provenance:print` says "no records yet", so the
+      state actually shipping is the honest "no run record" degrade, and no
+      fixture records were planted to make a prettier demo. **Remaining: PR 6
+      backfill (lead) → PR 7 project-detail enablement (Dom checkpoint).**
+      Honest gap: no real-browser visual check of the new states — the
+      Playwright lane (PR #53) is what will eventually cover that.)_
+- [x] **P1 — Vercel deploy must full-clone (provenance deploy blocker).**
       devops: the provenance generator hard-fails on shallow clones by design
       (spec §5.2 — `git log --diff-filter=A` silently truncates there, which
       would turn an infra failure into a false "no commit yet" claim). CI now
@@ -726,10 +805,49 @@ site whose provenance device is still decorative.
       deploy build skips the generator — rejected by the spec). Sequence
       BEFORE spec §12 PR 4 merges. _Source: docs/provenance-model.md §5.2
       flagged it 07-19; PR #44 makes it concrete._
-- [ ] **P1 — Positioning disambiguation.** "An AI dev team builds software" hero
+      _(2026-07-24, team/2026-07-24-vercel-full-clone, PR #48 — awaiting Dom.
+      **Must merge before PR #52.** `vercel.json` gains
+      `"buildCommand": "git fetch --unshallow --no-tags || true; npm run build"`,
+      un-shallowing before `prebuild` runs the generator. The `|| true` is safe
+      *specifically because* it only swallows the already-complete-clone error:
+      a genuinely-shallow repo still trips `assertGitAvailable`'s hard-fail
+      moments later, so the generator stays the enforcement point and the
+      spec's fail-loud property is preserved rather than bypassed. Rejected a
+      dashboard-only `VERCEL_DEEP_CLONE=1` fix as the primary mechanism — it
+      can't be verified or enforced from the repo, and `vercel.json`'s
+      `env`/`build.env` is populated too late to affect Vercel's checkout step.
+      New `scripts/provenance/vercelFullClone.test.ts` guards drift (same
+      pattern as `inlineScriptHash.test.ts`) and **also asserts all six PR #42
+      security headers survive**, since both concerns now share the file. Docs
+      §5.2/§11 updated from "likeliest thing to blow up at deploy" to fixed.
+      **No Dom dashboard action required**; `VERCEL_DEEP_CLONE=1` is optional
+      hardening only.)_
+- [x] **P1 — Positioning disambiguation.** "An AI dev team builds software" hero
       over a grid of Dom's SOLO builds; the "SOLO BUILD · NO AGENT TEAM" tag is
       only on detail pages. Add it to `ProjectCard` and/or a clarifier under the
       Projects H1 — **placement/wording is Dom's call.** _Source: marketer._
+      _(2026-07-24, team/2026-07-24-positioning-tag, PR #51 — awaiting Dom.
+      **The item was truer than it knew.** `ProjectHero` rendered "SOLO BUILD ·
+      NO AGENT TEAM" *unconditionally*, as page furniture — correct only by
+      accident because all six projects happen to be Dom's pre-team work.
+      Nothing in the schema encoded it; project-page-v2.md states it as a prose
+      assumption. The first team-built project would have had its detail page
+      falsely claim solo. So the fix is data-driven in BOTH directions:
+      `soloBuild: z.boolean().default(true)` on the project schema (default
+      `true` matches existing behavior and is the safer failure mode —
+      under-claims the team rather than over-claims it), set explicitly on all
+      six project files so each claim is auditable; `src/content/soloBuild.ts`
+      as the single copy source so hero and grid render byte-identical text;
+      the chip added to `ProjectCard`; a quiet clarifier under the Projects H1
+      **and under Home's "Recent builds"** — Home needed it too, being the grid
+      directly beneath the "AI dev team" hero claim. Tag wording reused verbatim
+      from the already-shipped hero, so no new public copy was invented. Tag is
+      NOT `aria-hidden` — deliberate: a screen-reader user needs the provenance
+      cue more, not less. 5 falsified tests + schema/label/page tests; axe clean.
+      **Dom's call on placement**: PR #51 lays out 3 options (per-card tag +
+      clarifier [shipped], tag-only, or one site-wide banner) with reasoning.
+      Disclosed gap: the inverse branch — a team-built project correctly
+      omitting the chip — has no test, since no team-built fixture exists yet.)_
 - [ ] **P1 — Dead-field / retired-device cleanup.** Render or remove post
       `cover`; wire `.riso-offset` into its three spec'd spots (H2 underline,
       blockquote bar, provenance icon) or update the brief; formally deprecate
