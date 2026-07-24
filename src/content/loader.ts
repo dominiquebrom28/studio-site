@@ -7,6 +7,7 @@ import {
   type Post,
   type PostFrontmatter,
 } from './schemas';
+import { ProvenanceArtifactSchema, type ProvenanceArtifact, type ProvenanceRecord } from './provenance-schema';
 
 // Same rule the Zod schemas use for an explicit frontmatter `slug` override
 // (schemas.ts) — kept in sync here so a filename-derived slug is held to the
@@ -29,6 +30,105 @@ const postFiles = import.meta.glob('/content/posts/*.md', {
   import: 'default',
 }) as Record<string, string>;
 
+// --- Provenance artifact join (docs/provenance-model.md §12 PR 4) ---
+//
+// `src/content/provenance.generated.json` is written by
+// `scripts/provenance/generate.mjs`, wired into the `predev`/`prebuild`/
+// `pretest` npm scripts (package.json) — by the time this module is
+// evaluated in any normal `npm run dev|build|test`, it already exists.
+// It is gitignored on purpose (§5.2: "the design removes the possibility
+// of drift rather than policing it"), which means there IS exactly one
+// real way it can be absent here: something ran Vite/Vitest directly,
+// bypassing every hook that regenerates it — a stale checkout, a broken CI
+// cache, or the file getting deleted mid-session.
+//
+// That "missing" case must NEVER be silently treated the same as an
+// EMPTY artifact (`{}` — today's real, honest, zero-records state; see
+// `provenance:print`'s own "no records yet" message). Collapsing the two
+// would let an infrastructure failure masquerade as "these content files
+// legitimately have no run report," which is precisely the class of
+// dishonesty §5.2's "generated artifact missing at import time -> loader
+// throws" row exists to rule out — the same posture as the generator's own
+// "git command fails -> build fails loudly" rule (§5.2), just one layer up.
+//
+// A plain `import artifact from './provenance.generated.json'` can't make
+// that distinction: a missing target on a static import is a Vite
+// module-resolution error thrown at transform time, in a shape aimed at a
+// bundler maintainer, and it can't be intercepted to produce the
+// actionable message below. `import.meta.glob` — already used for every
+// content file above — is the one primitive in this codebase whose
+// "nothing matched" case degrades to an empty object instead of an error,
+// which is exactly the hook needed to tell "missing" and "present but
+// empty" apart in application code.
+// NOTE: `import.meta.glob` requires a string LITERAL argument (Vite's own
+// compile-time restriction — it rewrites this call into a static set of
+// imports before any JS runs, so it cannot accept a variable here even
+// though the same literal is duplicated as `PROVENANCE_ARTIFACT_PATH`
+// immediately below for the lookup key).
+const provenanceArtifactModules = import.meta.glob('/src/content/provenance.generated.json', {
+  eager: true,
+  import: 'default',
+}) as Record<string, unknown>;
+
+const PROVENANCE_ARTIFACT_PATH = '/src/content/provenance.generated.json';
+
+/**
+ * Validates (and fails loud on) the raw glob result for the generated
+ * provenance artifact. Extracted to a pure function of its input — no glob,
+ * no filesystem — specifically so both failure messages and the success
+ * path are unit-testable without a real generated file on disk (see
+ * loader.test.ts). Two distinct failure modes, both hard errors, both
+ * named precisely (matching this loader's existing frontmatter-error
+ * convention below):
+ *
+ *  - `rawArtifact === undefined`: the glob matched nothing at all — the
+ *    artifact is genuinely missing (§5.2's "generated artifact missing at
+ *    import time" row).
+ *  - present but Zod-rejects: defense in depth against a corrupted or
+ *    hand-edited file. The artifact is generator-written and gitignored,
+ *    but nothing at the loader layer enforces that nobody edited it
+ *    locally, and `generate.mjs` already re-validates each record before
+ *    writing — this is the same "never trust, always re-check at the
+ *    consuming boundary" posture as every other Zod-validated input in
+ *    this file.
+ */
+export function resolveProvenanceArtifact(rawArtifact: unknown): ProvenanceArtifact {
+  if (rawArtifact === undefined) {
+    throw new Error(
+      '[content] Missing generated provenance artifact at "src/content/provenance.generated.json". ' +
+        'It is written by `scripts/provenance/generate.mjs` and normally regenerated automatically by ' +
+        '`predev`/`prebuild`/`pretest` (package.json). Run `npm run provenance:generate` and retry — ' +
+        'a missing artifact must never be treated the same as one that legitimately resolved zero ' +
+        'records (docs/provenance-model.md §5.2).',
+    );
+  }
+
+  const result = ProvenanceArtifactSchema.safeParse(rawArtifact);
+  if (!result.success) {
+    throw new Error(
+      `[content] Generated provenance artifact at "src/content/provenance.generated.json" failed validation:\n${result.error.issues
+        .map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)
+        .join('\n')}\nRegenerate it with \`npm run provenance:generate\`.`,
+    );
+  }
+
+  return result.data;
+}
+
+const provenanceArtifact = resolveProvenanceArtifact(provenanceArtifactModules[PROVENANCE_ARTIFACT_PATH]);
+
+/**
+ * Joins a content file's `import.meta.glob` key (root-absolute, WITH a
+ * leading slash — Vite's own convention, e.g. `"/content/posts/x.md"`)
+ * against the generated artifact's keys, which are `produced` paths exactly
+ * as a report writes them: repo-relative, no leading slash (§4.2's own
+ * worked example: `"content/posts/2026-07-18-foo.md"`). The two shapes
+ * agree on everything except that one leading character.
+ */
+export function repoRelativePath(globKey: string): string {
+  return globKey.replace(/^\//, '');
+}
+
 export function slugFromPath(path: string): string {
   const stem = path.split('/').pop() ?? path;
   return stem.replace(/\.md$/, '');
@@ -38,9 +138,15 @@ export function buildCollection<TFrontmatter extends { slug?: string }>(
   files: Record<string, string>,
   schema: z.ZodType<TFrontmatter>,
   kind: 'project' | 'post',
-): (TFrontmatter & { slug: string; body: string })[] {
+  // Defaults to `{}` (never `undefined`) so every existing call site in
+  // loader.test.ts — none of which know or care about provenance — keeps
+  // compiling and behaving identically: an empty artifact resolves every
+  // lookup below to `undefined`, the same honest "no record" result a real
+  // artifact gives a file no report names.
+  provenanceArtifact: ProvenanceArtifact = {},
+): (TFrontmatter & { slug: string; body: string; provenance?: ProvenanceRecord })[] {
   const seenSlugs = new Set<string>();
-  const items: (TFrontmatter & { slug: string; body: string })[] = [];
+  const items: (TFrontmatter & { slug: string; body: string; provenance?: ProvenanceRecord })[] = [];
 
   for (const [path, raw] of Object.entries(files)) {
     const { data, content } = parseFrontmatter(raw);
@@ -80,14 +186,18 @@ export function buildCollection<TFrontmatter extends { slug?: string }>(
     }
     seenSlugs.add(slug);
 
-    items.push({ ...frontmatter, slug, body: content });
+    // `produced` paths in the artifact never carry a leading slash
+    // (`repoRelativePath` above); a file this loader never sees a report
+    // for simply has no matching key, and the lookup below is `undefined`
+    // — the honest, designed "no record" case (schemas.ts §"provenance").
+    items.push({ ...frontmatter, slug, body: content, provenance: provenanceArtifact[repoRelativePath(path)] });
   }
 
   return items;
 }
 
-const allProjectsRaw = buildCollection(projectFiles, ProjectFrontmatterSchema, 'project');
-const allPostsRaw = buildCollection(postFiles, PostFrontmatterSchema, 'post');
+const allProjectsRaw = buildCollection(projectFiles, ProjectFrontmatterSchema, 'project', provenanceArtifact);
+const allPostsRaw = buildCollection(postFiles, PostFrontmatterSchema, 'post', provenanceArtifact);
 
 /**
  * Normalizes a raw parsed post (post-Zod, pre-derived) to the `Post` shape
@@ -107,7 +217,9 @@ const allPostsRaw = buildCollection(postFiles, PostFrontmatterSchema, 'post');
  * block) keeps compiling and behaving identically, with zero code changes,
  * even against a multi-author post.
  */
-export function normalizePost(raw: PostFrontmatter & { slug: string; body: string }): Post {
+export function normalizePost(
+  raw: PostFrontmatter & { slug: string; body: string; provenance?: ProvenanceRecord },
+): Post {
   const { author, authors: rawAuthors, ...rest } = raw;
   const authors = rawAuthors ?? (author ? [author] : ['Dom']);
   return { ...rest, authors, author: authors[0] };
@@ -123,7 +235,9 @@ export function filterVisiblePosts(items: Post[], isProd: boolean): Post[] {
   return isProd ? items.filter((post) => !post.draft) : items;
 }
 
-const normalizedPosts = (allPostsRaw as (PostFrontmatter & { slug: string; body: string })[]).map(normalizePost);
+const normalizedPosts = (
+  allPostsRaw as (PostFrontmatter & { slug: string; body: string; provenance?: ProvenanceRecord })[]
+).map(normalizePost);
 const visiblePosts = filterVisiblePosts(normalizedPosts, import.meta.env.PROD);
 
 export function sortProjects(projects: Project[]): Project[] {

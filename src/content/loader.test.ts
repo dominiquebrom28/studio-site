@@ -6,6 +6,8 @@ import {
   sortPosts,
   filterVisiblePosts,
   normalizePost,
+  resolveProvenanceArtifact,
+  repoRelativePath,
 } from './loader';
 import {
   ProjectFrontmatterSchema,
@@ -14,6 +16,7 @@ import {
   type Post,
   type PostFrontmatter,
 } from './schemas';
+import type { ProvenanceArtifact, ProvenanceRecord } from './provenance-schema';
 
 function rawPost(overrides: Partial<PostFrontmatter> = {}): PostFrontmatter & { slug: string; body: string } {
   return {
@@ -41,6 +44,91 @@ date: "2026-01-01"`;
 const basePostFrontmatter = `title: "Test Post"
 date: "2026-01-01"
 summary: "A test post."`;
+
+/** A fully-valid `ProvenanceRecord` (docs/provenance-model.md §4.2) — the
+ * exact shape `scripts/provenance/generate.mjs` writes per produced path
+ * into the generated artifact. Reused across the `resolveProvenanceArtifact`
+ * and `buildCollection` provenance-join tests below. */
+const validProvenanceRecord: ProvenanceRecord = {
+  runId: '2026-07-18',
+  reportPath: 'reports/2026-07-18.md',
+  item: 'second-blog-post',
+  authors: ['Project Lead'],
+  reviewers: [{ by: 'Project Lead', kind: 'fact-check' }],
+  judge: null,
+  tokens: null,
+  commit: { hash: 'a'.repeat(40), short: 'a1b2c3d', date: '2026-07-18T10:00:00.000Z' },
+};
+
+describe('resolveProvenanceArtifact — fail-loud on a missing/invalid generated artifact (§5.2)', () => {
+  it('throws an actionable error (naming `provenance:generate`) when the artifact glob matched nothing at all', () => {
+    // Asserts the specific "missing" message, not just any thrown error that
+    // happens to mention the fix command — `ProvenanceArtifactSchema.parse`
+    // on `undefined` would ALSO throw and ALSO mention `provenance:generate`
+    // in its own message, which would let this test pass even if the
+    // dedicated "rawArtifact === undefined" branch were deleted entirely.
+    expect(() => resolveProvenanceArtifact(undefined)).toThrow(/Missing generated provenance artifact/);
+  });
+
+  it('does NOT confuse "missing" with "present but empty" — an empty object is a valid, honest artifact', () => {
+    // `{}` is today's real production state (zero `yaml provenance` blocks
+    // shipped anywhere yet) and must resolve cleanly, not throw — collapsing
+    // it into the "missing" branch would be exactly the infra-failure-as-fact
+    // bug §5.2 exists to prevent.
+    expect(resolveProvenanceArtifact({})).toEqual({});
+  });
+
+  it('throws a field-qualified error when the artifact exists but fails ProvenanceRecordSchema', () => {
+    expect(() =>
+      resolveProvenanceArtifact({
+        'content/posts/broken.md': { ...validProvenanceRecord, commit: undefined },
+      }),
+    ).toThrow(/content\/posts\/broken\.md/);
+  });
+
+  it('returns a real, fully-populated record unchanged on success', () => {
+    const artifact = { 'content/posts/real.md': validProvenanceRecord };
+    expect(resolveProvenanceArtifact(artifact)).toEqual(artifact);
+  });
+});
+
+describe('repoRelativePath', () => {
+  it('strips exactly one leading slash from a Vite glob key', () => {
+    expect(repoRelativePath('/content/posts/foo.md')).toBe('content/posts/foo.md');
+  });
+
+  it('leaves an already-relative path untouched', () => {
+    expect(repoRelativePath('content/posts/foo.md')).toBe('content/posts/foo.md');
+  });
+});
+
+describe('buildCollection — provenance join (docs/provenance-model.md §12 PR 4)', () => {
+  it('attaches the matching record when the artifact carries this exact repo-relative path', () => {
+    const files = {
+      '/content/posts/2026-07-18-real.md': projectFile(basePostFrontmatter),
+    };
+    const artifact: ProvenanceArtifact = { 'content/posts/2026-07-18-real.md': validProvenanceRecord };
+    const items = buildCollection(files, PostFrontmatterSchema, 'post', artifact);
+    expect(items[0].provenance).toEqual(validProvenanceRecord);
+  });
+
+  it('leaves `provenance` undefined — the honest, designed "no record" state — when no artifact entry matches', () => {
+    const files = {
+      '/content/posts/2026-07-16-no-report-entry.md': projectFile(basePostFrontmatter),
+    };
+    const artifact: ProvenanceArtifact = { 'content/posts/some-other-file.md': validProvenanceRecord };
+    const items = buildCollection(files, PostFrontmatterSchema, 'post', artifact);
+    expect(items[0].provenance).toBeUndefined();
+  });
+
+  it('defaults `provenanceArtifact` to `{}` when the 4th argument is omitted entirely (backward compatibility)', () => {
+    const files = {
+      '/content/posts/ok.md': projectFile(basePostFrontmatter),
+    };
+    const items = buildCollection(files, PostFrontmatterSchema, 'post');
+    expect(items[0].provenance).toBeUndefined();
+  });
+});
 
 describe('slugFromPath', () => {
   it('derives the filename stem from a full glob path', () => {
