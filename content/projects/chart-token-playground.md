@@ -32,6 +32,7 @@ featured: true
 order: 3
 date: "2026-06-24"
 template: single-sitting
+soloBuild: true
 goal:
   text: |-
     Chart Token Playground answers one specific design-systems problem for the Sollie design system: how do you keep every chart's colours traceable to real tokens — and re-colour instantly per brand — instead of hardcoding hex values into each chart. The README pitches it as "Figma Variables × Token Studio × Storybook, focused on one job."

@@ -25,6 +25,7 @@ media:
 featured: false
 order: 4
 date: "2026-04-29"
+soloBuild: true
 goal:
   text: |-
     MensApp exists because a Dutch friend group needed one, and knew it — the footer says outright "Built for the lads." It's the organizing tool for Mensdag, their recurring lads'-day-out: polls, a quiz, teams, photos and a running beer count, built to actually be opened and used on the day rather than admired as a portfolio piece.

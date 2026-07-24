@@ -3,6 +3,7 @@ import { m, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import type { Project } from '@/content';
 import { Chip } from './ui/Badge';
 import { statusLabel, statusToneClass } from '@/content/status';
+import { soloBuildLabel } from '@/content/soloBuild';
 
 const BACK_EASE = [0.34, 1.56, 0.64, 1] as const;
 const SETTLE_EASE = [0.16, 1, 0.3, 1] as const;
@@ -35,7 +36,7 @@ export function ProjectHero({ project }: { project: Project }) {
   const parallaxRaw = useTransform(scrollY, (v) => v * 0.175);
   const parallaxY = useTransform(parallaxRaw, (v) => Math.max(-40, Math.min(40, v)));
 
-  const eyebrowLabel = project.template === 'single-sitting' ? 'ONE SITTING · SOLO BUILD' : 'SOLO BUILD · NO AGENT TEAM';
+  const eyebrowLabel = soloBuildLabel(project.template);
 
   const eyebrowMotion = prefersReducedMotion
     ? { initial: { y: 0 }, animate: { y: 0 } }
@@ -63,12 +64,18 @@ export function ProjectHero({ project }: { project: Project }) {
   return (
     <div className="mb-10">
       <m.div className="mb-3 flex flex-wrap items-center gap-2" {...eyebrowMotion}>
-        <m.span
-          {...stampMotion(0)}
-          className="inline-flex items-center rounded-full border border-hairline bg-paper-raised px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted"
-        >
-          {eyebrowLabel}
-        </m.span>
+        {/* Gated on `project.soloBuild` (BACKLOG P1 positioning-disambiguation)
+            — this chip used to be unconditional page furniture, true only
+            because every project that existed happened to be solo work. A
+            team-built project must not inherit this claim. */}
+        {project.soloBuild && (
+          <m.span
+            {...stampMotion(0)}
+            className="inline-flex items-center rounded-full border border-hairline bg-paper-raised px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted"
+          >
+            {eyebrowLabel}
+          </m.span>
+        )}
         <m.span
           {...stampMotion(1)}
           className={`font-mono text-[11px] font-semibold uppercase tracking-[0.06em] ${statusToneClass[project.status]}`}

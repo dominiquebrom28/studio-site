@@ -33,6 +33,7 @@ media:
 featured: false
 order: 6
 date: "2026-05-01"
+soloBuild: true
 goal:
   text: |-
     PizzaParty reads like a small, self-contained fun project — solving "what pizza should we get" with a spin of a wheel instead of a group-chat argument, built to be delightful in one sitting rather than to become a business.

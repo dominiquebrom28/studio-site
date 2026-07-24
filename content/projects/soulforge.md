@@ -39,6 +39,7 @@ media:
 featured: true
 order: 1
 date: "2026-06-15"
+soloBuild: true
 goal:
   text: |-
     SoulForge is Dom's own habit-and-journaling life turned into a walkable game — the working theory is that real tasks feel less like admin if leveling six character stats is the reward for doing them. It reads like an attempt to make personal discipline as compelling as a save file.
