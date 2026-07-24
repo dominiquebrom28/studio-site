@@ -139,3 +139,89 @@ jobs:
         env:
           SMOKE_URL: ${{ github.event.inputs.deployed_url || vars.SMOKE_URL }}
         run: node scripts/check-deployed-routes.mjs
+
+  # Real-browser lane (BACKLOG P1 "Real-browser responsive/visual testing") —
+  # Playwright against `vite preview`'s `dist/` output at 375/768/1280. See
+  # `playwright.config.ts`'s header comment for the full "why" and
+  # `e2e/*.spec.ts` for what each file actually catches (the 2026-07-17/18
+  # mobile-metadata regression class, horizontal overflow, the mobile drawer
+  # focus trap in a real browser, and real axe `color-contrast` — the first
+  # place that rule has ever actually run against this app, since jsdom has
+  # no canvas and silently skips it in every existing `axe.run()` call).
+  #
+  # DELIBERATELY NOT REQUIRED (not in branch protection, not part of the
+  # `build` job) — a considered sequencing call, not an oversight:
+  #   1. This lane is BRAND NEW as of 2026-07-24. Playwright suites are
+  #      notoriously flaky on first introduction, and just wiring this one up
+  #      locally surfaced three distinct real timing races before it was
+  #      stable (a webServer host/IP mismatch, a Suspense-fallback
+  #      navigation race, and a CSS `transition: background-color` race on
+  #      the dark-mode check) — strong evidence that CI's runner
+  #      (different OS, different load, cold caches) could surface more that
+  #      local macOS runs never hit. Blocking merges on an unproven gate is
+  #      how you get "disable the flaky check" pressure later.
+  #   2. It ALREADY found one genuine, real, pre-existing AA contrast
+  #      violation on first real run (`Callout`'s `watch-out` tone — see
+  #      `e2e/contrast.spec.ts`'s `KNOWN_VIOLATIONS`) that no existing gate
+  #      had ever caught. Tracked explicitly rather than silently allowed,
+  #      but making a brand-new, unproven lane block EVERY unrelated PR on
+  #      day one over a pre-existing, already-tracked issue is the wrong
+  #      first impression for the gate itself.
+  #   3. `deployed-smoke` above sets the precedent for this repo's own
+  #      "advisory first" pattern; the content-validation gate
+  #      (`validate:content`) is the precedent for "promote once proven" —
+  #      it shipped non-required, then was promoted into the required
+  #      `build` job on 2026-07-21 once real usage showed it never went red
+  #      for the wrong reason.
+  #
+  # RECOMMENDATION (Dom's call, per the studio's human-in-the-loop rule):
+  # run this advisory for a couple of weeks of real PR traffic; once it's
+  # gone zero-false-positive across a run of PRs on the actual GitHub
+  # Actions runner (not just local), promote it the same way — add its
+  # steps into (or add its job name to) the required check list.
+  #
+  # Chromium only: covers the actual regression classes this lane targets
+  # (responsive layout, focus, contrast) without doubling CI time for
+  # cross-browser rendering differences this app doesn't have known exposure
+  # to (no browser-specific CSS, no non-standard APIs). Revisit if a bug
+  # ever ships that only reproduces in Firefox/WebKit.
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # `fetch-depth: 0` for the same reason as the `build` job above: this
+      # job's own `npm run build` step runs the provenance generator via its
+      # `prebuild` hook, which hard-fails on a shallow clone by design
+      # (docs/provenance-model.md §5.2/§5.3).
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers (chromium only)
+        run: npx playwright install --with-deps chromium
+
+      # Explicit step (not `test:e2e`'s `pretest:e2e` hook) so the build log
+      # is visible as its own step here, matching the `build` job above.
+      - name: Build
+        run: npm run build
+
+      - name: E2E tests (Playwright, real browser, 375/768/1280)
+        run: npx playwright test
+
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

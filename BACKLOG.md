@@ -640,11 +640,66 @@ site whose provenance device is still decorative.
       structurally unverifiable in jsdom (no canvas) rather than claimed —
       contrast remains covered only by the design brief's hand-computed
       table, which the Playwright item below could someday automate.)_
-- [ ] **P1 — Real-browser responsive/visual testing.** jsdom can't evaluate
+      _(UPDATE 2026-07-24: automated now — see the Playwright item below,
+      `e2e/contrast.spec.ts`. Real-browser `color-contrast` runs for the
+      first time, on a handful of representative pages/modes, and already
+      found a real violation the hand-computed table structurally couldn't
+      have caught. Not full-site coverage — see that item for scope.)_
+- [x] **P1 — Real-browser responsive/visual testing.** jsdom can't evaluate
       media queries, so the 2026-07-17 mobile-reading-order P0 class is
       structurally uncatchable and the never-done "QA pass — responsive" item
       cannot be honestly closed. Needs Playwright (or similar) at 375/768/1280
       against `dist/`. _Source: qa. Relates to the existing HIGH smoke-test item._
+      _(2026-07-24, team/2026-07-24-playwright-lane — awaiting Dom. `@playwright/
+      test` against `vite preview`'s `dist/` (webServer-managed), 375/768/1280.
+      28 tests across 4 files, every one falsified red→green against a real
+      product-code break before being trusted: `e2e/reading-order.spec.ts`
+      reproduces BOTH the 2026-07-17 mobile-metadata-after-body shape AND the
+      2026-07-18 duplicate-visible-metadata shape on `BlogPost` (the one
+      remaining route with this responsive split — `ProjectDetail` was
+      redesigned to a single column in project-page-v2 and no longer has
+      one); `e2e/overflow.spec.ts` (no horizontal scroll, 6 routes × 3
+      viewports); `e2e/mobile-drawer.spec.ts` (real click-then-focus, real
+      Tab/Shift+Tab wrap, real Escape-returns-focus, real scroll-lock — the
+      things jsdom's own component test has to fake); `e2e/contrast.spec.ts`
+      (see below — the actual unlock for the two items this was blocking).
+      **CI: added as its own non-required `e2e` job** (needs the `build` job
+      green first), NOT added to branch protection — first-introduction
+      flakiness risk + "don't block every PR on day one over a bug this lane
+      itself just found" (see ci.yml's `e2e` job comment for the full
+      reasoning and the explicit promote-once-proven recommendation).
+      Chromium only. Known gap: cannot verify `vercel.json`'s response
+      headers (CSP/HSTS/etc.) — `vite preview` doesn't apply them; that stays
+      `scripts/check-deployed-routes.mjs`'s (a real deployed URL) or a future
+      dedicated header-assertion script's job.)_
+      **Unblocks, partially:**
+      - `color-contrast` (the P1 above, "Automated a11y tooling"): now
+        actually runs, in a real browser, for the first time — home page
+        light+dark + one blog post. Found a real, previously-invisible AA
+        violation on first run: `Callout`'s `watch-out` tone renders its
+        label directly on a `color-mix()` wash the design brief's §2 table
+        never computed against (only the two flat tokens it blends) —
+        4.45:1, not the table's 4.69:1 flat-`--paper` number. Tracked as its
+        own item below rather than silently allowed or hidden behind a
+        weakened assertion.
+      - `style-src 'unsafe-inline'` (security-auditor P2, PR #42): still
+        open — this lane doesn't check response headers at all (see the
+        known gap above), so a real-browser CSP check is still a distinct,
+        unbuilt piece of work, not something this PR does incidentally.
+- [ ] **P2 — `Callout` `watch-out` tone fails AA color-contrast (4.45:1, not
+      4.69:1).** Found by the new Playwright contrast lane on first run
+      (`e2e/contrast.spec.ts`'s `KNOWN_VIOLATIONS`), tracked there explicitly
+      so the lane stays a real regression gate rather than silently
+      swallowing it. `Callout.tsx`'s `watch-out` tone renders `.text-warning`
+      (`--warning: #985F12`) directly on `color-mix(in srgb, var(--warning)
+      8%, var(--paper-raised))` (`#F3EBDC`) — a real, rendered pairing the
+      design brief's §2 hand-computed table never checked (it only verified
+      `--warning` against flat `--paper`, at 4.69:1; the actual wash it's
+      shown on in this one component measures 4.45:1, just under the 4.5:1
+      AA floor for the label's 11px text). A design/frontend-dev call, not
+      this lane's to make unilaterally: either darken `--warning` further,
+      reduce/change the wash mix, or use a different label color for this
+      tone. _Source: qa (via the new Playwright contrast lane)._
 - [ ] **P1 — Provenance model IMPLEMENTATION (the hero device is still a
       byline).** The spec shipped (2026-07-19, PR #19); the generator/schema/
       strip-wiring did not. `ProvenanceStrip` renders `author` only and isn't on
