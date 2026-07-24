@@ -161,7 +161,7 @@ export default function BlogPost() {
             ) : (
               <Byline author={post.author} date={formatDate(post.date)} member={castMember} />
             )}
-            <ProvenanceStrip author={post.author} />
+            <ProvenanceStrip author={post.author} provenance={post.provenance} variant="inline" />
           </div>
 
           {/* Backlog-chip row — mobile/tablet instance only (§1: "only
@@ -207,12 +207,13 @@ export default function BlogPost() {
 
         {/* Desktop rail (design-brief §5, ≥1024px): full provenance card —
             avatar, role, date, the provenance ledger — plus an
-            auto-generated table of contents once the post has 3+ H2s. No
-            "graded-paper PASS/round/score" badge: the brief names one, but
-            `content/posts/*.md` frontmatter (spec §3.2) carries no real
-            Judge-verdict field for posts, and the studio's "never invent
-            results" rule overrides the layout brief here — same call the
-            2026-07-17 projects-page pass made for project-detail provenance. */}
+            auto-generated table of contents once the post has 3+ H2s.
+            `variant="rail"` (docs/provenance-model.md §12 PR 5) renders the
+            graded-paper PASS/round/score badge for real, sourced from
+            `post.provenance.judge` (loader.ts, joined from a report's real
+            `yaml provenance` block) — never fabricated, and simply absent
+            when the post has no record or wasn't Judge-reviewed, same as
+            every other field on the strip. */}
         <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
           <div className="rounded-sm border border-hairline bg-paper-raised p-5 shadow-[var(--shadow-card)]">
             {isMultiAuthor ? (
@@ -220,7 +221,7 @@ export default function BlogPost() {
             ) : (
               <Byline author={post.author} date={formatDate(post.date)} member={castMember} />
             )}
-            <ProvenanceStrip author={post.author} />
+            <ProvenanceStrip author={post.author} provenance={post.provenance} variant="rail" />
           </div>
 
           {/* Backlog-chip row — desktop rail instance (§1). This `<aside>`

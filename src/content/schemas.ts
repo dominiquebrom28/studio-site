@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ProvenanceRecord } from './provenance-schema';
 
 /** Kebab-case slug: lowercase letters, digits, hyphens; no leading/trailing/double hyphens. */
 const slugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -271,6 +272,16 @@ export type PostFrontmatter = z.infer<typeof PostFrontmatterSchema>;
 export interface Project extends ProjectFrontmatter {
   slug: string;
   body: string;
+  /**
+   * Attached by `loader.ts` (docs/provenance-model.md §12 PR 4) by joining
+   * this file's repo-relative path against the generated provenance
+   * artifact — NOT a frontmatter field (zero new frontmatter fields is a
+   * binding design decision, §10). `undefined` is the common, honest,
+   * DESIGNED case for a project with no report entry naming it (§4.2:
+   * "`undefined`, on purpose ... never a bug") — `ProvenanceStrip` renders
+   * that as a visible "no run record" state, not an error.
+   */
+  provenance?: ProvenanceRecord;
 }
 
 /**
@@ -292,4 +303,7 @@ export interface Post extends Omit<PostFrontmatter, 'author' | 'authors'> {
   /** Always populated (defaults to `['Dom']` when the post sets neither
    * `author` nor `authors`). Ordered; credit order = array order. */
   authors: string[];
+  /** See the identical doc comment on `Project.provenance` — same
+   * attach-at-load-time mechanism, same honest-`undefined` design. */
+  provenance?: ProvenanceRecord;
 }

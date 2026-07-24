@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react';
 
-type Tone = 'success' | 'warning' | 'muted' | 'tint';
+type Tone = 'success' | 'warning' | 'error' | 'muted' | 'tint';
 
 const toneClasses: Record<Tone, string> = {
   success: 'bg-success/12 border-success/40 text-ink',
   warning: 'bg-warning/12 border-warning/40 text-ink',
+  // Added for the ProvenanceStrip rail's graded-paper Judge badge (§12 PR 5)
+  // — a FAIL verdict needed a third semantic tone alongside the existing
+  // success/warning pair; `--error` is already a hand-computed AA token
+  // (design-brief §2/§9) used elsewhere (NotFound's rotated "404", the
+  // ShareRow copy-failure toast), just never wired into Badge until now.
+  error: 'bg-error/12 border-error/40 text-ink',
   muted: 'bg-paper-raised border-hairline text-ink-muted',
   tint: 'text-ink',
 };
