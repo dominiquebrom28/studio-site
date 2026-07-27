@@ -105,6 +105,19 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Provenance artifact drift gate (§5.3). The committed
+      # `src/content/provenance.generated.json` MUST equal what the generator
+      # produces from full history. `npm test` and `npm run build` above both
+      # regenerated it (via pre* hooks) in this full-clone checkout
+      # (`fetch-depth: 0`), so a stale commit — a `yaml provenance` block
+      # changed without regenerating + committing the artifact — shows up as a
+      # working-tree diff here and fails this required check. That freshness
+      # guarantee is exactly what makes the Vercel DEPLOY build's fallback to
+      # the committed artifact safe when it can't read git history (a shallow
+      # clone): the file it falls back to is provably up to date.
+      - name: Provenance artifact is up to date (drift gate)
+        run: git diff --exit-code src/content/provenance.generated.json
+
   # Plain HTTP smoke check against a REAL deployed URL (Vercel preview or
   # production) — see scripts/check-deployed-routes.mjs's header comment for
   # why this exists (2026-07-18: every route but `/` 404'd in production,

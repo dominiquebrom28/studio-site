@@ -181,6 +181,29 @@ Note `commit` is `nullable()` but **not** `optional()`: the generator must alway
 
 ### 5.2 Designing against drift — the artifact is not committed
 
+> **UPDATE 2026-07-27 — this decision was reversed. The artifact IS now committed.**
+> The original "never committed, regenerate every build" design (below) made the
+> **Vercel deploy build hard-depend on full git history**. Vercel shallow-clones,
+> and the `buildCommand` `git fetch --unshallow` mitigation (documented later in
+> this section) **did not un-shallow the deploy checkout in production** — so the
+> first deploy after the §12 PR 6 backfill shipped real blocks failed in
+> `assertGitAvailable`'s shallow guard, taking the whole site's deploy pipeline
+> down (`git fetch --unshallow --no-tags || true; npm run build` exited 1).
+>
+> The fix (`team/2026-07-27-provenance-deploy-fix`): **commit
+> `src/content/provenance.generated.json`**, regenerate + **drift-check it in CI**
+> (full clone, `fetch-depth: 0` — see `ci.yml`'s "drift gate" step), and have the
+> build **fall back to the committed artifact** when git history is unavailable
+> (`generate.mjs`'s `main()` catches `ProvenanceGitError` iff a committed artifact
+> exists). This does NOT reopen the drift hole the original design closed: the CI
+> drift gate makes a stale artifact a red required check, so the committed file is
+> provably up to date, and the deploy fallback uses *real, CI-verified* data — more
+> correct than the build dying. Fail-loud is preserved for the genuinely-broken case
+> (shallow clone **with no committed artifact** still hard-fails; a content defect —
+> `ProvenanceValidationError` — still hard-fails everywhere). The `buildCommand`
+> unshallow is kept as harmless best-effort (if it ever *does* full-clone, the build
+> regenerates identically). The prose below is the superseded original rationale.
+
 Drift between a generated file and its source is the classic failure of this pattern, so the design removes the possibility rather than policing it: **the artifact is regenerated on every dev start, test run, and build, and never committed.** There is no stale copy that can survive a report edit. A report change is reflected on the next build, unconditionally.
 
 Failure modes, each with an explicit and different outcome:
