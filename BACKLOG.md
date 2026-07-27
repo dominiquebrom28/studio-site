@@ -742,7 +742,7 @@ site whose provenance device is still decorative.
         open — this lane doesn't check response headers at all (see the
         known gap above), so a real-browser CSP check is still a distinct,
         unbuilt piece of work, not something this PR does incidentally.
-- [ ] **P2 — `Callout` `watch-out` tone fails AA color-contrast (4.45:1, not
+- [x] **P2 — `Callout` `watch-out` tone fails AA color-contrast (4.45:1, not
       4.69:1).** Found by the new Playwright contrast lane on first run
       (`e2e/contrast.spec.ts`'s `KNOWN_VIOLATIONS`), tracked there explicitly
       so the lane stays a real regression gate rather than silently
@@ -756,6 +756,18 @@ site whose provenance device is still decorative.
       this lane's to make unilaterally: either darken `--warning` further,
       reduce/change the wash mix, or use a different label color for this
       tone. _Source: qa (via the new Playwright contrast lane)._
+      _(2026-07-27, team/2026-07-27-callout-contrast, PR #57 — awaiting Dom.
+      Designer's call: darken the token, not the wash — light-mode `--warning`
+      `#985f12` → `#925a11` (same hue/saturation, −1.3pt lightness). Fixing at
+      the token means the label, the 3px border, the wash base, and the
+      `.text-warning` status-dot legend all inherit it. Recomputed ratios:
+      watch-out label on the wash **4.45 → 4.77:1**; on flat `--paper`
+      4.69 → 5.06:1 (no regression); dark-mode `--warning` on its wash 6.38:1
+      and `win`/`--success` 5.36/5.38:1 both already passed, unchanged. The
+      violation is GONE, so `KNOWN_VIOLATIONS` was **deleted, not renumbered**
+      — an allowlist that outlives its own fix is the anti-pattern that file's
+      header warns of; all four contrast tests now assert `[]`. Proven in a
+      real browser: `npx playwright test e2e/contrast.spec.ts` 4/4 green.)_
 - [ ] **P1 — Provenance model IMPLEMENTATION (the hero device is still a
       byline).** The spec shipped (2026-07-19, PR #19); the generator/schema/
       strip-wiring did not. `ProvenanceStrip` renders `author` only and isn't on
@@ -795,6 +807,26 @@ site whose provenance device is still decorative.
       backfill (lead) → PR 7 project-detail enablement (Dom checkpoint).**
       Honest gap: no real-browser visual check of the new states — the
       Playwright lane (PR #53) is what will eventually cover that.)_
+      _(**PR 6 (BACKFILL) SHIPPED 2026-07-27**, team/2026-07-27-provenance-
+      backfill, PR #58 — awaiting Dom. The engine finally has real data: a
+      `yaml provenance` block for **8 logbook posts**, each appended to the
+      report of the run that created it, so the generator joins it against
+      `git log` and the strip renders real commit/run/reviewer/author instead
+      of "no run record". **Closed the honest gap the strip-v2 PR left open:**
+      verified in a real browser (localhost dev) — `red-is-not-self-justifying`
+      now shows WRITTEN BY / REVIEWED (fact-check) / COMMIT `991e075cab66` /
+      RUN 2026-07-20 / JUDGE "none for this entry", and a skipped post still
+      shows the honest "no run record". Placement rule keeps runId and commit
+      links from contradicting; authors from frontmatter, reviewers only where
+      a report documents one, `judge: null` (posts aren't Judge-gated), tokens
+      omitted. **Two posts deliberately left blank, documented not forced:**
+      the founding post (file created as a placeholder before its content) and
+      `declared-not-delivered` (created 07-22, no same-date report to host the
+      block). Updated the `generate.test.ts` "zero blocks yet" canary to the
+      new reality. 341 tests green. **Remaining: PR 7 project-detail strip
+      enablement (Dom checkpoint); backfill the 2 skipped posts once decided;
+      reviewer/token enrichment for these 8.** Strip stays a full device on
+      posts now, so this item is close — PR 7 is the last piece.)_
 - [x] **P1 — Vercel deploy must full-clone (provenance deploy blocker).**
       devops: the provenance generator hard-fails on shallow clones by design
       (spec §5.2 — `git log --diff-filter=A` silently truncates there, which
