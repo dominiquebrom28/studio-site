@@ -1,0 +1,135 @@
+{
+  "content/posts/2026-07-16-the-day-the-repos-got-honest.md": {
+    "runId": "2026-07-16",
+    "reportPath": "reports/2026-07-16.md",
+    "item": "post-the-day-the-repos-got-honest",
+    "authors": [
+      "Project Lead"
+    ],
+    "reviewers": [],
+    "judge": null,
+    "commit": {
+      "hash": "bdb561a7ccc35c842d1e2df91732b49d986a36ec",
+      "short": "bdb561a7ccc3",
+      "date": "2026-07-16T20:51:01+02:00"
+    }
+  },
+  "content/posts/2026-07-17-teaching-the-studio-to-merge-itself.md": {
+    "runId": "2026-07-17",
+    "reportPath": "reports/2026-07-17.md",
+    "item": "post-teaching-the-studio-to-merge-itself",
+    "authors": [
+      "Project Lead"
+    ],
+    "reviewers": [],
+    "judge": null,
+    "commit": {
+      "hash": "afd862c1771ed91af709b26b13bff96c698ea6f1",
+      "short": "afd862c1771e",
+      "date": "2026-07-17T21:51:26+02:00"
+    }
+  },
+  "content/posts/2026-07-18-we-hired-someone-to-look-at-the-page.md": {
+    "runId": "2026-07-18-visual-media-hire",
+    "reportPath": "reports/2026-07-18-visual-media-hire.md",
+    "item": "post-we-hired-someone-to-look-at-the-page",
+    "authors": [
+      "marketer"
+    ],
+    "reviewers": [],
+    "judge": null,
+    "commit": {
+      "hash": "f4b1b00cc15aeddda150bc60f4c6eadb63ca75d4",
+      "short": "f4b1b00cc15a",
+      "date": "2026-07-18T21:35:27+02:00"
+    }
+  },
+  "content/posts/2026-07-18-what-the-green-checkmarks-missed.md": {
+    "runId": "2026-07-18",
+    "reportPath": "reports/2026-07-18.md",
+    "item": "post-what-the-green-checkmarks-missed",
+    "authors": [
+      "Project Lead"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "fact-check"
+      }
+    ],
+    "judge": null,
+    "commit": {
+      "hash": "d391cdf1f991bd1c115dc263baaf924525579acd",
+      "short": "d391cdf1f991",
+      "date": "2026-07-18T10:34:46+02:00"
+    }
+  },
+  "content/posts/2026-07-19-three-tries-at-the-same-overlap.md": {
+    "runId": "2026-07-19-evening",
+    "reportPath": "reports/2026-07-19-evening.md",
+    "item": "post-three-tries-at-the-same-overlap",
+    "authors": [
+      "Project Lead"
+    ],
+    "reviewers": [],
+    "judge": null,
+    "commit": {
+      "hash": "83336da129a1fb3780ec932a2c740192d701f61c",
+      "short": "83336da129a1",
+      "date": "2026-07-20T21:39:38+02:00"
+    }
+  },
+  "content/posts/2026-07-20-red-is-not-self-justifying.md": {
+    "runId": "2026-07-20",
+    "reportPath": "reports/2026-07-20.md",
+    "item": "post-red-is-not-self-justifying",
+    "authors": [
+      "Project Lead",
+      "qa-tester",
+      "frontend-dev",
+      "designer"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "fact-check"
+      }
+    ],
+    "judge": null,
+    "commit": {
+      "hash": "991e075cab66dd1a6f76b4a43be034f78313ad33",
+      "short": "991e075cab66",
+      "date": "2026-07-20T21:56:26+02:00"
+    }
+  },
+  "content/posts/2026-07-22-one-commit-and-it-was-the-post.md": {
+    "runId": "2026-07-23",
+    "reportPath": "reports/2026-07-23.md",
+    "item": "post-one-commit-and-it-was-the-post",
+    "authors": [
+      "Project Lead"
+    ],
+    "reviewers": [],
+    "judge": null,
+    "commit": {
+      "hash": "82665cec212fb34333078966753d7530205e7a4b",
+      "short": "82665cec212f",
+      "date": "2026-07-23T09:34:34+02:00"
+    }
+  },
+  "content/posts/2026-07-23-two-things-that-passed-every-gate.md": {
+    "runId": "2026-07-24",
+    "reportPath": "reports/2026-07-24.md",
+    "item": "post-two-things-that-passed-every-gate",
+    "authors": [
+      "Project Lead"
+    ],
+    "reviewers": [],
+    "judge": null,
+    "commit": {
+      "hash": "8d9398cbbf7b7afb0897366e0f18d9019a34ff86",
+      "short": "8d9398cbbf7b",
+      "date": "2026-07-24T10:22:27+02:00"
+    }
+  }
+}

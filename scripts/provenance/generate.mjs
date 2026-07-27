@@ -290,6 +290,24 @@ async function main() {
     const count = Object.keys(sorted).length;
     console.log(`[provenance] wrote ${count} record${count === 1 ? '' : 's'} -> ${path.relative(REPO_ROOT, OUTPUT_PATH)}`);
   } catch (error) {
+    // DEPLOY RESILIENCE (§5.3): a `ProvenanceGitError` means git history is
+    // unavailable at build time — a shallow clone or no `.git` at all. That
+    // is the normal state of a Vercel deploy build, which shallow-clones and
+    // cannot always be made to full-clone. When it happens AND a committed
+    // artifact is present, fall back to it rather than failing the whole
+    // deploy: the committed `provenance.generated.json` is regenerated from
+    // full history and drift-checked in CI (see ci.yml + §5.3), so it is real
+    // data, not a silent degrade — using it is MORE correct than the build
+    // dying. A `ProvenanceValidationError` (a genuine content defect: bad
+    // block, dangling/duplicate path) still hard-fails everywhere, always.
+    if (error instanceof ProvenanceGitError && existsSync(OUTPUT_PATH)) {
+      console.warn(`[provenance] ${error.message}`);
+      console.warn(
+        `[provenance] git history unavailable — using the committed ${path.relative(REPO_ROOT, OUTPUT_PATH)} ` +
+          '(regenerated + drift-checked in CI, so it is up to date). This is expected on a Vercel deploy build.',
+      );
+      return;
+    }
     console.error('[provenance] generation failed:\n');
     console.error(error?.message ?? String(error));
     process.exitCode = 1;
