@@ -48,8 +48,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Fails on any high/critical advisory except the reviewed, documented
+      # exceptions in audit-ci.jsonc. Replaces raw `npm audit --audit-level=high`,
+      # which has no per-advisory allowlist and so cannot distinguish a live vuln
+      # from a non-applicable or already-patched-but-misreported one.
       - name: Audit dependencies (fail on high/critical)
-        run: npm audit --audit-level=high
+        run: npx audit-ci --config ./audit-ci.jsonc
 
       - name: Typecheck
         run: npm run typecheck
