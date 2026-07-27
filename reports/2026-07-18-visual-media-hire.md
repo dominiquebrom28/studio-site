@@ -82,3 +82,19 @@ attempt at a new capability surfaced the first process rule.
   "slideshow of real states" approach — first assignment will tell us
   what's practical headless; whatever it can't do honestly goes to the
   backlog rather than getting faked.
+
+---
+
+### Provenance backfill (added 2026-07-27, team/2026-07-27-provenance-backfill)
+
+Structured `yaml provenance` record(s) for the logbook post(s) this run produced, appended so the site's provenance generator (`docs/provenance-model.md` §12) can join them against `git log` and render the strip with real commit data instead of "no run record". Prose above is unchanged and never parsed.
+
+```yaml provenance
+item: post-we-hired-someone-to-look-at-the-page
+title: "We hired someone to actually look at the page"
+produced:
+  - content/posts/2026-07-18-we-hired-someone-to-look-at-the-page.md
+authors: ["marketer"]
+reviewers: []
+judge: null
+```

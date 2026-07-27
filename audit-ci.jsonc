@@ -1,0 +1,40 @@
+{
+  // CI dependency-vulnerability gate (replaces raw `npm audit --audit-level=high`).
+  // Fails the build on any high/critical advisory EXCEPT the reviewed, time-boxed
+  // exceptions in `allowlist` below. New/unexpected highs still break CI.
+  //
+  // Run locally with: npm run audit
+  "high": true,
+  "critical": true,
+  "report-type": "important",
+  "allowlist": [
+    // GHSA-qwww-vcr4-c8h2 — react-router "RSC Mode CSRF Bypass".
+    // NOT EXPLOITABLE HERE: this is a client-only Vite SPA that does not use
+    // React Router's RSC/server mode (no createStaticHandler, no server data
+    // routers) — the vulnerable code path is never mounted.
+    // NO FIX AVAILABLE: as of 2026-07-25 the advisory's vulnerable range is
+    // react-router 7.12.0–8.2.0 and 7.18.1 (our version) is the latest published
+    // release, so the only audit-clean bump is a downgrade to 7.11.0. We are NOT
+    // downgrading the router for a non-applicable advisory.
+    // REVISIT: remove this entry once react-router ships a patched release above
+    // the vulnerable range, then bump react-router-dom to it.
+    "GHSA-qwww-vcr4-c8h2",
+
+    // GHSA-mh99-v99m-4gvg — brace-expansion DoS. ALREADY FIXED, allowlisted only
+    // to suppress an npm-audit FALSE POSITIVE:
+    //   • The `overrides` in package.json pin every brace-expansion in the tree
+    //     to a PATCHED version — 1.1.16 (fix backported to the 1.x line in
+    //     1.1.12) under eslint's legacy minimatch, and 5.0.8 (patched 5.x) under
+    //     @typescript-eslint. Both are at or above the advisory's patched
+    //     versions, so the vulnerable code is not installed.
+    //   • npm audit still reports it because it flattens this advisory's several
+    //     non-contiguous patched ranges into a single `<=5.0.7` range and cannot
+    //     represent the backported 1.x fix — so it mis-flags 1.1.16.
+    //   • We can't just force the whole tree to 5.0.8: brace-expansion 5.x is
+    //     ESM-first (node 20+) and crashes eslint's legacy minimatch 3.x, which
+    //     is why the 1.x line stays on the backported 1.1.x patch.
+    // REVISIT: remove when the legacy eslint/minimatch chain is gone (letting the
+    // whole tree move to 5.x) or npm audit fixes its multi-range handling.
+    "GHSA-mh99-v99m-4gvg"
+  ]
+}
