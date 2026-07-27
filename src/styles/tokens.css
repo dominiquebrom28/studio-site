@@ -40,7 +40,11 @@
   --marker-600: #c1440e;
   --success: #2f6b3a;
   --error: #b3261e;
-  --warning: #985f12;
+  /* watch-out label (11px, Callout) is rendered on the 8% wash, not flat
+     --paper; #985f12 measured 4.45:1 on that wash (real-browser axe, AA fail).
+     #925a11 = 4.77:1 on the wash, 5.06:1 on flat --paper (was 4.69:1), same
+     hue/saturation, −1.3pt lightness. See reports/2026-07-27.md. */
+  --warning: #925a11;
   --hairline: #dcd3c1;
 
   /* dark-mode primary-button label rule (design-brief §2/§6) needs the dark

@@ -93,28 +93,19 @@ function describeViolations(violations: AxeViolation[]): string {
 }
 
 /**
- * KNOWN, TRACKED violation — not hidden, not silently allowed. Found by
- * this exact test while wiring this lane up (BACKLOG "Real-browser
- * responsive/visual testing" follow-on, added below): `Callout`'s
- * `watch-out` tone (`src/components/Callout.tsx`) renders its `text-warning`
+ * This lane found ONE real AA failure while being wired up: `Callout`'s
+ * `watch-out` tone (`src/components/Callout.tsx`) rendered its `text-warning`
  * label directly on `color-mix(in srgb, var(--warning) 8%, var(--paper-
  * raised))`, NOT on flat `--paper`/`--paper-raised` — the pairing design-
- * brief §2's hand-computed table actually verified (4.69:1). Against the
- * real mixed wash the label is rendered on, axe measures 4.45:1: a genuine
- * AA failure the brief's table structurally could not have caught (it never
- * computed against a `color-mix()` output, only the two flat tokens it
- * blends). This is exactly the class of bug this lane exists to find — see
- * this PR's report for the full story. Fixing the token is a design/
- * frontend-dev call (not this lane's job to make unilaterally), so it's
- * tracked here as an explicit known-issue, not swept under a passing test:
- * if the ratio ever moves, this allowlist stops matching and the test goes
- * red again until someone updates it — it cannot silently stay "green" once
- * the underlying number changes in either direction.
+ * brief §2's hand-computed table actually verified (4.69:1). Against the real
+ * mixed wash, axe measured 4.45:1 — under the 4.5:1 AA floor for the label's
+ * 11px text. Fixed at the token (2026-07-27, `--warning` #985f12 → #925a11 →
+ * 4.77:1 on the wash; see reports/2026-07-27.md), so the violation is GONE,
+ * not renumbered: every test in this file now asserts zero violations. The
+ * old `KNOWN_VIOLATIONS` allowlist was deliberately removed rather than
+ * updated — an allowlist that survives its own fix is the anti-pattern this
+ * file's header warns about.
  */
-const KNOWN_VIOLATIONS: AxeViolation[] = [
-  { id: 'color-contrast', target: '.text-warning', ratio: '4.45' },
-];
-
 test.describe('Color contrast — real browser (axe color-contrast rule)', () => {
   test('home page, light mode, desktop', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
@@ -145,9 +136,6 @@ test.describe('Color contrast — real browser (axe color-contrast rule)', () =>
     await page.setViewportSize(VIEWPORTS.desktop);
     await page.goto('/blog/red-is-not-self-justifying');
     const violations = await runColorContrastAudit(page);
-    // See KNOWN_VIOLATIONS' doc comment: one tracked, real, pre-existing
-    // failure is allowed through by exact match — anything else (a NEW
-    // violation, or this one's ratio changing at all) fails the test.
-    expect(violations, describeViolations(violations)).toEqual(KNOWN_VIOLATIONS);
+    expect(violations, describeViolations(violations)).toEqual([]);
   });
 });

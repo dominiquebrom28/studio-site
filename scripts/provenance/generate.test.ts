@@ -349,7 +349,16 @@ describe('generateProvenance — failure table (§5.2)', () => {
 });
 
 describe('generateProvenance — against the REAL reports/ directory', () => {
-  it('parses cleanly today (2026-07-23): zero yaml provenance blocks shipped yet, zero records, zero errors', async () => {
+  // Was "zero blocks shipped yet -> {}" (true 2026-07-23). The first backfill
+  // tranche (2026-07-27, team/2026-07-27-provenance-backfill) shipped
+  // `yaml provenance` blocks for eight logbook posts, so the real reports now
+  // produce eight records. This test's job is now to guard that the real
+  // reports keep PARSING CLEANLY (no schema/cast/uniqueness error) and that
+  // records key off exactly the expected produced paths — not to snapshot the
+  // full record shape (the happy-path tests above already own that), and not
+  // to assert commit values (this fake git runner resolves none; the real
+  // generator resolves them at build time).
+  it('parses cleanly and produces one record per backfilled post path', async () => {
     const REPO_ROOT = path.resolve(DIRNAME, '..', '..');
     const records = await generateProvenance({
       repoRoot: REPO_ROOT,
@@ -357,6 +366,19 @@ describe('generateProvenance — against the REAL reports/ directory', () => {
       loadModules: fakeLoadModules,
       gitRunner: makeGitRunner(),
     });
-    expect(records).toEqual({});
+    expect(Object.keys(records).sort()).toEqual([
+      'content/posts/2026-07-16-the-day-the-repos-got-honest.md',
+      'content/posts/2026-07-17-teaching-the-studio-to-merge-itself.md',
+      'content/posts/2026-07-18-we-hired-someone-to-look-at-the-page.md',
+      'content/posts/2026-07-18-what-the-green-checkmarks-missed.md',
+      'content/posts/2026-07-19-three-tries-at-the-same-overlap.md',
+      'content/posts/2026-07-20-red-is-not-self-justifying.md',
+      'content/posts/2026-07-22-one-commit-and-it-was-the-post.md',
+      'content/posts/2026-07-23-two-things-that-passed-every-gate.md',
+    ]);
+    // Every real record satisfies the schema's floor (authors non-empty).
+    for (const record of Object.values(records)) {
+      expect(record.authors.length).toBeGreaterThan(0);
+    }
   });
 });
