@@ -880,20 +880,40 @@ site whose provenance device is still decorative.
       clarifier [shipped], tag-only, or one site-wide banner) with reasoning.
       Disclosed gap: the inverse branch — a team-built project correctly
       omitting the chip — has no test, since no team-built fixture exists yet.)_
-- [ ] **P1 — Dead-field / retired-device cleanup.** Render or remove post
+- [x] **P1 — Dead-field / retired-device cleanup.** Render or remove post
       `cover`; wire `.riso-offset` into its three spec'd spots (H2 underline,
       blockquote bar, provenance icon) or update the brief; formally deprecate
       `MarginNote` in the design brief (superseded by `Callout` — currently
       described as shipping in 6 passages). _Source: designer/frontend/backend/
       visual-media — the same declared-not-delivered pattern as the P0 spine._
+      _(2026-07-28, team/2026-07-28-dead-field-cleanup, PR #66 — awaiting Dom.
+      designer decision-spec → frontend-dev → lead QA. **post `cover`: RENDERED,
+      not removed** — design-brief §5 places it in the post reading order, so the
+      honest fix is to make the dead field work (new `PostCover.tsx`, conditional,
+      no placeholder when absent, CLS-safe, falsified component test) rather than
+      discard a stated intention. **`.riso-offset`: docs-match-reality** — it is a
+      provenance-icon accent only; FOUR places falsely claimed wider use
+      (index.css, design-brief §4+§6, PullQuote.tsx, and a false "PullQuote border
+      via the riso-offset accent" in blog-format-v2.md), all corrected with zero
+      CSS change. **design-brief §6** now documents the 5 live blog-format-v2
+      components it never listed. **MarginNote deprecation deliberately NOT done:**
+      the "superseded by Callout" premise is factually wrong — the two do different
+      jobs, `Markdown.tsx` keeps their grammars from colliding, an OPEN
+      "MarginNote desktop lane" item assumes it lives on, and the "6 passages"
+      count was really 3. Whether to ever collapse the two is a **Dom decision**
+      (recommendation: keep both). `.riso-offset`-on-H2/blockquote ruling is
+      reversible if Dom wants the flourish. Gates: unit 341 / component 90 (incl.
+      new PostCover 3/3) / content 39 / build + lint. PostCover is logic+a11y
+      tested, not browser-verified — no post sets `cover` yet.)_
 - [ ] **P2 batch (from the review — see `reports/2026-07-21-review.md`).** Lint
       into CI; scheduled `npm audit` + drop `*.test.*` from the auto-merge
       allowlist; error tracking (Sentry free tier) once DOM-4's client JS lands;
       SEO-generator loader-contract test; build-time check that
       `cover`/`media[].src`/`poster` paths exist on disk; dedupe the
       ProjectDetail footer + share a `vitest.jsdom.base` config; `BuildTimeline`
-      double-mount; Markdown AST-wiring test; team-size "9→10" note in the
-      founding post; GitHub link → the `studio-site` repo + a `reports/` deep
+      double-mount; Markdown AST-wiring test; ~~team-size "9→10" note in the
+      founding post~~ (✓ 2026-07-28, PR #65 — `Note:` Callout annotating the
+      Lucas hire, the "9" left unchanged); GitHub link → the `studio-site` repo + a `reports/` deep
       link; recompress the 885KB hero PNG (install `pngquant`); ProjectCard
       cover-aspect capture discipline; per-post/per-project OG images +
       prerender-for-bots (follow-up to the favicon/OG P0); make the flaky-smoke
@@ -904,6 +924,44 @@ site whose provenance device is still decorative.
       version bump could change emission; assert against `dist/` post-build);
       tighten `style-src 'unsafe-inline'` once a real-browser CSP check
       exists (security-auditor P2, needs the Playwright lane).
+
+### Added 2026-07-28 (maintenance run)
+
+- [x] **Audit-gate revisit-trigger hardening.** A run-start reconciliation
+      false-alarm (raw `npm audit --audit-level=high` exits 1 with "7 high vulns"
+      while the actual CI gate `npm run audit` = `audit-ci --config audit-ci.jsonc`
+      passes — the "7" are 2 allowlisted advisories fanned across 7 packages)
+      prompted a security-auditor re-validation of the gate. Posture confirmed
+      sound; one real improvement shipped: the react-router allowlist's REVISIT
+      trigger keyed only on "a patched release ships" and missed the scenario that
+      would actually make the RSC-CSRF advisory exploitable here — the app gaining
+      a server/RSC mode or a mutating route action. Broadened the comment.
+      _(2026-07-28, team/2026-07-28-audit-allowlist-polish, PR #64 — awaiting Dom.
+      Comment-only, gate still green.)_
+- [ ] **LOW — Run-playbook note: raw `npm audit` ≠ the CI gate.** The 2026-07-28
+      run lost time treating raw `npm audit --audit-level=high` (exit 1, 7 highs)
+      as a merge-blocker before checking the real gate, `npm run audit`
+      (`audit-ci`, which passes). Both are "correct"; they just measure different
+      things (raw npm audit can't express "reviewed & not-applicable", audit-ci
+      can). A one-line preflight note — "verify CI status with `npm run audit`, not
+      raw `npm audit`" — would save the next run the same detour. _Source:
+      2026-07-28 run._
+- [ ] **LOW — `project-page-v2.md` stale riso-offset refs in declined proposals**
+      (lines 456, 521). The 2026-07-28 dead-field cleanup corrected every false
+      "riso-offset is used on X" claim about *delivered* state, but left two refs
+      in `project-page-v2.md` that describe a *declined* "4th riso-offset use for
+      the timeline rule" ("deliberately not recommending it," "flagged for your
+      call"). They're historical design-rationale, not lies about what ships, so
+      they were left intact — but they still cite design-brief §4's old "three
+      uses" cap, now corrected to one. Trim if full cross-doc consistency is
+      wanted. _Source: frontend-dev, 2026-07-28 dead-field pass._
+- [ ] **LOW — `PostCover` needs a real-browser pass once a post sets `cover`.**
+      The dead-field cleanup (PR #66) rendered the previously-dead post `cover`
+      field, verified by a component test (logic + axe) reusing `ProjectHero`'s
+      already-browser-verified image-block pattern. But no post sets `cover`, so
+      it never renders in production content yet. First post to add a `cover:`
+      warrants a quick visual-media pass on aspect/radius/spacing. _Source:
+      frontend-dev, 2026-07-28._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
