@@ -142,7 +142,7 @@ Three roles, three jobs, strict separation. **The handwritten face is decorative
 
 **Notebook ruling** — a repeating horizontal-line background, `--hairline` at 5% opacity, spaced to match body line-height (30px), used **only** behind the prose column on project-detail and blog-post pages (never behind cards, nav, or UI chrome — this keeps the notebook cue rare enough to read as a signature, not wallpaper). Per §2, `--hairline` is decorative here too — it's a texture, not a boundary.
 
-**Riso registration offset** — a duplicate rule/shape offset 2px down-right in `--marker-600` at 55% opacity, sitting behind the primary ink-colored rule. Used sparingly, three places only: H2 underlines in prose, blockquote left bar, provenance-strip icon backing. This is the "hand-marked" accent that should never spread past these three uses.
+**Riso registration offset** — a duplicate rule/shape offset 2px down-right in `--marker-600` at 55% opacity, sitting behind the primary ink-colored rule. Used sparingly, one confirmed place only: the provenance-strip icon backing (`.riso-offset`, `ProvenanceStrip.tsx`'s `writtenField`). H2 underlines and the blockquote left bar were both considered for this accent and deliberately left plain (see §6's `Prose / Markdown body` and `PullQuote` entries) — keeping it to a single use is what makes it read as a rare hand-stamped mark rather than repeated wallpaper. This is the "hand-marked" accent that should never spread past this one use.
 
 ---
 
@@ -209,9 +209,16 @@ Every component below: default / hover / active / focus / disabled / error as ap
 
 **Code block** — JetBrains Mono 14px/24px, `--paper-raised` background, `radius-sm`, 1px `--hairline` border (decorative — see §2 rule, this border is not the component's accessible boundary; the background-color change against the page is), Shiki-highlighted at build time (per spec §6), a mono language label top-right, copy-button (icon, 24×24px min target, tooltip "Copied" on click with `aria-live="polite"`).
 
-**Prose / Markdown body** — `@tailwindcss/typography`-based, Fraunces body role (§3), max-width 720px, notebook ruling behind (project/post pages only), H2s carry the riso-offset underline, blockquotes carry the riso-offset left bar, inline code uses mono at 0.9em with a `--paper-raised` chip background.
+**Prose / Markdown body** — `@tailwindcss/typography`-based, Fraunces body role (§3), max-width 720px, notebook ruling behind (project/post pages only), H2s carry a plain `--ink` underline (`border-bottom`), blockquotes (`PullQuote`, §6 below) carry a plain `--marker-600` left border — neither uses the riso-offset accent, see §4 — inline code uses mono at 0.9em with a `--paper-raised` chip background.
 
 **Empty states** — see §5 per-page (Projects index, Blog index). Pattern: rotated mono stamp badge (the "nothing to see" register matches the Judge/stamp visual language) + one Caveat line (paired with plain text) + a way forward link. Never a bare "No results."
+
+**Blog-format v2 additions** — five components shipped by `docs/blog-format-v2.md` and live in the codebase today, not previously listed in this inventory; see that spec for full props/states/semantics, this is a pointer only:
+- **`TLDRBlock`** — the 2-5 bullet scannable summary card that sits directly above a post's body (§5/blog-format-v2 §2).
+- **`Callout`** — a structured `note`/`win`/`watch-out` flag, rendered from a specially-labeled blockquote in the body (blog-format-v2 §2). Sibling device to `MarginNote` above, not a replacement for it: `MarginNote` is a cast member's personal-voice quip, `Callout` is a structured content flag — they coexist deliberately (`Markdown.tsx` orders their label grammars to avoid collision), and whether to eventually collapse them is an open product decision, not settled here.
+- **`PullQuote`** — the formalized name for the pre-existing default `.prose-studio blockquote` treatment (any ordinary, unlabeled blockquote) — see this section's `Prose / Markdown body` entry above (blog-format-v2 §2).
+- **`SectionByline`** — a compact "whose expertise this section speaks from" credit line directly under an `##` heading, for multi-author posts (blog-format-v2 §2).
+- **`BacklogChip` / `BacklogChipRow`** — a real, clickable link back to the `BACKLOG.md` item a post's section worked on, styled off `Badge` (blog-format-v2 §2).
 
 ---
 

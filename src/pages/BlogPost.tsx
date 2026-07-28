@@ -9,6 +9,7 @@ import { ProvenanceStrip } from '@/components/ProvenanceStrip';
 import { Byline } from '@/components/Byline';
 import { BylineGroup } from '@/components/BylineGroup';
 import { TLDRBlock } from '@/components/TLDRBlock';
+import { PostCover } from '@/components/PostCover';
 import { BacklogChipRow } from '@/components/BacklogChip';
 import { Seo } from '@/components/Seo';
 import { getPostBySlug, getAdjacentPosts } from '@/content';
@@ -184,6 +185,14 @@ export default function BlogPost() {
               ))}
             </div>
           )}
+
+          {/* Cover — frontmatter-driven, genuinely optional (blog-format-v2.md
+              §1 step 7 / design-brief §5): sits between tag chips and the
+              TL;DR block on both mobile and desktop, one instance in the
+              shared main column (no breakpoint split needed — see
+              `PostCover`'s doc comment). Renders nothing at all when
+              `post.cover` is unset. */}
+          <PostCover post={post} />
 
           {/* TL;DR — frontmatter-driven (§1/§5), sits directly above the
               body. Never in the H2 TOC scan: `post.tldr` never touches

@@ -178,7 +178,8 @@ spec needed.
 
 **Purpose:** rhetorical emphasis — restating something already true in the body, in a
 larger, quieter voice. This is **exactly** today's default `.prose-studio blockquote`
-(italic, `--marker-600` left border via the riso-offset accent) — this spec's only
+(italic, plain `--marker-600` left border — not the riso-offset accent, which is
+the provenance-strip icon backing only; see design-brief §4) — this spec's only
 job is to name it as a first-class component and draw the line against `Callout`.
 
 **Authoring mechanism:** any ordinary GFM blockquote (`>`) whose first line is *not* a
