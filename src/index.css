@@ -135,8 +135,11 @@
     background-size: 100% 30px;
   }
 
-  /* Riso registration offset — three uses only (design-brief §4): H2
-     underlines in prose, blockquote left bar, provenance-strip icon backing. */
+  /* Riso registration offset — ONE confirmed use (design-brief §4):
+     provenance-strip icon backing (see `ProvenanceStrip.tsx`'s
+     `writtenField`). H2 underlines and the blockquote left bar were
+     considered and deliberately NOT given this accent — see design-brief
+     §4 for why. */
   .riso-offset::after {
     content: '';
     position: absolute;
