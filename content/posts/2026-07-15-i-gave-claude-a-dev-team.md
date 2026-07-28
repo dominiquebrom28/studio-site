@@ -47,6 +47,13 @@ the Judge that reviews everyone isn't one of the nine either. No color, no
 character page for the Judge — it's built to read as an independent check,
 not a teammate.
 
+> **Note:** The "9" here is the count as the studio stood when this went up
+> (2026-07-15) — eight specialists plus the Project Lead. Three days later it
+> grew to ten, hiring Lucas, a visual-media agent and the first character with
+> a browser ([that hire is its own story](/blog/we-hired-someone-to-look-at-the-page)).
+> The math above still holds: Lucas is a tenth *character*, not a ninth
+> *specialist*, and the Judge still isn't one of the count.
+
 There are named pipelines, not one fixed assembly line. A new product or
 major feature runs architect, then designer, then frontend-dev and
 backend-dev in parallel where they're independent, then qa-tester, then
