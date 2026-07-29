@@ -31,7 +31,32 @@ function stripInlineMarkdown(text: string): string {
     .trim();
 }
 
-/** Lowercase-kebab slug for a heading — the base id before de-duplication. */
+/**
+ * Lowercase-kebab slug for a heading — the base id before de-duplication.
+ *
+ * **Deliberately ASCII-only** (backlog "point at the right thing", 2026-07-29
+ * decision, not a bug report): `[^a-z0-9]+` strips *every* non-ASCII
+ * character, so a non-Latin-script heading collapses to whatever ASCII
+ * fragments (if any) survive — e.g. `"Über café ñ 中文标题"` → `"ber-caf"`,
+ * and an all-non-Latin heading (e.g. pure CJK or Cyrillic) collapses to the
+ * empty string, which `nextUniqueId` below then falls back to `"section"`
+ * for. This matches every other URL-facing slug on the site (post/project
+ * `slug` frontmatter is hand-authored ASCII kebab-case; nothing here invents
+ * a non-ASCII-safe alternative for headings alone) and keeps generated
+ * anchors readable and shareable in a plain URL bar.
+ *
+ * Two headings that collapse to the *same* base this way (whether from
+ * identical non-Latin content, or just both losing all their distinguishing
+ * characters) do NOT produce duplicate/colliding ids: `scanH2Headings`'s
+ * `seen` map (via `nextUniqueId`) de-dups on this function's *output*, the
+ * exact same mechanism that already de-dups two headings with genuinely
+ * identical ASCII text — so the two failure modes ("same text" and "same
+ * post-strip text") get the same safety net for free, verified for both
+ * `extractTableOfContents` and `headingIdsByLine` in `toc.test.ts`. No post
+ * in this repo has shipped a non-ASCII H2 as of this writing (verified via
+ * `content/posts/*.md`), so this is a documented design decision pinned by a
+ * test, not a live-content fix.
+ */
 export function slugifyHeading(text: string): string {
   return stripInlineMarkdown(text)
     .toLowerCase()

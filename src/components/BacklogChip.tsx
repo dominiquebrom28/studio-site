@@ -1,8 +1,11 @@
 import type { BacklogChipRef } from '@/content/schemas';
+import { STUDIO_SITE_BACKLOG_URL } from '@/lib/githubLinks';
 
 /** No stable per-item anchor exists in `BACKLOG.md` today (spec §6) — chips
- * link to the file itself, not a fragile line anchor. */
-const BACKLOG_URL = 'https://github.com/dominiquebrom28/studio-site/blob/main/BACKLOG.md';
+ * link to the file itself, not a fragile line anchor. Shared with
+ * `Footer.tsx`/`BlogIndex.tsx` via `src/lib/githubLinks.ts` (backlog "point
+ * at the right thing", 2026-07-29) rather than a second local constant. */
+const BACKLOG_URL = STUDIO_SITE_BACKLOG_URL;
 
 const STATUS_LABEL: Record<BacklogChipRef['status'], string> = {
   completed: 'completed',

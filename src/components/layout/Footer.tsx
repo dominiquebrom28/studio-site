@@ -1,8 +1,19 @@
 import { Link } from 'react-router-dom';
 import { Container } from '../ui/Container';
 import { Button } from '../ui/Button';
+import { STUDIO_SITE_REPO_URL } from '@/lib/githubLinks';
 
-const GITHUB_URL = 'https://github.com/dominiquebrom28';
+/** Points at the `studio-site` repo itself, not Dom's GitHub profile
+ * (backlog "point at the right thing", 2026-07-29) — the site's whole
+ * premise (PROJECT-BRIEF.md goal 3) is that its own git history and run
+ * reports ARE the content, so a reader clicking "Find Dom on GitHub" from
+ * the copy that literally says "GitHub's the realest paper trail so far"
+ * should land on that trail (commits, code, `reports/`), not a bare
+ * profile page one click further away. Still "finds Dom on GitHub" — the
+ * repo page's own header links straight back to his profile — so this is
+ * not a removal of the conversion path's destination, only a more direct
+ * route to the evidence it promises. */
+const GITHUB_URL = STUDIO_SITE_REPO_URL;
 
 // Forward-compatibility constants for Dom's other public presences
 // (conversion-path spec, 2026-07-24 — closes the site-wide "no next

@@ -41,13 +41,13 @@ describe('Footer — conversion-path block (shipping state: all three optional c
     ).toBeTruthy();
   });
 
-  it('renders the GitHub CTA pointing at the same URL as the existing footer nav GitHub link (both derive from GITHUB_URL)', () => {
+  it('renders the GitHub CTA pointing at the studio-site repo (the proof, not Dom\'s bare profile), matching the footer nav GitHub link (both derive from GITHUB_URL)', () => {
     renderFooter();
 
     const cta = screen.getByRole('link', { name: 'Find Dom on GitHub' });
     const navLink = screen.getByRole('navigation', { name: 'Footer' }).querySelector('a[href*="github.com"]');
 
-    expect(cta.getAttribute('href')).toBe('https://github.com/dominiquebrom28');
+    expect(cta.getAttribute('href')).toBe('https://github.com/dominiquebrom28/studio-site');
     expect(navLink?.getAttribute('href')).toBe(cta.getAttribute('href'));
     expect(cta.getAttribute('target')).toBe('_blank');
     expect(cta.getAttribute('rel')).toBe('noreferrer');

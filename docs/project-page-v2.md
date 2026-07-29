@@ -457,6 +457,17 @@ call, not taste — Dom should confirm it explicitly.**
   at three uses "never spread past." Deliberately not recommending it by default;
   if Dom wants the flourish it is a one-line change. Safer default: plain ink rule
   with marker-600 ticks.
+
+  *Cross-doc note, 2026-07-29 (not rewriting the above — it's what this spec's*
+  *author actually proposed, at the time she proposed it):* the "three uses" cap
+  cited here was itself a documentation error in design-brief §4, corrected
+  2026-07-28 (`docs/design-brief.md`, "dead-field cleanup") — riso-offset has
+  only ever shipped in one real place, the provenance-strip icon backing; the
+  other two of the claimed "three" were never actually built. §4 now caps it at
+  *one* confirmed use. That correction doesn't change this section's verdict —
+  a 4th use was declined then and stays declined by default now — it only means
+  "4th" is off by however many of the original "three" never existed. See
+  `docs/design-brief.md` §4 for the current, accurate count.
 - **A CMS for the new frontmatter** — six hand-edited markdown files is right-sized.
 - **Cross-project comparison views** — real v2 idea, out of scope.
 
@@ -518,5 +529,7 @@ state for the four projects without screenshots. Framer Motion, scoped to this o
 route, is the recommended engine.
 
 **Flagged for your call:** the exact provenance wording; whether to extend
-riso-offset to the timeline rule; the "SOLO BUILD" framing chip (recommended
-strongly, not merely tasted); and the shared-element transition as a v1.1 follow-up.
+riso-offset to the timeline rule (declined by default — see §9's note, and its
+2026-07-29 cross-doc addendum on the since-corrected use count); the "SOLO
+BUILD" framing chip (recommended strongly, not merely tasted); and the
+shared-element transition as a v1.1 follow-up.
