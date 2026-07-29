@@ -8,6 +8,7 @@ import { ProjectHero } from '@/components/ProjectHero';
 import { NarrativeBlock, NarrativeBullets } from '@/components/NarrativeBlock';
 import { BuildTimeline } from '@/components/BuildTimeline';
 import { SingleSittingStamp } from '@/components/SingleSittingStamp';
+import { ProvenanceStrip } from '@/components/ProvenanceStrip';
 import { Seo } from '@/components/Seo';
 import { getProjectBySlug, getMoreProjects } from '@/content';
 import NotFound from './NotFound';
@@ -25,6 +26,65 @@ const PROCESS_FURNITURE_LINE =
  * lands in its own chunk, fetched only once this route mounts — see
  * `src/lib/motionFeatures.ts`. */
 const loadMotionFeatures = () => import('@/lib/motionFeatures').then((res) => res.default);
+
+/**
+ * Project-page provenance colophon (docs/provenance-model.md §12 PR 7).
+ *
+ * `docs/project-page-v2.md` §7 explicitly excludes `ProvenanceStrip` from
+ * this page, reasoning that reusing the blog's byline/avatar system here
+ * would misattribute the SOFTWARE's authorship — these six projects are
+ * Dom's own solo builds, not agent-team output, which is exactly what the
+ * hero's "SOLO BUILD · NO AGENT TEAM" chip (`ProjectHero`) exists to keep
+ * visible. That concern is real, but it is about a DIFFERENT claim than the
+ * one this strip makes: `docs/provenance-model.md` §9 is explicit that this
+ * feature "records how the write-up was produced, not how [the project] was
+ * built" — i.e. who wrote *this page's copy*, not who wrote the software.
+ * `reports/2026-07-16.md` gives real data for exactly that question (six
+ * dossier-sourced write-ups, drafted by marketer, lead-reviewed) and
+ * resolves the open question `reports/2026-07-17.md` explicitly left for
+ * Dom ("do you want any honest provenance line on project-detail pages?")
+ * with real data instead of the fabrication that was correctly refused then.
+ *
+ * Two placement choices carry the disambiguation:
+ *  - Positioned as a colophon at the END of the page (after the write-up
+ *    itself, before "More projects"), not beside the hero/SOLO BUILD chip —
+ *    so the two claims are never visually adjacent or easy to conflate.
+ *  - An explicit framing sentence, in the same plain mono-caption register
+ *    as `PROCESS_FURNITURE_LINE` above, states the distinction in words
+ *    rather than relying on position alone.
+ *
+ * `variant="inline"` only — `ProjectDetail` is a single centered column
+ * post-project-page-v2 (no sticky rail the way `BlogPost` has), so the
+ * rail register (graded-paper badge, labelled dt/dd rows) has nowhere to
+ * live here and isn't rendered.
+ *
+ * `author` is deliberately omitted when `project.provenance` is absent
+ * (`ProvenanceStrip`'s `author` prop is optional exactly for this case —
+ * see its doc comment) rather than passed a guess: unlike a post, a project
+ * has no independent "who wrote this" fact in its frontmatter, so with no
+ * record there is nothing honest to credit. When a record exists, its own
+ * `authors[0]` (a real derived fact, not a guess) is used.
+ */
+function ProjectProvenanceFooter({ project }: { project: Project }) {
+  // `soloBuild` is the honest branch point: when true (all six real projects
+  // today), the hero's "SOLO BUILD · NO AGENT TEAM" chip makes an explicit
+  // claim this strip could otherwise be misread as contradicting, so the
+  // disambiguation is spelled out by name. A future team-built project
+  // (`soloBuild: false`) has no such contradiction to defuse — simpler copy.
+  const framingLine = project.soloBuild
+    ? `${project.title} is Dom’s own solo build (see the badge above) — this note is about how the page describing it was produced, not the software itself.`
+    : `This note is about how the page describing ${project.title} was produced — see The Process above for the project’s own build history.`;
+
+  return (
+    <div className="mt-10 border-t border-hairline pt-6">
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
+        About this write-up
+      </p>
+      <p className="mb-3 font-mono text-[13px] text-ink-muted">{framingLine}</p>
+      <ProvenanceStrip author={project.provenance?.authors[0]} provenance={project.provenance} variant="inline" />
+    </div>
+  );
+}
 
 /** Mono eyebrow label + up to `limit` text links to other projects (design
  * brief §5 "more projects mini-list at rail bottom" / mobile footer nav). */
@@ -112,6 +172,8 @@ function StandardTemplate({ project, moreProjects }: { project: Project; morePro
 
       <Markdown ruled>{project.body}</Markdown>
 
+      <ProjectProvenanceFooter project={project} />
+
       <div className="mt-10 border-t border-hairline pt-6">
         {moreProjects.length > 0 && (
           <div className="mb-4">
@@ -153,6 +215,8 @@ function SingleSittingTemplate({ project, moreProjects }: { project: Project; mo
       <MediaGallery items={project.media} />
 
       <Markdown ruled>{project.body}</Markdown>
+
+      <ProjectProvenanceFooter project={project} />
 
       <div className="mt-10 border-t border-hairline pt-6">
         {moreProjects.length > 0 && (

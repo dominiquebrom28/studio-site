@@ -120,6 +120,51 @@ describe('ProvenanceStrip — "none" state (provenance === undefined)', () => {
   });
 });
 
+/**
+ * `author` optionality (docs/provenance-model.md §12 PR 7) — added so
+ * `ProjectDetail` can use this component for a content type (`Project`)
+ * that has no independent "who wrote this" fact the way a post's frontmatter
+ * `author` does. When neither an `author` prop NOR a provenance record names
+ * one, the honest behavior is to render NOTHING claiming authorship — never
+ * a fallback guess ("Dom", "the studio") standing in for an unrecorded fact.
+ */
+describe('ProvenanceStrip — no `author` prop at all (no independent authorship fact)', () => {
+  it('"none" state (inline): renders only the no-record chip, no Written-by chip at all', () => {
+    renderStrip({ provenance: undefined, variant: 'inline' });
+    const note = screen.getByRole('note', { name: 'Provenance' });
+    expect(within(note).queryByText(/Written by/)).toBeNull();
+    expect(within(note).getByText('no run record for this entry')).toBeTruthy();
+  });
+
+  it('"none" state (rail): renders only the no-record paragraph, no empty dl/row', () => {
+    renderStrip({ provenance: undefined, variant: 'rail' });
+    const note = screen.getByRole('note', { name: 'Provenance' });
+    expect(within(note).queryByText(/Written by/)).toBeNull();
+    expect(within(note).queryByRole('term')).toBeNull(); // no <dt> rows at all
+    expect(within(note).getByText('no run record for this entry')).toBeTruthy();
+  });
+
+  it('with a real record but no `author` prop: the ledger still renders every other field, just no Written-by chip', () => {
+    renderStrip({ provenance: fullRecord, variant: 'inline' });
+    const note = screen.getByRole('note', { name: 'Provenance' });
+    expect(within(note).queryByText(/Written by/)).toBeNull();
+    expect(within(note).getByText('reviewed by Nora, Project Lead (fact-check)')).toBeTruthy();
+    expect(within(note).getByRole('link', { name: '2026-07-18' })).toBeTruthy();
+  });
+
+  it('has zero axe violations with no author at all (inline, none state)', async () => {
+    renderStrip({ provenance: undefined, variant: 'inline' });
+    const results = await axe.run(document.body);
+    expect(results.violations).toEqual([]);
+  });
+
+  it('has zero axe violations with no author at all (rail, none state)', async () => {
+    renderStrip({ provenance: undefined, variant: 'rail' });
+    const results = await axe.run(document.body);
+    expect(results.violations).toEqual([]);
+  });
+});
+
 describe('ProvenanceStrip — full record, inline variant', () => {
   it('renders every field in order, joined by " · ", each a real sentence', () => {
     renderStrip({ author: 'marketer', provenance: fullRecord, variant: 'inline' });

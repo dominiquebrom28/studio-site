@@ -131,5 +131,65 @@
       "short": "8d9398cbbf7b",
       "date": "2026-07-24T10:22:27+02:00"
     }
+  },
+  "content/projects/lovediary.md": {
+    "runId": "2026-07-16",
+    "reportPath": "reports/2026-07-16.md",
+    "item": "project-writeups-new-2026-07-16",
+    "authors": [
+      "marketer"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "lead-review"
+      }
+    ],
+    "judge": null,
+    "commit": {
+      "hash": "48e4fe54522482be1416f6cb902398183ae3f7be",
+      "short": "48e4fe545224",
+      "date": "2026-07-16T20:04:58+02:00"
+    }
+  },
+  "content/projects/mensapp.md": {
+    "runId": "2026-07-16",
+    "reportPath": "reports/2026-07-16.md",
+    "item": "project-writeups-new-2026-07-16",
+    "authors": [
+      "marketer"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "lead-review"
+      }
+    ],
+    "judge": null,
+    "commit": {
+      "hash": "48e4fe54522482be1416f6cb902398183ae3f7be",
+      "short": "48e4fe545224",
+      "date": "2026-07-16T20:04:58+02:00"
+    }
+  },
+  "content/projects/pizzaparty.md": {
+    "runId": "2026-07-16",
+    "reportPath": "reports/2026-07-16.md",
+    "item": "project-writeups-new-2026-07-16",
+    "authors": [
+      "marketer"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "lead-review"
+      }
+    ],
+    "judge": null,
+    "commit": {
+      "hash": "48e4fe54522482be1416f6cb902398183ae3f7be",
+      "short": "48e4fe545224",
+      "date": "2026-07-16T20:04:58+02:00"
+    }
   }
 }
