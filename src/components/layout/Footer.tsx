@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Container } from '../ui/Container';
 import { Button } from '../ui/Button';
-import { STUDIO_SITE_REPO_URL } from '@/lib/githubLinks';
+import { STUDIO_SITE_REPO_URL, STUDIO_SITE_REPORTS_URL } from '@/lib/githubLinks';
 
 /** Points at the `studio-site` repo itself, not Dom's GitHub profile
  * (backlog "point at the right thing", 2026-07-29) — the site's whole
@@ -121,6 +121,21 @@ export function Footer({
             </Link>
             <a href="/feed.xml" className="min-h-11 inline-flex items-center text-ink-muted hover:text-ink hover:underline">
               RSS
+            </a>
+            {/* The `reports/` deep link the backlog item asked for, placed
+                somewhere a reader can actually reach it. It was first added
+                only inside BlogIndex's EMPTY state — which never renders
+                (13 posts and counting), so that link was unreachable in
+                production. PROJECT-BRIEF goal 3 makes the run reports part
+                of the content, not a footnote, and RootLayout mounts this
+                footer globally, so one entry here exposes them everywhere. */}
+            <a
+              href={STUDIO_SITE_REPORTS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="min-h-11 inline-flex items-center text-ink-muted hover:text-ink hover:underline"
+            >
+              Run reports
             </a>
             <a
               href={GITHUB_URL}
