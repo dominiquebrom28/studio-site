@@ -59,3 +59,26 @@ export function extractCspHashes(cspHeaderValue: string): string[] {
   const matches = cspHeaderValue.match(/'sha256-[^']+'/g) ?? [];
   return matches.map((token) => token.slice(1, -1));
 }
+
+/** Finds the `Content-Security-Policy` header value from a parsed
+ * `vercel.json`'s `headers` array (Vercel's `{ source, headers: [{key,value}] }`
+ * shape). Throws with a clear message if the shape ever changes so a caller
+ * fails loudly rather than silently comparing against `undefined`.
+ *
+ * Shared by both the SOURCE-side guard (`inlineScriptHash.test.ts`, which
+ * checks `index.html` pre-build) and the DIST-side guard
+ * (`distIndexHash.test.ts`, which checks `dist/index.html` post-build) —
+ * one implementation, so the two checks can never quietly disagree about
+ * what "the shipped hash" means. */
+export function findCspHeaderValue(vercelConfig: unknown): string {
+  const config = vercelConfig as { headers?: Array<{ headers?: Array<{ key: string; value: string }> }> };
+  for (const rule of config.headers ?? []) {
+    for (const header of rule.headers ?? []) {
+      if (header.key === 'Content-Security-Policy') return header.value;
+    }
+  }
+  throw new Error(
+    "No 'Content-Security-Policy' header found in vercel.json's headers[] — " +
+      'has the headers config shape changed?',
+  );
+}
