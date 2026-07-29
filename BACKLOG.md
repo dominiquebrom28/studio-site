@@ -392,12 +392,24 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       post, not assumed. 23 new unit tests; lead independently rebuilt and
       xmllint-verified both artifacts (15 URLs / 5 items). Open question for
       Dom in the PR: `/feed.xml` vs `/rss.xml`.)_
-- [ ] **LOW — Non-ASCII heading slugs collapse.** `slugifyHeading` strips
+- [x] **LOW — Non-ASCII heading slugs collapse.** `slugifyHeading` strips
       non-Latin characters entirely (`Über café ñ 中文标题` → `ber-caf`), so two
       headings differing only in non-Latin content collide before de-dup runs.
       Not a live bug — TOC and DOM agree, and no current post has such a
       heading — and ASCII-only URLs may well be intentional. _Source:
       qa-tester, blog-engine pass. Logged so the decision is explicit._
+      _(2026-07-29, team/2026-07-29-links-docs, PR #71 — awaiting Dom.
+      **Decision: leave as-is, document + pin.** The item asked for an explicit
+      decision, not necessarily a fix, and the evidence supports leaving it:
+      ASCII-only URLs match the site's existing slug convention for post/project
+      frontmatter, and `grep -P` confirms no current post has a non-ASCII H2, so
+      it is genuinely dormant. The stripping is now documented as deliberate in
+      `src/content/toc.ts` and pinned by tests that (a) pin the exact collapse
+      `Über café ñ 中文标题` → `ber-caf` and the all-non-Latin empty case, (b)
+      PROVE the de-dup safety net actually rescues two different-script headings
+      that collapse to the same base id (`section` / `section-1`), and (c)
+      assert `extractTableOfContents` and `headingIdsByLine` never drift on this
+      case — the exact parity the 2026-07-18 dead-anchor P0 broke.)_
 
 ### Added 2026-07-19 (impact-ranked; slot above "Pre-launch review")
 
@@ -450,7 +462,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       `document.activeElement === BODY` — the precise 07-19 bug — green when
       reverted. Lead independently re-ran → 6/6. Gates: 241 unit + 24 smoke + 6
       component + 24 content, build + lint clean.)_
-- [ ] **MEDIUM — Performance budget for the now-image-heavy project pages.**
+- [x] **MEDIUM — Performance budget for the now-image-heavy project pages.**
       DOM-4 puts GIFs and PNGs on pages that were previously text-only, which
       changes this site's performance profile for the first time. Define and
       check a budget (LCP <2.5s, CLS <0.1, INP <200ms; a page-weight ceiling).
@@ -463,6 +475,34 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       Google's Core Web Vitals (developers.google.com/search/docs/appearance/
       core-web-vitals); INP is the most-failed metric on the 2026 web, which is
       an argument for measuring rather than assuming._
+      _(2026-07-29, team/2026-07-29-perf-budget, PR #73 — awaiting Dom.
+      `e2e/perf-budget.spec.ts` (19 tests) + `docs/performance-budget.md`; no
+      product code touched, so the numbers describe `main` as it stands.
+      **The first measurement immediately found a site-wide failure this item
+      had mis-scoped: CLS ≈ 0.39 on EVERY route — 4× the 0.1 Core Web Vitals
+      threshold — and it is not the images.** The text-only blog control
+      measures the same magnitude, and the figure is identical under
+      `reducedMotion: 'reduce'`. Root cause is `src/lib/withSuspense.tsx`'s
+      `RouteFallback` (a `py-24` "Loading…" box): every route is lazy, so
+      `scrollHeight` jumps 800px→5096px when the real chunk resolves and shoves
+      the already-painted footer down. User-affecting for real traffic, not just
+      SPA transitions — the fallback paints on the FIRST load of any deep-linked
+      URL, which is how most search/social visitors arrive. So the item's own
+      premise ("the groundwork is already in place… this is measurement and a
+      guardrail, not optimization work") was right about the images and wrong
+      about the site: the guardrail found something the reasoning had ruled out.
+      Tracked in `KNOWN_CLS_VIOLATIONS` with a delete-on-fix (not renumber)
+      instruction per the PR #57 precedent; the FIX is a separate item below.
+      Thresholds set from measured reality with ~20% headroom (a budget born
+      failing gets disabled); CLS asserted against the real 0.1, not raised to
+      hide the finding. **INP deliberately NOT asserted** — it is a field
+      metric; a labeled synthetic click proxy is measured at a 300ms gross-stall
+      ceiling and never called INP. Every assertion falsified red→green — and
+      **one falsification failed to fail, and is reported rather than buried**:
+      stripping `width`/`height` from `MediaGallery` items changed CLS by zero,
+      because those images are `loading="lazy"` below the fold and never fetched
+      inside the measurement window. Logged as a named coverage gap, not left as
+      false protection. Lead independently re-ran the spec: 19/19 in 17.4s.)_
 - [x] **HIGH — Same-day post ordering: the gate rule was wrong, not the
       content.** The content-validation gate shipped with a rule "no two posts
       may share a date." **Dom corrected it the same day:** _"one of the checks
@@ -481,7 +521,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       from real git chronology (green-checkmarks added 10:34, hire post 21:35).
       _(2026-07-19, team/2026-07-19-same-day-post-order.)_
 
-- [ ] **MEDIUM — The route smoke suite failed once and could not be
+- [x] **MEDIUM — The route smoke suite failed once and could not be
       reproduced.** Immediately after PRs #20/#22/#24 landed on `main`, a
       health check of the merged tree returned `1 failed | 15 passed (16)` from
       `npm run test:smoke`. Seven subsequent runs — five standalone, two
@@ -496,6 +536,21 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       blind — it is to make failures capturable (retain vitest output in CI,
       consider `--retry=0` plus an explicit repeat run) so the next occurrence
       is diagnosable. _Source: lead health check of `main`, 2026-07-19._
+      _(2026-07-29, team/2026-07-29-ci-hardening, PR #73's sibling PR #70 —
+      awaiting Dom. Took this item's OWN prescribed next step rather than
+      hunting blind. Checked first: `vitest.smoke.config.ts` sets no
+      `test.retry`, so nothing was silently masking a flake — `--retry=0` is now
+      spelled out in `ci.yml` anyway so a future edit can't reintroduce masking
+      invisibly. The smoke step now writes full per-test JSON (failing
+      assertion, stack, timing) on every run, and uploads it as a CI artifact
+      when smoke fails. **Lead review caught a defect in the first cut:** the
+      upload used a bare `if: failure()`, which fires on ANY earlier step
+      failure (lint/typecheck/audit) — runs where smoke never executed — so CI
+      would have published an EMPTY artifact named `smoke-test-results`. That is
+      worse than none: an artifact that shows up empty on unrelated failures is
+      exactly how people learn to ignore it, which is this item's own argument
+      about gates. Scoped to `steps.smoke.conclusion` with
+      `if-no-files-found: error`.)_
 
 ### Added 2026-07-20 (impact-ranked; slot above "Pre-launch review")
 
@@ -768,7 +823,7 @@ site whose provenance device is still decorative.
       — an allowlist that outlives its own fix is the anti-pattern that file's
       header warns of; all four contrast tests now assert `[]`. Proven in a
       real browser: `npx playwright test e2e/contrast.spec.ts` 4/4 green.)_
-- [ ] **P1 — Provenance model IMPLEMENTATION (the hero device is still a
+- [x] **P1 — Provenance model IMPLEMENTATION (the hero device is still a
       byline).** The spec shipped (2026-07-19, PR #19); the generator/schema/
       strip-wiring did not. `ProvenanceStrip` renders `author` only and isn't on
       `ProjectDetail` at all. This is the review's #1 strategic gap — the site's
@@ -827,6 +882,34 @@ site whose provenance device is still decorative.
       enablement (Dom checkpoint); backfill the 2 skipped posts once decided;
       reviewer/token enrichment for these 8.** Strip stays a full device on
       posts now, so this item is close — PR 7 is the last piece.)_
+      _(**PR 7 SHIPPED 2026-07-29 — item COMPLETE**, team/2026-07-29-provenance-
+      project-strip, PR #72 — awaiting Dom, **Dom checkpoint** (public copy +
+      reverses the 2026-07-17 omit decision). The strip is now on
+      `/projects/:slug`. **The backfill was the hard part, and the naive version
+      would have been fabrication:** `reports/2026-07-16.md` produced six
+      write-ups, but `git log --diff-filter=A` shows only
+      pizzaparty/mensapp/lovediary were CREATED by that run (`48e4fe5`);
+      soulforge/portfolio/chart-token-playground were created in an EARLIER
+      run's scaffold commit (`980a4c2`) holding placeholder text that literally
+      reads "the real write-up … is a separate backlog item". Claiming all six
+      would have joined this run's authors/reviewer onto a different run's
+      commit, on the site's own honesty device. **Result: 3 of 6 project pages
+      show real provenance, 3 honestly show "no run record" — the correct
+      outcome, not a shortfall**, and it resolves the 2026-07-17 open question
+      with real data instead of the fabrication two prior runs correctly
+      refused. Placement resolves `project-page-v2.md` §7's objection (that the
+      strip would misattribute the SOFTWARE's authorship) by making the
+      distinction explicit: an end-of-page colophon led by "ABOUT THIS WRITE-UP
+      … this note is about how the page describing it was produced, not the
+      software itself", adapted off `project.soloBuild`. `ProvenanceStrip`'s
+      `author` became optional so a record-less project omits the chip rather
+      than the caller guessing. **Lead browser-verified all six routes against
+      `vite preview` on the real `dist/`** — closing the gap the strip-v2 PR
+      left open — zero console errors, one `<h1>`, no 375px overflow. 101
+      component tests. Falsified: removing the footer call → 5 of 6 red;
+      reintroducing a fabricated `author ?? 'Dom'` fallback → 3 of 5 red.
+      Remaining follow-ups are NOT this item: the 2 skipped posts and
+      reviewer/token enrichment.)_
 - [x] **P1 — Vercel deploy must full-clone (provenance deploy blocker).**
       devops: the provenance generator hard-fails on shallow clones by design
       (spec §5.2 — `git log --diff-filter=A` silently truncates there, which
@@ -905,21 +988,28 @@ site whose provenance device is still decorative.
       reversible if Dom wants the flourish. Gates: unit 341 / component 90 (incl.
       new PostCover 3/3) / content 39 / build + lint. PostCover is logic+a11y
       tested, not browser-verified — no post sets `cover` yet.)_
-- [ ] **P2 batch (from the review — see `reports/2026-07-21-review.md`).** Lint
-      into CI; scheduled `npm audit` + drop `*.test.*` from the auto-merge
+- [ ] **P2 batch (from the review — see `reports/2026-07-21-review.md`).**
+      ~~Lint into CI~~ (✓ 2026-07-29, PR #70); scheduled `npm audit` + drop `*.test.*` from the auto-merge
       allowlist; error tracking (Sentry free tier) once DOM-4's client JS lands;
-      SEO-generator loader-contract test; build-time check that
-      `cover`/`media[].src`/`poster` paths exist on disk; dedupe the
+      SEO-generator loader-contract test; ~~build-time check that
+      `cover`/`media[].src`/`poster` paths exist on disk~~ (✓ 2026-07-29,
+      PR #69 — case-sensitive walk, not `existsSync`, so a case-only typo that
+      passes on macOS and 404s on Vercel's Linux build fails the gate); dedupe the
       ProjectDetail footer + share a `vitest.jsdom.base` config; `BuildTimeline`
       double-mount; Markdown AST-wiring test; ~~team-size "9→10" note in the
       founding post~~ (✓ 2026-07-28, PR #65 — `Note:` Callout annotating the
-      Lucas hire, the "9" left unchanged); GitHub link → the `studio-site` repo + a `reports/` deep
-      link; recompress the 885KB hero PNG (install `pngquant`); ProjectCard
+      Lucas hire, the "9" left unchanged); ~~GitHub link → the `studio-site` repo + a `reports/` deep
+      link~~ (✓ 2026-07-29, PR #71 — the `reports/` link initially landed only
+      in BlogIndex's never-rendered empty state and was unreachable in
+      production; lead review moved it into the global footer nav); recompress the 885KB hero PNG (**blocked 2026-07-29: `pngquant`,
+      `oxipng` and `cwebp` are all absent from this machine — needs a one-time
+      install before any run can do this honestly**; PR #73 measured the real
+      cost: 885KB portfolio + 844KB lovediary heroes); ProjectCard
       cover-aspect capture discipline; per-post/per-project OG images +
-      prerender-for-bots (follow-up to the favicon/OG P0); make the flaky-smoke
-      failure capturable in CI (reinforces the existing MEDIUM item);
-      **dist-side CSP hash assertion** (security-auditor P2 on PR #42: the
-      hash guard reads source `index.html`, the browser gets
+      prerender-for-bots (follow-up to the favicon/OG P0); ~~make the flaky-smoke
+      failure capturable in CI~~ (✓ 2026-07-29, PR #70);
+      ~~**dist-side CSP hash assertion**~~ (✓ 2026-07-29, PR #70 — security-auditor P2 on PR #42: the
+      hash guard read source `index.html`, the browser gets
       `dist/index.html` — byte-identical today, lead-verified, but a Vite
       version bump could change emission; assert against `dist/` post-build);
       tighten `style-src 'unsafe-inline'` once a real-browser CSP check
@@ -938,7 +1028,7 @@ site whose provenance device is still decorative.
       a server/RSC mode or a mutating route action. Broadened the comment.
       _(2026-07-28, team/2026-07-28-audit-allowlist-polish, PR #64 — awaiting Dom.
       Comment-only, gate still green.)_
-- [ ] **LOW — Run-playbook note: raw `npm audit` ≠ the CI gate.** The 2026-07-28
+- [x] **LOW — Run-playbook note: raw `npm audit` ≠ the CI gate.** The 2026-07-28
       run lost time treating raw `npm audit --audit-level=high` (exit 1, 7 highs)
       as a merge-blocker before checking the real gate, `npm run audit`
       (`audit-ci`, which passes). Both are "correct"; they just measure different
@@ -946,7 +1036,11 @@ site whose provenance device is still decorative.
       can). A one-line preflight note — "verify CI status with `npm run audit`, not
       raw `npm audit`" — would save the next run the same detour. _Source:
       2026-07-28 run._
-- [ ] **LOW — `project-page-v2.md` stale riso-offset refs in declined proposals**
+      _(2026-07-29, team/2026-07-29-links-docs, PR #71. Note added to
+      `README.md`'s "CI gates" section — the doc a future run actually reads
+      first — and that section's own description corrected from generic
+      "`npm audit`" to the accurate `audit-ci --config ./audit-ci.jsonc`.)_
+- [x] **LOW — `project-page-v2.md` stale riso-offset refs in declined proposals**
       (lines 456, 521). The 2026-07-28 dead-field cleanup corrected every false
       "riso-offset is used on X" claim about *delivered* state, but left two refs
       in `project-page-v2.md` that describe a *declined* "4th riso-offset use for
@@ -955,6 +1049,11 @@ site whose provenance device is still decorative.
       they were left intact — but they still cite design-brief §4's old "three
       uses" cap, now corrected to one. Trim if full cross-doc consistency is
       wanted. _Source: frontend-dev, 2026-07-28 dead-field pass._
+      _(2026-07-29, team/2026-07-29-links-docs, PR #71. Original declined-proposal
+      text left intact so it stays legible as what the designer actually
+      proposed; a dated cross-doc annotation at both refs notes design-brief §4's
+      "three uses" cap was itself a doc error corrected 2026-07-28 to one, and
+      that the decline verdict is unaffected. No history rewritten.)_
 - [ ] **LOW — `PostCover` needs a real-browser pass once a post sets `cover`.**
       The dead-field cleanup (PR #66) rendered the previously-dead post `cover`
       field, verified by a component test (logic + axe) reusing `ProjectHero`'s
@@ -962,6 +1061,82 @@ site whose provenance device is still decorative.
       it never renders in production content yet. First post to add a `cover:`
       warrants a quick visual-media pass on aspect/radius/spacing. _Source:
       frontend-dev, 2026-07-28._
+
+### Added 2026-07-29 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Site-wide CLS ≈ 0.39 from the route Suspense fallback (4× the
+      Core Web Vitals threshold).** Every route measures ~0.39 CLS; "good" is
+      ≤ 0.1. `src/lib/withSuspense.tsx`'s `RouteFallback` renders a `py-24`
+      centered "Loading…" box, and because every route is lazy-loaded behind it,
+      `scrollHeight` jumps ~800px → ~5096px when the real chunk resolves,
+      shoving the already-painted footer down. **Not an image problem** — the
+      text-only blog control measures the same magnitude and the figure is
+      identical under `reducedMotion: 'reduce'`. It is user-affecting for real
+      traffic, not only SPA transitions: the fallback paints on the FIRST load
+      of any deep-linked URL, which is how most search and social visitors
+      arrive, so this is live on every shared link the site has. Likely fix is
+      to reserve plausible vertical space in the fallback (e.g. a min-height
+      matched to typical content) or to hold the previous route until the next
+      one is ready; both are layout decisions worth a designer opinion, not a
+      one-line patch. Delete the route's entry from `KNOWN_CLS_VIOLATIONS` in
+      `e2e/perf-budget.spec.ts` as each is fixed — **do not renumber**, per the
+      PR #57 precedent. _Source: 2026-07-29 performance-budget measurement
+      (PR #73) — the site's first-ever perf measurement, found on its first
+      run. Thresholds per Google Core Web Vitals._
+- [ ] **MEDIUM — Hero images are oversized and non-responsive.**
+      `ProjectHero`'s `cover` renders as a single image at every viewport — no
+      `<picture>`/`srcset` — so a phone fetches the desktop-sized hero.
+      `portfolio-hero-desktop.png` is 885KB and `lovediary-hero-desktop.png` is
+      844KB; project routes measure 1.6–2.5MB total, and `/` is already ~2.2MB
+      because `ProjectCard` loads featured covers (that predates DOM-4). Two
+      separable fixes: responsive sources, and recompression — **the latter is
+      blocked on tooling** (`pngquant`/`oxipng`/`cwebp` are not installed on
+      this machine; a one-time install unblocks it). _Source: 2026-07-29
+      performance-budget measurement (PR #73)._
+- [ ] **MEDIUM — No on-site surface for the run reports (spec first).**
+      PROJECT-BRIEF goal 3 says the site's own git history and run reports ARE
+      content, and the provenance strip now links individual runs — but there is
+      no route that lets a reader browse `reports/` on the site. The only
+      pointers are outbound GitHub links (the new footer "Run reports" entry
+      added in PR #71, and `BacklogChip`). Every other goal-3 device built so
+      far (provenance strip, backlog chips, the logbook) points AT the reports
+      without ever showing them. Wants an **architect spec first** — it is a new
+      content source with real questions (render `reports/*.md` as routes vs. an
+      index-only surface? how do run reports relate to logbook posts, which are
+      already distilled FROM them? does a raw run report read as content or as
+      exhaust?) — and a designer pass before any implementation. Right-size it:
+      the honest answer may be "an index page, not 20 new routes." _Source:
+      named product gap, PROJECT-BRIEF goal 3; found by the lead 2026-07-29
+      while wiring the reports deep link._
+- [ ] **LOW — `media[].width`/`height` are never checked against the real
+      image.** The schema requires them (they exist to prevent layout shift) and
+      the new asset-path gate proves the file exists, but nothing verifies the
+      declared dimensions match the file's intrinsic size. A wrong ratio
+      reintroduces exactly the CLS the fields were added to prevent, with every
+      gate green. _Source: qa-tester, 2026-07-29 asset-path-gate pass — named as
+      the natural next gap by the gate that closed the path half._
+- [ ] **LOW — Worktree isolation: a shared `node_modules` also shares
+      `.vite`, and parallel dev servers corrupt each other.** Extends the
+      existing worktree item. The proven workaround (hand-made worktrees +
+      symlinked `node_modules`) has a second failure mode beyond "`npm install`
+      replaces the symlink": Vite's dep-optimizer cache lives at
+      `node_modules/.vite`, so two worktrees running dev servers concurrently
+      write the same cache and the app throws `Invalid hook call … more than one
+      copy of React`. Cost this run: a real diagnosis detour on PR #72 before it
+      was confirmed environmental (verified by re-running against `vite preview`
+      on `dist/`, where the optimizer plays no part — zero errors). Fix: give
+      each worktree its own `.vite` (e.g. `cacheDir` per worktree) or don't run
+      concurrent dev servers off a shared `node_modules`. _Source: Project Lead,
+      2026-07-29 — observed, not hypothetical._
+- [ ] **LOW — Notion mirror can't attribute the tenth cast member.** The
+      "Studio Site — Backlog" database's `Agent(s)` multi-select offers only the
+      nine original disciplines; `visual-media` (Lucas, hired 2026-07-18,
+      DOM-5) is not an option, so the mirror silently cannot credit him and the
+      2026-07-29 sync had to substitute `frontend-dev` on a row he owns. Same
+      "the cast grew to 10 and a system still says 9" class as the founding-post
+      note fixed in PR #65. One-time Dom action in Notion (add the option); no
+      PR. _Source: 2026-07-29 Notion reconciliation — the API rejected the
+      write._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
