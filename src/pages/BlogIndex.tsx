@@ -2,6 +2,7 @@ import { Container } from '@/components/ui/Container';
 import { PostCard } from '@/components/PostCard';
 import { Seo } from '@/components/Seo';
 import { getAllPosts } from '@/content';
+import { STUDIO_SITE_REPORTS_URL } from '@/lib/githubLinks';
 
 export default function BlogIndex() {
   const posts = getAllPosts();
@@ -21,8 +22,12 @@ export default function BlogIndex() {
       ) : (
         <div className="py-16 text-center">
           <p className="mb-3 text-ink-muted">No entries yet — the first run report is still warm.</p>
+          {/* Points straight at the `reports/` folder this text names, not
+              Dom's GitHub profile — a reader following "see reports/" should
+              land on reports/, not a click further away (backlog "point at
+              the right thing", 2026-07-29). */}
           <a
-            href="https://github.com/dominiquebrom28"
+            href={STUDIO_SITE_REPORTS_URL}
             target="_blank"
             rel="noreferrer"
             className="font-mono text-sm text-marker-700 hover:underline"

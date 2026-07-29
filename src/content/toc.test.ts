@@ -44,6 +44,24 @@ describe('slugifyHeading', () => {
   it('collapses a reference-style link to its link text, matching the real <a> the DOM renders', () => {
     expect(slugifyHeading('See [the docs][ref] for more')).toBe('see-the-docs-for-more');
   });
+
+  /**
+   * Pins the deliberately ASCII-only slug behavior documented on
+   * `slugifyHeading` itself (backlog "point at the right thing", 2026-07-29
+   * decision: leave as-is, document + pin, not a live bug — no current post
+   * has a non-ASCII H2). Non-Latin characters are stripped entirely, not
+   * transliterated — this locks that decision in so a future change to it is
+   * a deliberate, reviewed diff here, not a silent regression.
+   */
+  it('strips non-ASCII characters entirely rather than transliterating them (documented, deliberate)', () => {
+    expect(slugifyHeading('Über café ñ 中文标题')).toBe('ber-caf');
+  });
+
+  it('collapses to the empty string for a heading with no surviving ASCII alphanumerics at all', () => {
+    expect(slugifyHeading('中文标题')).toBe('');
+    expect(slugifyHeading('Привет мир')).toBe('');
+    expect(slugifyHeading('日本語のタイトル')).toBe('');
+  });
 });
 
 describe('nextUniqueId', () => {
@@ -131,6 +149,23 @@ More text.
     expect(extractTableOfContents(body)).toEqual([{ id: 'see-the-docs-for-more', text: 'See the docs for more' }]);
   });
 
+  /**
+   * The de-dup safety net (backlog "point at the right thing", 2026-07-29):
+   * two headings in DIFFERENT non-Latin scripts (so their visible text is
+   * genuinely different to a reader) both collapse to the same empty-then-
+   * "section" base id once ASCII-stripped — proving `nextUniqueId` rescues
+   * this exactly like it already rescues two headings with identical ASCII
+   * text, so this is not a live collision risk today even without a fix.
+   */
+  it('de-duplicates two different-script non-Latin headings that both collapse to the same base id', () => {
+    const body = '## 中文标题\n\ntext\n\n## Заголовок\n\nmore text\n';
+    const toc = extractTableOfContents(body);
+    expect(toc).toEqual([
+      { id: 'section', text: '中文标题' },
+      { id: 'section-1', text: 'Заголовок' },
+    ]);
+  });
+
   it('matches the real committed post that has 3+ H2s (the TOC gate)', () => {
     // Sanity-checks the "3+ H2s" gate against real content without hardcoding
     // a slug import here (kept dependency-light — BlogPost.tsx itself wires
@@ -196,6 +231,14 @@ text
       'the-cleanup-sweep',
       'also-today',
     ]);
+  });
+
+  it('never drifts from extractTableOfContents on the non-Latin-collision case either — same de-dup, same ids, same order', () => {
+    const nonLatinBody = '## 中文标题\n\ntext\n\n## Заголовок\n\nmore text\n';
+    const toc = extractTableOfContents(nonLatinBody);
+    const byLine = headingIdsByLine(nonLatinBody);
+    expect([...byLine.values()]).toEqual(toc.map((entry) => entry.id));
+    expect([...byLine.values()]).toEqual(['section', 'section-1']);
   });
 
   it('keys each id by the heading’s real 1-based source line number', () => {
