@@ -55,6 +55,18 @@ jobs:
       - name: Audit dependencies (fail on high/critical)
         run: npx audit-ci --config ./audit-ci.jsonc
 
+      # `npm run lint` (eslint) existed only as a convention agents ran by
+      # hand — nothing in CI actually ran it, so a lint failure could not
+      # block a merge (including an auto-merged `safe-auto` PR). Verified
+      # green on `main` before adding this as a required step (0 errors,
+      # 12 pre-existing `react-refresh/only-export-components` warnings,
+      # which do not fail the process — eslint only exits non-zero on an
+      # error). Placed first among the cheap checks (before typecheck) so a
+      # lint failure fails fast, ahead of the far more expensive build steps
+      # below.
+      - name: Lint
+        run: npm run lint
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -80,8 +92,31 @@ jobs:
       # this required job rather than a separate opt-in one, since it
       # directly guards a pattern that has now shipped a P0 four runs
       # running.
+      # BACKLOG MEDIUM (2026-07-19): this suite failed once
+      # (`1 failed | 15 passed`) immediately after PRs #20/#22/#24 landed,
+      # then ran green 16/16 on seven subsequent attempts — the failure
+      # output vanished before anyone could look at it. `--retry=0` is
+      # spelled out explicitly below (it is vitest's own default — see
+      # vitest.smoke.config.ts, which sets no `test.retry`) so that fact is
+      # visible in this file rather than resting on an unstated default that
+      # a future edit could silently change; a hidden retry is exactly the
+      # kind of thing that would turn a real intermittent failure into a
+      # quiet, undiagnosable green. The `json` reporter + `--outputFile`
+      # write full per-test results (including the failing assertion,
+      # stack, and timing) to disk regardless of pass/fail; on failure the
+      # step below uploads it as a CI artifact (same `upload-artifact`
+      # pattern as the `e2e` job's Playwright report) so the NEXT occurrence
+      # of this flake leaves evidence instead of vanishing again.
       - name: Smoke test (real DOM mount, StrictMode)
-        run: npm run test:smoke
+        run: npm run test:smoke -- --retry=0 --reporter=default --reporter=json --outputFile=test-results/smoke-results.json
+
+      - name: Upload smoke test results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: test-results/smoke-results.json
+          retention-days: 7
 
       # Component-level interaction tests (BACKLOG "Component-level test
       # infrastructure is missing repo-wide") — jsdom + Testing Library
@@ -104,6 +139,21 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Dist-side CSP hash assertion (security-auditor P2, PR #42 review).
+      # `inlineScriptHash.test.ts` (part of `npm test` above) already checks
+      # the CSP hash in vercel.json against the SOURCE index.html — but the
+      # browser only ever receives `dist/index.html`, and the two are
+      # byte-identical today only by coincidence (Vite happens not to touch
+      # this inline script), not by any enforced guarantee. A future Vite
+      # version bump could change what actually ships to dist/ without
+      # touching index.html at all, silently breaking dark-mode-before-paint
+      # in production while every other gate stays green. This step re-runs
+      # the same check (same code, reused from src/lib/csp/inlineScriptHash.ts)
+      # against the real BUILD OUTPUT. Must run after `Build` above — see
+      # src/lib/csp/distIndexHash.test.ts's header comment for the full case.
+      - name: Verify dist/index.html CSP hash (post-build)
+        run: npm run verify:dist-csp-hash
 
       # Provenance artifact drift gate (§5.3). The committed
       # `src/content/provenance.generated.json` MUST equal what the generator

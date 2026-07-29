@@ -22,9 +22,17 @@ export default defineConfig({
     // next to its source. Node-environment content tests otherwise; this is
     // no exception (no DOM, pure functions + fixture files on disk).
     include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
-    // Excluded here on purpose — this is the content-validation GATE, run
-    // (and reported on) separately via `npm run validate:content` /
-    // vitest.content.config.ts. See that config's header comment.
-    exclude: ['**/node_modules/**', 'src/content/validate-content.test.ts'],
+    // Excluded here on purpose:
+    // - `validate-content.test.ts` is the content-validation GATE, run (and
+    //   reported on) separately via `npm run validate:content` /
+    //   vitest.content.config.ts. See that config's header comment.
+    // - `distIndexHash.test.ts` asserts against `dist/index.html`, which
+    //   does not exist yet when `npm test` runs (this config's suite is
+    //   PRE-build in the `build` job). Included here it would either
+    //   false-fail on every run (no dist/) or false-pass against a stale
+    //   dist/ left over from a previous local build — neither is the point.
+    //   It runs POST-build instead, via `npm run verify:dist-csp-hash` /
+    //   vitest.dist-csp.config.ts. See that test file's header comment.
+    exclude: ['**/node_modules/**', 'src/content/validate-content.test.ts', 'src/lib/csp/distIndexHash.test.ts'],
   },
 });

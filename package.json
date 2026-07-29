@@ -18,6 +18,7 @@
     "pretest:e2e": "npm run build",
     "test:e2e": "playwright test",
     "validate:content": "vitest run --config vitest.content.config.ts",
+    "verify:dist-csp-hash": "vitest run --config vitest.dist-csp.config.ts",
     "smoke:deployed": "node scripts/check-deployed-routes.mjs",
     "provenance:generate": "node scripts/provenance/generate.mjs",
     "provenance:print": "node scripts/provenance/print.mjs",
