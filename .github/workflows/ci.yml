@@ -108,14 +108,27 @@ jobs:
       # pattern as the `e2e` job's Playwright report) so the NEXT occurrence
       # of this flake leaves evidence instead of vanishing again.
       - name: Smoke test (real DOM mount, StrictMode)
+        id: smoke
         run: npm run test:smoke -- --retry=0 --reporter=default --reporter=json --outputFile=test-results/smoke-results.json
 
-      - name: Upload smoke test results (on failure)
-        if: failure()
+      # Conditioned on THIS step's own conclusion, not a bare `if: failure()`.
+      # A bare `failure()` fires whenever any EARLIER step in the job failed
+      # (lint, typecheck, audit, `npm test`) — and on those runs the smoke
+      # step never executed, so `smoke-results.json` does not exist and the
+      # run would publish an empty artifact named `smoke-test-results`. That
+      # is worse than no artifact: the whole point of this item is that the
+      # next occurrence of the flake leaves EVIDENCE, and an artifact that
+      # shows up empty on unrelated failures is exactly how people learn to
+      # ignore it. `if-no-files-found: error` keeps it honest — if this step
+      # ever runs and finds nothing, that is itself a defect worth surfacing
+      # rather than warning past.
+      - name: Upload smoke test results (on smoke failure)
+        if: failure() && steps.smoke.conclusion == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: smoke-test-results
           path: test-results/smoke-results.json
+          if-no-files-found: error
           retention-days: 7
 
       # Component-level interaction tests (BACKLOG "Component-level test
