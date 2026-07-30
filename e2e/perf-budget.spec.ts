@@ -79,46 +79,40 @@ const PAGE_WEIGHT_CEILING_KB: Record<Route, number> = {
 const CLS_GOOD_THRESHOLD = 0.1;
 
 /**
- * REAL VIOLATION FOUND, tracked explicitly rather than hidden by raising the
- * threshold (the pattern this repo uses — see `e2e/contrast.spec.ts`'s own
- * now-removed `KNOWN_VIOLATIONS`: "an allowlist that survives its own fix is
- * the anti-pattern"). DELETE A ROUTE'S ENTRY HERE THE MOMENT ITS CLS DROPS
- * BELOW `CLS_GOOD_THRESHOLD` — do not renumber, do not raise the ceiling.
+ * FIXED 2026-07-30 (docs/cls-fallback-decision.md): every route below used to
+ * carry a real, measured ~0.39 CLS violation from the route-Suspense fallback
+ * — `withSuspense.tsx`'s fallback rendered inside `RootLayout.tsx`'s
+ * `flex min-h-screen flex-col` shell, ABOVE the persistent `<Footer>`, whose
+ * later jump into its real position (`document.documentElement.scrollHeight`
+ * ~800px → ~5096px) counted as a full Layout Instability API shift.
  *
- * Root cause (confirmed, not guessed — see docs/performance-budget.md
- * "Falsification evidence" for how this was isolated): `withSuspense.tsx`'s
- * route fallback (`<p>Loading…</p>`) renders inside `RootLayout.tsx`'s
- * `flex min-h-screen flex-col` shell, ABOVE the persistent `<Footer />`.
- * `document.documentElement.scrollHeight` jumps from ~800px (the fallback)
- * to ~5096px the instant the real route chunk resolves — the already-
- * painted `<Footer>` is shoved from just below a two-line loading message
- * down to the bottom of the real page. That is a textbook Layout Instability
- * API shift (an already-rendered element's box moves, no user input), and it
- * is IDENTICAL (down to the 4th decimal, confirmed with
- * `reducedMotion: 'reduce'`) whether or not any of this app's transform-only
- * entrance animations run — so it is NOT the DOM-4 images, and it is NOT the
- * framer-motion entrance choreography. It is present on EVERY route this app
- * has, including the text-only blog-post control, which is exactly why this
- * is reported as a general app-shell finding, not a "the images are heavy"
- * finding — DOM-4's images are, per this measurement, not the CLS problem.
- * A fix (matching skeleton height, or moving the fallback outside the flex
- * shell) is out of scope for this measurement-only task; see
- * docs/performance-budget.md.
+ * Fix, two treatments for two distinct causes (see the decision doc for the
+ * full derivation): (A) `RouteFallback` now reserves `min-h-[100svh]`, so on
+ * a cold load the footer starts strictly below the fold and its later move
+ * never re-enters a previously-visible frame — the API stops counting it.
+ * (B) the `<Suspense>` boundary is hoisted to a single stable instance
+ * wrapping `<Outlet />` in `RootLayout`, instead of a fresh instance per
+ * route — an in-app navigation is now an update to an already-mounted
+ * boundary (kept on screen by react-router v7's unconditional
+ * `startTransition` wrapping of navigation state), not a fresh mount that
+ * always shows its fallback.
  *
- * Epsilon (0.02) absorbs no real jitter (this shift is deterministic to 4
- * decimals across repeated local runs) — it exists purely so this test
- * doesn't nuisance-fail on a rounding difference between machines, while
- * still catching a genuine NEW shift stacked on top of the known one.
+ * The old `KNOWN_CLS_VIOLATIONS` allowlist (and its epsilon) was deliberately
+ * REMOVED, not updated to lower numbers — an allowlist that survives its own
+ * fix is the anti-pattern this repo already retired once (see
+ * `e2e/contrast.spec.ts`'s own now-removed `KNOWN_VIOLATIONS`, same reasoning
+ * verbatim). Every route below now asserts the real, unconditional Core Web
+ * Vitals "good" threshold. Measured real CLS after the fix (`vite preview`,
+ * desktop 1280×800, cold context, this lane's exact harness):
+ * `/` 0.0055, `/blog/red-is-not-self-justifying` 0.0005,
+ * `/projects/lovediary` 0.0001, `/projects/soulforge` 0.0001,
+ * `/projects/portfolio` 0, `/projects/pizzaparty` 0.0001; the new in-app
+ * `/ → /projects` transition test below measured 0.0055 — all comfortably
+ * under 0.1, see docs/cls-fallback-decision.md and this task's PR for the
+ * falsification evidence (revert either treatment and this suite goes red
+ * again at the original ~0.39 for cold loads / a real measured violation for
+ * the transition).
  */
-const KNOWN_CLS_VIOLATIONS: Partial<Record<Route, number>> = {
-  '/': 0.3955,
-  '/blog/red-is-not-self-justifying': 0.3905,
-  '/projects/lovediary': 0.3901,
-  '/projects/soulforge': 0.3901,
-  '/projects/portfolio': 0.3901,
-  '/projects/pizzaparty': 0.3901,
-};
-const CLS_KNOWN_VIOLATION_EPSILON = 0.02;
 
 /** Core Web Vitals "good" LCP threshold (2.5s). See file header — this lane
  * can only prove the render path doesn't regress against it locally, not a
@@ -171,6 +165,45 @@ async function instrumentPerf(page: Page) {
       }).observe({ type: 'largest-contentful-paint', buffered: true });
     } catch {
       // Same caveat as above, for largest-contentful-paint.
+    }
+  });
+}
+
+/**
+ * Same layout-shift observer as `instrumentPerf`, but installed via
+ * `page.evaluate` directly into the CURRENT document instead of
+ * `page.addInitScript`. `addInitScript` only takes effect on the NEXT
+ * navigation that creates a new document — useless for measuring a
+ * client-side (SPA) route transition, which never creates one. This is used
+ * exclusively by the in-app-transition test below, after the starting route
+ * has already settled, to scope the measurement to the transition itself.
+ *
+ * Deliberately `buffered: false` (omitted), NOT `buffered: true` like
+ * `instrumentPerf` above. `buffered: true` replays every `layout-shift`
+ * entry recorded since navigation start, including ones from the ALREADY-
+ * SETTLED cold load this function is installed after — falsified for real:
+ * with `buffered: true` here, the transition test measured the exact same
+ * ~0.39 CLS as a reverted cold-load fallback even though no fallback ever
+ * painted during the transition itself (confirmed separately with a
+ * `waitForSelector('text=Loading…')` probe that never resolved) — it was
+ * silently re-summing the cold load's own already-counted shift, not
+ * measuring the transition. Only new, post-installation entries matter here.
+ */
+async function instrumentPerfLive(page: Page) {
+  await page.evaluate(() => {
+    (window as unknown as { __cls: number }).__cls = 0;
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as Array<PerformanceEntry & { hadRecentInput?: boolean; value?: number }>) {
+          if (!entry.hadRecentInput && typeof entry.value === 'number') {
+            (window as unknown as { __cls: number }).__cls += entry.value;
+          }
+        }
+      }).observe({ type: 'layout-shift' });
+    } catch {
+      // layout-shift unsupported — leaves __cls at 0. See `instrumentPerf`'s
+      // identical caveat above; not a risk in the Chromium project this lane
+      // runs (playwright.config.ts).
     }
   });
 }
@@ -248,24 +281,117 @@ test.describe('Performance budget — CLS (layout-shift, Core Web Vitals thresho
   for (const route of ALL_ROUTES) {
     test(`${route}`, async ({ page }) => {
       const { cls } = await measureRoute(page, route);
-      const known = KNOWN_CLS_VIOLATIONS[route];
-      if (known != null) {
-        // Tracked, real, pre-existing violation (see KNOWN_CLS_VIOLATIONS
-        // doc comment above) — asserting against the known baseline (plus a
-        // small epsilon) so this test still catches a NEW regression
-        // stacked on top of the known one, without being red for an issue
-        // this task was not scoped to fix.
-        expect(
-          cls,
-          `${route} CLS=${cls.toFixed(4)} exceeds its tracked known-violation baseline (${known} + ${CLS_KNOWN_VIOLATION_EPSILON} epsilon) — this is a NEW regression on top of the documented Suspense-fallback shift, not the known one`,
-        ).toBeLessThanOrEqual(known + CLS_KNOWN_VIOLATION_EPSILON);
-      } else {
-        expect(cls, `${route} CLS=${cls.toFixed(4)} exceeds the Core Web Vitals "good" threshold of ${CLS_GOOD_THRESHOLD}`).toBeLessThan(
-          CLS_GOOD_THRESHOLD,
-        );
-      }
+      expect(cls, `${route} CLS=${cls.toFixed(4)} exceeds the Core Web Vitals "good" threshold of ${CLS_GOOD_THRESHOLD}`).toBeLessThan(
+        CLS_GOOD_THRESHOLD,
+      );
     });
   }
+
+  /**
+   * In-app SPA transition (docs/cls-fallback-decision.md treatment B). Every
+   * test above is a COLD `page.goto`; this exercises a client-side
+   * navigation between two already-lazy routes instead. Starts on `/`
+   * (already painted), clicks the nav link to `/projects` (lazy, never yet
+   * mounted this session), and asserts the TRANSITION itself stays under the
+   * same CLS threshold.
+   *
+   * NAMED COVERAGE GAP (falsified for real, not assumed — see this
+   * describe-block's sibling test below and its own doc comment): this
+   * assertion, BY ITSELF, does NOT reliably catch a reverted treatment B.
+   * Reverting the Suspense hoist back to a per-route `withSuspense(...)` call
+   * per route did NOT reproduce a red CLS here, even with an artificial
+   * 1500ms delay injected on the `/projects` chunk request — this app's route
+   * config has every route as a sibling at the same `<Outlet/>` position with
+   * the SAME wrapper component types (`RouteErrorBoundary` → `Suspense`)
+   * regardless of which route is active, so React's default (unkeyed)
+   * reconciliation does not remount that boundary on a sibling-route swap
+   * either way; the decision doc's framing of "per-route vs. hoisted" as the
+   * behavioral difference does not hold for THIS app's flat topology. The one
+   * case that DID reproduce a fallback flash was an explicit
+   * `key={pathname}` on the hoisted boundary (the exact trap the decision
+   * doc names) — and even then, CLS still measured ~0 here, because
+   * treatment A's `min-h-[100svh]` reservation independently keeps the
+   * footer below the fold whether or not the fallback flashes, so a
+   * treatment-B-only regression is invisible to a CLS assertion as long as
+   * treatment A holds. The real, deterministic regression guard for
+   * treatment B specifically is the sibling test below, which asserts the
+   * fallback is never shown at all (not merely that CLS stays low) under the
+   * same injected latency. Reported here rather than buried, matching this
+   * repo's 2026-07-29 precedent for a falsification that fails to fail.
+   */
+  test('in-app transition (/ → /projects) stays under the CLS threshold', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await waitForAppSettled(page);
+
+    // Instrumented AFTER the cold load settles and BEFORE the click, so the
+    // measured CLS is scoped to the transition itself, not conflated with
+    // `/`'s own (already-covered, already-green) cold-load shift. Uses
+    // `instrumentPerfLive`, NOT `instrumentPerf` — see that function's doc
+    // comment for why `addInitScript` cannot observe an SPA transition.
+    await instrumentPerfLive(page);
+    await page.getByRole('link', { name: 'Projects' }).first().click();
+    await expect(page).toHaveURL(/\/projects$/);
+    await waitForAppSettled(page);
+    await page.waitForTimeout(500);
+
+    const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+    expect(
+      cls,
+      `/ → /projects in-app transition CLS=${cls.toFixed(4)} exceeds the Core Web Vitals "good" threshold of ${CLS_GOOD_THRESHOLD}`,
+    ).toBeLessThan(CLS_GOOD_THRESHOLD);
+  });
+
+  /**
+   * The deterministic regression guard for treatment B specifically (see the
+   * coverage-gap note on the sibling test above for why the CLS number alone
+   * cannot be trusted to catch this). Asserts the route fallback ("Loading…")
+   * is never shown at any point during an in-app transition to a
+   * never-yet-mounted lazy route — not "CLS stays low", but "the fallback
+   * never paints at all", which is what a single stable Suspense instance
+   * that keeps the last-committed route on screen actually guarantees.
+   *
+   * Artificial latency (1500ms) is injected on the `/projects` chunk request
+   * because this lane's local loopback `vite preview` server otherwise
+   * resolves that ~2KB chunk within a single frame — too fast for even a
+   * genuinely fresh per-route Suspense mount to ever paint its fallback (this
+   * was falsified for real: reverting to per-route `withSuspense(...)` with
+   * NO injected latency never showed the fallback either, which is why this
+   * test does not rely on ambient network speed at all). With this injected
+   * latency, an explicit `key={pathname}` on the hoisted boundary (the exact
+   * trap docs/cls-fallback-decision.md warns against) reliably reproduces a
+   * flash; the shipped code (hoisted, `resetKey` only, no `key`) does not.
+   */
+  test('in-app transition (/ → /projects) never flashes the route fallback, even under injected chunk latency', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await page.route('**/assets/ProjectsIndex-*.js', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await waitForAppSettled(page);
+
+    await page.getByRole('link', { name: 'Projects' }).first().click();
+    // Actively polls DURING the (artificially slowed) transition — the
+    // fallback is what this test exists to catch, so it must look for it
+    // while the chunk is still pending, not just check its absence once
+    // everything has already settled.
+    let sawFallback = false;
+    for (let i = 0; i < 20; i++) {
+      if ((await page.getByText('Loading…').count()) > 0) {
+        sawFallback = true;
+        break;
+      }
+      await page.waitForTimeout(150);
+    }
+    await expect(page).toHaveURL(/\/projects$/);
+    await waitForAppSettled(page);
+
+    expect(
+      sawFallback,
+      'the route fallback ("Loading…") flashed during an in-app transition to a never-yet-mounted lazy route — the single hoisted Suspense boundary should keep the last-committed route on screen until the next one resolves, never falling back to its own fallback (docs/cls-fallback-decision.md treatment B)',
+    ).toBe(false);
+  });
 });
 
 test.describe('Performance budget — LCP (largest contentful paint, Core Web Vitals threshold 2.5s)', () => {
