@@ -136,8 +136,8 @@ async function waitForAppSettled(page: Page) {
  * Installs the CLS/LCP `PerformanceObserver`s via `addInitScript` — this
  * MUST run before `page.goto`, so the observers are attached before the
  * app's first paint, not after (an observer attached post-navigation would
- * miss the exact shift this file's `KNOWN_CLS_VIOLATIONS` documents, which
- * happens ~350-400ms after navigation start).
+ * miss the exact shift this file used to allowlist, which happens ~350-400ms
+ * after navigation start).
  */
 async function instrumentPerf(page: Page) {
   await page.addInitScript(() => {
