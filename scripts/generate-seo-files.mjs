@@ -72,8 +72,8 @@ const SITEMAP_PATH = '/sitemap.xml';
  * so it can be handed straight to `buildCollection` unchanged. This is
  * listing, not parsing — `buildCollection` still does 100% of the actual
  * frontmatter/Zod work. */
-function readContentDir(dir) {
-  const full = path.join(CONTENT_DIR, dir);
+function readContentDir(contentDir, dir) {
+  const full = path.join(contentDir, dir);
   if (!existsSync(full)) return {};
   const files = readdirSync(full).filter((file) => file.endsWith('.md'));
   const record = {};
@@ -83,10 +83,24 @@ function readContentDir(dir) {
   return record;
 }
 
-async function loadContentAndBuilders() {
+/**
+ * Boots a Vite SSR server just long enough to load the three TS modules
+ * this script needs, then closes it. Extracted + made an injectable
+ * parameter of `loadContentAndBuilders` (QA testability pass — no behavior
+ * change for the real CLI, which still uses this exact function) for the
+ * identical reason `scripts/provenance/generate.mjs`'s sibling
+ * `loadContentModules` already is: booting a real Vite dev server per test
+ * is slow, and the whole point of a contract test here is to assert against
+ * the REAL `loader.ts`/`schemas.ts`/`xml.ts` — which a plain `vitest`
+ * process can already `import()` directly (it's a TS-aware runtime, unlike
+ * the plain `node` CLI process this script normally runs under) — so tests
+ * can inject a `loadModules` that skips the SSR boot but still exercises
+ * every line of `loadContentAndBuilders` below against the real exports.
+ */
+async function defaultLoadModules(repoRoot) {
   const server = await createServer({
-    root: REPO_ROOT,
-    configFile: path.join(REPO_ROOT, 'vite.config.ts'),
+    root: repoRoot,
+    configFile: path.join(repoRoot, 'vite.config.ts'),
     server: { middlewareMode: true, hmr: false },
     appType: 'custom',
     logLevel: 'error',
@@ -102,26 +116,41 @@ async function loadContentAndBuilders() {
     const loaderMod = await server.ssrLoadModule('/src/content/loader.ts');
     const schemasMod = await server.ssrLoadModule('/src/content/schemas.ts');
     const seoMod = await server.ssrLoadModule('/src/lib/seo/xml.ts');
-
-    const projectFiles = readContentDir('projects');
-    const postFiles = readContentDir('posts');
-
-    const rawProjects = loaderMod.buildCollection(projectFiles, schemasMod.ProjectFrontmatterSchema, 'project');
-    const rawPosts = loaderMod.buildCollection(postFiles, schemasMod.PostFrontmatterSchema, 'post');
-
-    const normalizedPosts = rawPosts.map(loaderMod.normalizePost);
-    // `isProd: true` — see the file-level comment above for why this is
-    // hardcoded rather than read from `import.meta.env.PROD`.
-    const visiblePosts = loaderMod.filterVisiblePosts(normalizedPosts, true);
-
-    return {
-      projects: loaderMod.sortProjects(rawProjects),
-      posts: loaderMod.sortPosts(visiblePosts),
-      seo: seoMod,
-    };
+    return { loaderMod, schemasMod, seoMod };
   } finally {
     await server.close();
   }
+}
+
+/**
+ * @param {object} [options]
+ * @param {string} [options.repoRoot]
+ * @param {string} [options.contentDir]
+ * @param {(repoRoot: string) => Promise<{loaderMod: any, schemasMod: any, seoMod: any}>} [options.loadModules]
+ */
+export async function loadContentAndBuilders({
+  repoRoot = REPO_ROOT,
+  contentDir = CONTENT_DIR,
+  loadModules = defaultLoadModules,
+} = {}) {
+  const { loaderMod, schemasMod, seoMod } = await loadModules(repoRoot);
+
+  const projectFiles = readContentDir(contentDir, 'projects');
+  const postFiles = readContentDir(contentDir, 'posts');
+
+  const rawProjects = loaderMod.buildCollection(projectFiles, schemasMod.ProjectFrontmatterSchema, 'project');
+  const rawPosts = loaderMod.buildCollection(postFiles, schemasMod.PostFrontmatterSchema, 'post');
+
+  const normalizedPosts = rawPosts.map(loaderMod.normalizePost);
+  // `isProd: true` — see the file-level comment above for why this is
+  // hardcoded rather than read from `import.meta.env.PROD`.
+  const visiblePosts = loaderMod.filterVisiblePosts(normalizedPosts, true);
+
+  return {
+    projects: loaderMod.sortProjects(rawProjects),
+    posts: loaderMod.sortPosts(visiblePosts),
+    seo: seoMod,
+  };
 }
 
 async function main() {
@@ -166,7 +195,13 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error('[generate-seo-files] FAILED:', error);
-  process.exitCode = 1;
-});
+// Guards the CLI invocation so this module can be safely `import()`-ed by
+// tests (`scripts/generate-seo-files.test.ts`) without running `main()` —
+// same guard, same reasoning, as `scripts/provenance/generate.mjs`.
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+  main().catch((error) => {
+    console.error('[generate-seo-files] FAILED:', error);
+    process.exitCode = 1;
+  });
+}

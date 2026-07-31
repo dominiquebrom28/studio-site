@@ -724,6 +724,17 @@ site whose provenance device is still decorative.
       slug tie-break + regression test; canonical `YYYY-MM-DD`.)_ The third
       backend item — a **draft-exclusion / feed-generator regression test**
       (currently a one-time manual proof) — remains open (P1).
+      _(**CLOSED 2026-07-30**, team/2026-07-30-seo-loader-contract, PR #77 —
+      fell out of the SEO loader-contract work rather than needing its own run.
+      Draft exclusion is now asserted end-to-end twice: once through injected
+      real modules and once through a **real Vite SSR boot**, which is the
+      configuration that actually matters, because `import.meta.env.PROD` is
+      empirically false under `ssrLoadModule` and the generator therefore has to
+      pass `isProd: true` explicitly. Lead independently falsified it — flipping
+      `filterVisiblePosts(normalizedPosts, true)` to `false` turns BOTH tests
+      red with `expected ['a-draft','published'] to deeply equal ['published']`,
+      green on restore with an empty diff. The one-time manual proof is now a
+      standing gate.)_
 - [x] **P1 — Blog index missing cast avatars.** _(Fixed 2026-07-21, PR #37 —
       cast avatar stamp + name, honest `+N` for multi-author.)_
 - [x] **P1 — Interaction-test backfill (extends component-test infra).** Zero
@@ -991,7 +1002,13 @@ site whose provenance device is still decorative.
 - [ ] **P2 batch (from the review — see `reports/2026-07-21-review.md`).**
       ~~Lint into CI~~ (✓ 2026-07-29, PR #70); scheduled `npm audit` + drop `*.test.*` from the auto-merge
       allowlist; error tracking (Sentry free tier) once DOM-4's client JS lands;
-      SEO-generator loader-contract test; ~~build-time check that
+      ~~SEO-generator loader-contract test~~ (✓ 2026-07-30, PR #77 — the
+      generator's whole premise, "runs the REAL loader via `ssrLoadModule` so
+      sort rules and draft semantics can never drift from the site's", had
+      **zero** tests; the 23 that shipped with it cover only the pure XML
+      builders. 7 new contract tests + a `STATIC_ROUTES`-vs-`router.tsx`
+      consistency test; six falsifications, **none of which failed to fail**;
+      also closes the separate P1 draft-exclusion item above); ~~build-time check that
       `cover`/`media[].src`/`poster` paths exist on disk~~ (✓ 2026-07-29,
       PR #69 — case-sensitive walk, not `existsSync`, so a case-only typo that
       passes on macOS and 404s on Vercel's Linux build fails the gate); dedupe the
@@ -1064,7 +1081,7 @@ site whose provenance device is still decorative.
 
 ### Added 2026-07-29 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — Site-wide CLS ≈ 0.39 from the route Suspense fallback (4× the
+- [x] **HIGH — Site-wide CLS ≈ 0.39 from the route Suspense fallback (4× the
       Core Web Vitals threshold).** Every route measures ~0.39 CLS; "good" is
       ≤ 0.1. `src/lib/withSuspense.tsx`'s `RouteFallback` renders a `py-24`
       centered "Loading…" box, and because every route is lazy-loaded behind it,
@@ -1083,6 +1100,39 @@ site whose provenance device is still decorative.
       PR #57 precedent. _Source: 2026-07-29 performance-budget measurement
       (PR #73) — the site's first-ever perf measurement, found on its first
       run. Thresholds per Google Core Web Vitals._
+      _(2026-07-30, team/2026-07-30-cls-suspense-fallback, PR #78 — awaiting
+      Dom. **0.3901–0.3955 → 0.0000–0.0055 on every route**, real Playwright
+      measurements against `vite preview` on the built `dist/`; lead
+      independently re-ran the whole spec on the pushed tree, 21/21 in 16.1s.
+      designer decision spec first (`docs/cls-fallback-decision.md`), then
+      frontend-dev. **Two treatments, because it was two bugs.** (A) cold
+      deep-link load: `RouteFallback` reserves `min-h-[100svh]`. The value is
+      derived, not guessed — a layout shift only counts an element visible in
+      the frame BEFORE it moved, so reserving one viewport puts the painted
+      `<Footer>` below the fold and its later jump stops counting. That is also
+      why CLS was ~0.39 on every route regardless of content height: the
+      distance term saturates. So it needs no per-route numbers, which matters
+      because the repo only ever measured ONE height pair (800px→5096px) and
+      inventing five more would have been fabrication. (B) in-app navigation:
+      one stable `<Suspense>`/`<RouteErrorBoundary>` around `<Outlet/>` instead
+      of a fresh boundary per route. The spec's named trap was avoided —
+      `RouteErrorBoundary` got a `resetKey` prop, NOT `key={pathname}`, which
+      would remount the nested `<Suspense>` and silently restore the bug.
+      `withSuspense` survived (still the only path for the router's top-level
+      `errorElement`) and says so, rather than being deleted as dead.
+      **A falsification failed to fail, and is reported rather than buried:**
+      reverting (B) alone did NOT turn the in-app test red even under an
+      injected 1500ms chunk delay, because this app's routes are siblings at one
+      `<Outlet/>` with identical wrapper types, so React's unkeyed
+      reconciliation never remounts that boundary anyway. **Read honestly:
+      treatment A is what fixed the measured CLS; treatment B is structural
+      hardening whose benefit this route topology cannot demonstrate.** Rather
+      than ship an unfalsifiable change, a second deterministic test was added
+      ("never flashes the route fallback, even under injected chunk latency")
+      which DOES catch the `key={pathname}` regression class. `KNOWN_CLS_
+      VIOLATIONS` deleted, not renumbered, per PR #57. Lead review added one
+      commit: a doc comment still referenced the allowlist in the present tense
+      after its deletion — the doc-drift class PR #66 cleaned up.)_
 - [ ] **MEDIUM — Hero images are oversized and non-responsive.**
       `ProjectHero`'s `cover` renders as a single image at every viewport — no
       `<picture>`/`srcset` — so a phone fetches the desktop-sized hero.
@@ -1093,6 +1143,33 @@ site whose provenance device is still decorative.
       blocked on tooling** (`pngquant`/`oxipng`/`cwebp` are not installed on
       this machine; a one-time install unblocks it). _Source: 2026-07-29
       performance-budget measurement (PR #73)._
+      _(**BUILT AND WITHHELD 2026-07-30** — stays open, and this item's own
+      premise was wrong. frontend-dev implemented the responsive-sources half
+      cleanly on `team/2026-07-30-responsive-hero-sources` (commit `f2f7db1`,
+      **local, deliberately unpushed**): explicit optional `coverMobile` field
+      rather than a `-desktop`→`-mobile` naming convention (a missing sibling
+      would 404 silently inside a `<source>`), `<picture>` + `<source media>`
+      keyed to the real `--breakpoint-sm` token, falsified red→green, all six
+      gates green, **~1.04MB less transferred at 375px**. The lead then measured
+      it in a real browser and it is a visual regression: **every mobile asset
+      on disk is a 375×812 PORTRAIT phone capture (ratio 0.462) and the hero box
+      is `aspect-[16/9]` with `object-cover`, so the visible fraction of the
+      image drops from 90% to 26%** — three quarters of the screenshot cropped
+      away, leaving a band of body text with its top sheared off. Measured on
+      `vite preview` against real `dist/`: baseline serves
+      `portfolio-hero-desktop.png` 1280×800 into a 343×193 box (0.90 visible);
+      the change serves `portfolio-hero-mobile.png` 375×812 into the same box
+      (0.26 visible). **The jsdom component tests pass and always would** — they
+      assert the `<source>` element exists, which it correctly does; jsdom has
+      no layout. **Correction to this item: BOTH halves are blocked on the
+      missing image tooling, not just recompression.** Usable responsive sources
+      need mobile-width LANDSCAPE crops, which do not exist and cannot be
+      produced without the same absent `pngquant`/`cwebp`/ImageMagick. The
+      alternative — a portrait `aspect-[375/812]` mobile hero, ~743px tall on a
+      343px-wide screen — is a legitimate direction but a **designer + Dom
+      layout decision**, not something to slip into a performance PR, and it
+      fights the CLS work. Branch is recoverable in one command if Dom takes
+      that direction.)_
 - [ ] **MEDIUM — No on-site surface for the run reports (spec first).**
       PROJECT-BRIEF goal 3 says the site's own git history and run reports ARE
       content, and the provenance strip now links individual runs — but there is
@@ -1108,6 +1185,33 @@ site whose provenance device is still decorative.
       the honest answer may be "an index page, not 20 new routes." _Source:
       named product gap, PROJECT-BRIEF goal 3; found by the lead 2026-07-29
       while wiring the reports deep link._
+      _(**SPEC SHIPPED 2026-07-30 — item stays open**, team/2026-07-30-reports-
+      surface-spec, PR #76. `docs/reports-surface.md`; no product code, no route,
+      nothing public. **The item guessed its own answer correctly:** architect
+      recommends ONE `/reports` index route, not 21 per-report routes. Measured
+      across all 21 reports, a run report is ~30–40% reader-facing prose wrapped
+      in ~60% operations (`## For Dom to review`, Notion-mirror bookkeeping,
+      token estimates, machine-input provenance blocks) — and the reader-facing
+      part is exactly what the logbook already distills, so publishing them
+      would double the page count with unedited prose competing with the edited
+      version of itself. What the reader actually lacks is not the reports (one
+      click away since PR #71) but the **join**: which run produced which post —
+      21 runs, 8 with recorded output, 13 without. Options (b) per-report routes,
+      (c) provenance-block-only partial view and (d) fold-into-logbook are each
+      costed and rejected **in writing** so a future run doesn't re-propose
+      them; (c) specifically for showing a document's table of contents while
+      withholding the document. **No new report frontmatter**: date from the
+      filename (all 21 match, including the irregular `-review`/`maintenance-`
+      shapes), title from the verbatim first H1, and deliberately **no derived
+      summary** — report first paragraphs can't survive truncation, and a
+      distorted one-liner on the honesty page is worse than none. Also declines
+      to repoint `ProvenanceStrip`'s run chip in-site: under an index-only shape
+      that swaps a link to the primary record for a link to a summary of it, on
+      the device whose whole justification is verification. Lead re-checked every
+      countable claim; one was wrong and is corrected in the committed version
+      ("thirteen posts" → 14, 0 drafts). **Remaining: designer pass (§6 PR 3, a
+      hard Dom checkpoint) then implementation PRs 0–4.** Two spin-off items
+      below.)_
 - [ ] **LOW — `media[].width`/`height` are never checked against the real
       image.** The schema requires them (they exist to prevent layout shift) and
       the new asset-path gate proves the file exists, but nothing verifies the
@@ -1138,93 +1242,116 @@ site whose provenance device is still decorative.
       PR. _Source: 2026-07-29 Notion reconciliation — the API rejected the
       write._
 
-### Added 2026-07-31 (impact-ranked; slot above "Pre-launch review")
+### Added 2026-07-30 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — The auto-merge lane works and the studio stopped using it; that
-      is why the review queue is over throttle.** On 2026-07-31 the queue stood
-      at **7 open PRs** against a stated throttle of ~4–6, which is itself a
-      stop condition for the build run — so the pile-up does not just delay
-      Dom, it halts the studio. The cause is not broken infrastructure.
-      `.github/workflows/auto-merge.yml` **demonstrably works**: PRs #10, #11,
-      #12 and #17 were all merged by `app/github-actions` on 2026-07-18. Those
-      are the workflow's **only four successful runs, ever, all on that one
-      day**; its whole remaining history is 13 runs that **skipped**, 12 of them
-      dated 2026-07-19 or later, because the
-      `if: contains(labels, 'safe-auto')` gate never matched — **no PR has
-      carried the `safe-auto` label in the 12 days since 2026-07-18.**
-      Re-running the workflow's own path-guard shell verbatim over the 7 open
-      PRs shows **5 of them (#69, #75, #76, #79, #80) pass the allowlist
-      untouched**; only #77 (`scripts/*.mjs`, `tsconfig.app.json`) and #78
-      (product code in `src/`) genuinely need a human read. So roughly
-      **two-thirds of the queue blocking this studio was built to merge
-      itself.** Fix is a process change, not code: the run playbook's step 3
-      ("commit → push → open PR") must gain a step 4 — classify the PR against
-      the allowlist and apply `safe-auto` when it qualifies. Worth pairing
-      with the pending P2 "drop `*.test.*` from the auto-merge allowlist" item,
-      since #69 qualifies **only** via the `*.test.ts` pattern that item wants
-      removed. _Source: 2026-07-31 maintenance run — measured, not inferred._
-- [ ] **HIGH — Branch protection on `main` was never configured, so the
-      auto-merge lane's CI gate does not exist.**
-      `gh api repos/dominiquebrom28/studio-site/branches/main/protection`
-      returns **404 "Branch not protected."** `.github/AUTO-MERGE-SETUP.md`
-      lists four one-time manual steps; three are done (Allow auto-merge is on,
-      the `safe-auto` label exists, `gh` is authenticated) but **step 2 —
-      require the `CI / build` check on `main` — is not**. The setup doc calls
-      that step "the actual deploy/merge gate… even a PR with `safe-auto`
-      enabled cannot merge until this required check is green," and that
-      sentence is currently false. Consequence: the four PRs the lane merged on
-      2026-07-18 were guarded by the **path allowlist alone**, never by CI, and
-      any future labeled PR would be too. This is the same
-      green-but-covering-nothing shape as the unset `SMOKE_URL` item above —
-      a gate whose designed happy path silently became "no gate." **Sequence
-      this BEFORE adopting the labeling habit in the item above**, or the
-      studio would be turning on self-merge with the safety interlock missing.
-      One-time Dom action in the GitHub UI, no PR. While there, confirm
-      empirically what `gh pr merge --auto` does on a repo with no required
-      checks — GitHub may refuse it outright on an already-mergeable PR, which
-      would mean the lane is not merely unguarded but would also fail on its
-      next use. _Source: 2026-07-31 maintenance run._
-
-- [ ] **MEDIUM — Nothing surfaces a red CI check, and nobody reads the
-      artifacts that would explain it.** PR #69's `e2e` job failed on
-      2026-07-29 and sat red and unexamined for **two days** while six green PRs
-      queued behind it — it was the only red check in the entire queue. It was
-      diagnosable the whole time: an unexpired 2MB `playwright-report` artifact
-      with a full trace, one `gh run download 30433103427 -n playwright-report`
-      away, which is exactly how the 2026-07-31 run root-caused it in the end.
-      Two separable gaps: (a) **nothing notifies** when a check goes red — the
-      studio's own run playbook checks PR CI status only incidentally, and a
-      non-required job (`e2e` is deliberately non-required, see `ci.yml`) shows
-      red on the checks screen and blocks nothing; (b) **the run playbook has no
-      "download the artifact before re-running" step**, and a re-run destroys
-      the cheapest evidence available. Note the irony worth preserving: PR #70
-      (2026-07-29) added artifact capture for the *smoke* suite on the theory
-      that the next failure should be diagnosable — it was right, and the very
-      next red check proved it, using an artifact Playwright's config had been
-      writing all along. **Capturable is not the same as read.** Cheap fixes:
-      add a red-check scan to the run playbook's step 0 reconciliation, and a
-      one-line "download the artifact first" note next to the existing
-      `npm run audit` preflight note in `README.md`. _Source: 2026-07-31
-      maintenance run — the fix landed, the process gap did not._
-
-- [ ] **LOW — Nine stale worktrees, 764MB, and one holding 11-day-old
-      uncommitted work.** Extends the two existing worktree items above with
-      measurements. `git worktree list` shows **nine** leftover worktrees no
-      run ever removed: five under `.claude/worktrees/` (**764MB** total,
-      `dom4-capture` alone is 197MB of captured media) and four under a dead
-      2026-07-28 session's scratchpad, which still exist on disk. Eight are
-      clean and safely removable. **The ninth is not:**
-      `.claude/worktrees/mystifying-wilbur-276efe` on
-      `team/2026-07-20-fix-post-count` still has **1 uncommitted file** — the
-      pin-by-slug fix the 2026-07-20 report described and deliberately left "in
-      case that session is still live." It is not live; it has sat there 11
-      days. So a blind `git worktree prune`/`remove --force` sweep would
-      destroy real work, which is presumably why nobody has swept. Right-sized
-      fix: decide that one file's fate first (commit it onto a branch or
-      discard it explicitly), then remove the other eight and have runs clean
-      up their own worktrees on exit. _Source: 2026-07-31 maintenance run —
-      found while removing this run's own two worktrees, which is exactly the
-      step every prior run skipped._
+- [ ] **HIGH — studio-site itself is missing from the portfolio.** `content/
+      projects/` holds six write-ups and **all six are `soloBuild: true`** —
+      verified, every file. The one project the AI team actually built, the
+      site making the claim, is not in its own portfolio. This is the site's
+      whole proof sitting outside the case it argues. It would also be the
+      **first `soloBuild: false` project**, which closes a gap PR #51 disclosed
+      itself: the inverse branch (a team-built project correctly omitting the
+      "SOLO BUILD · NO AGENT TEAM" chip) has no test because no team-built
+      fixture exists. And it has by far the deepest evidence base of any project
+      here — 21 run reports, ~78 PRs, a provenance engine, a documented
+      falsification culture. **Dom checkpoint**: it is public copy, it is
+      self-referential ("a portfolio entry about the portfolio"), and the honest
+      framing needs his sign-off — recommend the write-up lead with what went
+      WRONG (the four browser-only P0s, the three wrong-gate incidents, the
+      backlog misreporting its own state three times), because that is the
+      differentiated content and the site's stated voice. _Source: named product
+      gap, verified by the lead 2026-07-30; PROJECT-BRIEF goals 1 + 3. Market
+      research supports the priority: depth-of-reasoning case studies outperform
+      project count, and "2–4 fully documented case studies beat 8–10 shallow
+      entries" (greatfrontend.com, "Frontend Developer Portfolio: What to Build
+      and How to Stand Out in 2026")._
+- [ ] **MEDIUM — Provenance follow-ups the strip work deferred.** Named as
+      "remaining follow-ups are NOT this item" in PRs #58 and #72 and then never
+      became an item, which is how work goes missing here. Three parts:
+      (a) **backfill the 2 deliberately-skipped posts** — the founding post (file
+      created as a placeholder before its content) and `declared-not-delivered`
+      (created 07-22, no same-date report to host the block); both need a
+      decision on where the block lives, not just a block; (b) **reviewer/token
+      enrichment for the 8 backfilled posts**, which currently carry authors and
+      commits but thin reviewer data; (c) decide whether the 3 project pages
+      honestly showing "no run record" (their write-ups were created by an
+      earlier run's scaffold commit, per PR #72's archaeology) stay that way
+      permanently or get a record. **Do not invent records to fill the gaps** —
+      the "no run record" degrade is the honest state and PR #72 already refused
+      this once. _Source: PRs #58 / #72 follow-up notes, 2026-07-27 + 2026-07-29._
+- [ ] **MEDIUM — `runId`/`reportPath` are unvalidated `z.string()` and one is
+      already in an `href`.** `src/content/provenance-schema.ts:101-102` declares
+      both as bare `z.string()`, and `ProvenanceStrip.tsx:169` interpolates
+      `record.reportPath` straight into `href={`${REPO_BASE}/blob/main/${...}`}`.
+      Safe **in practice** only because `generate.mjs` writes that value from the
+      filesystem rather than from block content — an invariant enforced nowhere
+      in the schema, on the one device whose entire purpose is verification. Pin
+      both with regexes (`^(maintenance-)?\d{4}-\d{2}-\d{2}(-[a-z0-9-]+)?$` and
+      `^reports/[A-Za-z0-9._-]+\.md$`). Cheap, and it must land before either
+      value could ever become a route segment. _Source: architect, 2026-07-30
+      reports-surface spec §4.1 (PR #76) — surfaced as worth doing regardless of
+      that item's outcome; both facts verified against the tree by the lead._
+- [ ] **MEDIUM — The auto-merge allowlist and the committed generated artifact
+      contradict each other.** `.github/workflows/auto-merge.yml` allowlists
+      `content/**`, `docs/**`, `reports/**`, root `*.md` and `**/*.test.ts(x)` —
+      confirmed, nothing under `src/`. But `src/content/provenance.generated.json`
+      is committed (the 2026-07-27 reversal), so **any PR that regenerates it
+      loses `safe-auto`**, including routine backlog-and-report PRs. Either
+      allowlist `src/content/*.generated.json` (defensible: generated,
+      Zod-validated, non-executable JSON whose freshness is proven by the CI
+      drift gate in the same PR) or accept that these PRs are always manual and
+      say so. Do not widen the allowlist further under `src/`. _Source:
+      architect, 2026-07-30 (PR #76 §5); verified against both files by the lead._
+- [ ] **MEDIUM — Nothing measures whether anyone reads this site.**
+      PROJECT-BRIEF goal 2 wants readers; there is no analytics of any kind, so
+      every prioritisation decision about content is made blind — the
+      reports-surface spec had to note that "ship it and see if people click" is
+      literally not measurable here. This is **not a pure build item**: any
+      script-based analytics interacts with the CSP shipped in PR #42
+      (`script-src` is hash-pinned, deliberately), and it is a privacy decision
+      about Dom's visitors, so it is his call and needs a recommendation, not an
+      install. Options worth costing: Vercel Web Analytics (first-party, no
+      cookie banner, but a paid tier beyond a free allowance), a self-hosted or
+      hosted Plausible/Umami, or server-side-only log analysis with zero client
+      JS. _Source: named product gap; found 2026-07-30 while specifying the
+      reports surface. Recommend costing before building._
+- [ ] **HIGH — A run cannot record its own provenance until its PRs merge (and
+      2026-07-30's three blocks are outstanding because of it).** Undocumented
+      ordering constraint in the provenance format, hit for the first time on
+      2026-07-30. A `yaml provenance` block is a **creation record** and
+      `generate.mjs` verifies the produced path exists on disk — correct, and
+      the §5.2 fail-loud property working. But a run writes its report on its own
+      branch while the files it created sit on unmerged feature branches, so the
+      claim is not yet true at write time and the generator rejects it. The
+      2026-07-27 backfill (PR #58) never hit this because it operated on
+      already-merged history. Shipping the blocks anyway would mean a **red CI on
+      a PR awaiting review for days**, which is the "a gate people re-run until
+      it's green stops being a gate" failure logged 2026-07-19 and fixed
+      2026-07-29 — so they were deferred, with full content preserved in
+      `reports/2026-07-30.md` so nothing is reconstructed from memory.
+      **Two things to do:** (a) append the three preserved blocks once PRs #76,
+      #77 and #78 merge — otherwise this run permanently shows "no run record";
+      (b) decide the general rule, since this will recur every run. Options:
+      always append blocks in a follow-up commit after merge (status quo,
+      reliable but needs a standing step); have the report PR merge last and
+      accept transient red CI (rejected above); relax the generator to accept a
+      produced path that exists on the PR branch but not `main` (weakens the
+      creation-record guarantee); or move the block into the branch that creates
+      the files rather than the report. _Source: Project Lead, 2026-07-30 —
+      observed, not hypothetical._
+- [ ] **LOW — The "QA pass" item at the top of this file is stale and should be
+      re-scoped or closed with evidence.** It has been open and unchanged since
+      day one, reading "all states, responsive, accessibility; fix findings" —
+      but since it was written the studio has shipped the route smoke suite
+      (PR #20), component-test infra (#32), interaction backfill + axe (#43), the
+      Playwright responsive/contrast lane (#53), and the performance budget
+      (#73). Most of what it asks for now exists and is gated in CI. Leaving a
+      permanently-open vague item pinned near the top is exactly the
+      "backlog lies about its own state" failure this project has already had
+      **three** separate incidents of. Action: enumerate what "QA pass" still
+      means that no existing gate covers, and either rewrite it as that specific
+      list or check it off citing the gates that closed it. _Source: lead
+      backlog-health review, 2026-07-30._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.

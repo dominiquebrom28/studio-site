@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseFrontmatter } from './frontmatter';
 import { cast } from './cast';
 
@@ -58,6 +61,16 @@ const postFiles = import.meta.glob('/content/posts/*.md', {
   import: 'default',
 }) as Record<string, string>;
 
+// Added for the "asset paths resolve to real files" gate below — sibling
+// glob to `postFiles`, same eager/raw pattern `loader.ts` uses for
+// `content/projects/*.md`. Nothing above this line touched `content/
+// projects/` at all; the pre-existing rules in this file are post-only.
+const projectFiles = import.meta.glob('/content/projects/*.md', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+}) as Record<string, string>;
+
 const FILENAME_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})-/;
 
 interface ParsedPost {
@@ -67,6 +80,12 @@ interface ParsedPost {
 }
 
 const posts: ParsedPost[] = Object.entries(postFiles).map(([filePath, raw]) => {
+  const { data } = parseFrontmatter(raw);
+  const filename = filePath.split('/').pop() ?? filePath;
+  return { path: filePath, filename, data };
+});
+
+const projects: ParsedPost[] = Object.entries(projectFiles).map(([filePath, raw]) => {
   const { data } = parseFrontmatter(raw);
   const filename = filePath.split('/').pop() ?? filePath;
   return { path: filePath, filename, data };
@@ -191,5 +210,247 @@ describe('content validation — post frontmatter (real content/posts)', () => {
         }
       });
     }
+  });
+});
+
+/**
+ * Asset-path existence gate (BACKLOG P2 batch, 2026-07-21 review: "build-time
+ * check that `cover`/`media[].src`/`poster` paths exist on disk"). Since
+ * DOM-4, `cover` (projects + posts), every `media[].src`, and every
+ * `media[].poster` (projects only — `ProjectMediaItemSchema`, schemas.ts) are
+ * plain `z.string()` frontmatter fields: Zod validates the STRING'S shape
+ * (non-empty, and `poster` required when `kind: "animation"`) but nothing
+ * checks the string actually names a file that exists. A typo — or a real
+ * asset that was renamed/moved without updating the content file — ships a
+ * broken `<img>`/poster to production while every existing gate (schema
+ * validation, `npm test`, `npm run build`) stays green: the build only knows
+ * about STRINGS, never touches the filesystem to confirm the referenced file
+ * is actually there. Same "declared but not delivered" failure class the
+ * whole 2026-07-21 review was about (see this file's header comment for the
+ * sibling incident on `sortPosts`).
+ *
+ * MAPPING (confirmed empirically, not assumed — see `MediaGallery.tsx`'s
+ * `<img src={item.src}>` / `<img src={displaySrc}>` and `PostCover.tsx`'s
+ * `<img src={post.cover}>`: these values are used AS-IS as the `src`
+ * attribute, never transformed): a content path is a public-root URL,
+ * e.g. `/images/projects/soulforge/soulforge-hero-desktop.png`. Vite's
+ * default (unconfigured — `vite.config.ts` sets no `publicDir`) `public/`
+ * directory serves everything under it at the site root, so that string
+ * maps 1:1 onto `public/images/projects/soulforge/soulforge-hero-desktop.png`
+ * on disk: strip the leading `/`, resolve under `public/`.
+ *
+ * An absolute `http(s)://` value is left unchecked (some future post cover
+ * could legitimately point at an externally-hosted image) — the same
+ * allowance the `repo`/`liveUrl` fields already get via `urlOrEmpty`
+ * (schemas.ts). A relative value that does NOT start with `/` is flagged as
+ * its own failure — it can't resolve to a `public/`-root path at all, which
+ * is itself a bug worth naming precisely rather than silently skipping.
+ *
+ * CASE SENSITIVITY (task requirement — macOS is case-insensitive by default,
+ * Linux CI is not): `fs.existsSync`/`fs.statSync` alone would silently PASS
+ * a path that differs only in case on a contributor's Mac and then 404 on
+ * Vercel's Linux build. `resolveCaseSensitive` below never calls
+ * `existsSync` — it walks the path one path segment at a time via
+ * `fs.readdirSync`, and at each level requires the exact segment string to
+ * appear (case-sensitive: JS `Array.prototype.includes` string comparison)
+ * among the REAL directory entries returned by the filesystem. Tested by
+ * deliberately mis-casing a real, otherwise-valid path locally on this
+ * macOS checkout (see the PR body for the exact red output) — the
+ * case-sensitive walk failed it even though this machine's filesystem
+ * itself is case-insensitive and `fs.existsSync` on the same mis-cased path
+ * returns `true` here.
+ */
+describe('content validation — asset paths resolve to real files on disk', () => {
+  const dirname = path.dirname(fileURLToPath(import.meta.url));
+  // src/content -> repo root -> public/
+  const PUBLIC_ROOT = path.resolve(dirname, '../../public');
+  // Scope of the orphan check (rule 2 below) — project screenshots/posters
+  // live exclusively under this subtree; post covers do not have a fixed
+  // subtree yet (zero posts set `cover` today) so they're excluded from the
+  // orphan scan to avoid a false positive the moment the first one is added
+  // somewhere else under `public/`.
+  const PROJECT_MEDIA_ROOT = path.join(PUBLIC_ROOT, 'images', 'projects');
+  // Orphan scan is deliberately scoped to real IMAGE files only. Without an
+  // extension filter, `public/images/projects/CAPTIONS.md` (a real,
+  // intentionally-committed alt-text/caption reference doc living in that
+  // same directory — see its own header comment) would flag as an "orphan"
+  // every single run: it is never a `cover`/`media[].src`/`poster` value and
+  // was never meant to be one. That's exactly the "noisy check gets
+  // disabled" failure mode the task warns about, for a file that isn't a bug
+  // at all — filtering to known asset extensions removes the false positive
+  // without weakening the real check (a genuinely orphaned image still has
+  // one of these extensions).
+  const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+
+  /**
+   * Resolves `relPath` (repo-relative, no leading slash, e.g.
+   * `"images/projects/x/y.png"`) against `PUBLIC_ROOT` one path segment at a
+   * time via `fs.readdirSync`, requiring an EXACT (case-sensitive) string
+   * match against real directory entries at every level — see this
+   * `describe` block's header comment for why `fs.existsSync` alone can't be
+   * trusted here.
+   */
+  function resolveCaseSensitive(relPath: string): { exists: boolean; reason: string } {
+    const segments = relPath.split('/').filter((segment) => segment.length > 0);
+    if (segments.length === 0) {
+      return { exists: false, reason: 'path is empty after stripping the leading "/"' };
+    }
+
+    let currentDir = PUBLIC_ROOT;
+    for (let i = 0; i < segments.length; i += 1) {
+      const segment = segments[i];
+      const isLastSegment = i === segments.length - 1;
+      const shownSoFar = segments.slice(0, i + 1).join('/');
+
+      let entries: string[];
+      try {
+        entries = fs.readdirSync(currentDir);
+      } catch {
+        return {
+          exists: false,
+          reason: `"${path.relative(PUBLIC_ROOT, currentDir) || '.'}" is not a directory under public/`,
+        };
+      }
+
+      if (!entries.includes(segment)) {
+        return {
+          exists: false,
+          reason: `no entry named "${segment}" (case-sensitive) in "public/${path.relative(PUBLIC_ROOT, currentDir) || ''}" — got up to "public/${shownSoFar}"`,
+        };
+      }
+
+      currentDir = path.join(currentDir, segment);
+
+      if (isLastSegment) {
+        const stat = fs.statSync(currentDir);
+        if (!stat.isFile()) {
+          return { exists: false, reason: `"public/${relPath}" exists but is not a file` };
+        }
+      }
+    }
+
+    return { exists: true, reason: '' };
+  }
+
+  /** Collects every path actually checked (used by the orphan scan below to
+   * know what's "claimed" by content) and pushes a precise problem message —
+   * naming the content file, the exact field, and the offending path, per
+   * the task's requirement #1 — for anything that fails to resolve. */
+  function checkAssetPath(
+    value: unknown,
+    field: string,
+    filename: string,
+    problems: string[],
+    claimedPaths: Set<string>,
+  ): void {
+    if (typeof value !== 'string' || value.length === 0) return; // absent/malformed — schema's job, not this gate's
+    if (/^https?:\/\//.test(value)) return; // externally-hosted; not a local `public/` path to check
+
+    if (!value.startsWith('/')) {
+      problems.push(
+        `"${filename}": ${field} "${value}" does not start with "/" — cannot resolve to a public/-root path`,
+      );
+      return;
+    }
+
+    claimedPaths.add(value);
+
+    const relPath = value.slice(1);
+    const result = resolveCaseSensitive(relPath);
+    if (!result.exists) {
+      problems.push(`"${filename}": ${field} "${value}" does not resolve to a real file under public/ (${result.reason})`);
+    }
+  }
+
+  it('every project `cover` / `media[].src` / `media[].poster` resolves to a real file under public/ (case-sensitive)', () => {
+    const problems: string[] = [];
+    const claimedPaths = new Set<string>();
+
+    for (const project of projects) {
+      checkAssetPath(project.data.cover, 'cover', project.filename, problems, claimedPaths);
+
+      const media = Array.isArray(project.data.media) ? project.data.media : [];
+      media.forEach((item, index) => {
+        const record = typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {};
+        checkAssetPath(record.src, `media[${index}].src`, project.filename, problems, claimedPaths);
+        checkAssetPath(record.poster, `media[${index}].poster`, project.filename, problems, claimedPaths);
+      });
+    }
+
+    expect(problems, problems.length > 0 ? problems.join('\n') : undefined).toEqual([]);
+  });
+
+  it('every post `cover` resolves to a real file under public/ (case-sensitive)', () => {
+    const problems: string[] = [];
+    const claimedPaths = new Set<string>();
+
+    for (const post of posts) {
+      checkAssetPath(post.data.cover, 'cover', post.filename, problems, claimedPaths);
+    }
+
+    expect(problems, problems.length > 0 ? problems.join('\n') : undefined).toEqual([]);
+  });
+
+  /**
+   * Rule 2 (task requirement #2, "flag the inverse if cheap and
+   * unambiguous"): every real image file under `public/images/projects/`
+   * that no content file references at all. Judged cheap and unambiguous
+   * enough to keep ON, scoped tightly to avoid the noise the task warns
+   * about:
+   *   - extension-filtered (see `IMAGE_EXTENSIONS` above) so a non-asset
+   *     file like `CAPTIONS.md` never false-positives.
+   *   - scoped to `public/images/projects/` only, not all of `public/`
+   *     (favicons, OG images, etc. are page furniture referenced from
+   *     `index.html`/meta tags, not content frontmatter — flagging those as
+   *     "orphans" here would be a false positive against a check whose job
+   *     is specifically "did a content file forget to reference this project
+   *     asset").
+   *   - compares against the exact string values collected by the two tests
+   *     above (`claimedPaths` is rebuilt from the SAME real content here, not
+   *     duplicated logic) so a rename in content is reflected automatically.
+   */
+  it('no orphaned image files under public/images/projects/ (referenced by zero content files)', () => {
+    const claimedPaths = new Set<string>();
+    const unusedProblems: string[] = []; // not asserted on — reused checkAssetPath signature only
+
+    for (const project of projects) {
+      checkAssetPath(project.data.cover, 'cover', project.filename, unusedProblems, claimedPaths);
+      const media = Array.isArray(project.data.media) ? project.data.media : [];
+      media.forEach((item) => {
+        const record = typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {};
+        checkAssetPath(record.src, 'media[].src', project.filename, unusedProblems, claimedPaths);
+        checkAssetPath(record.poster, 'media[].poster', project.filename, unusedProblems, claimedPaths);
+      });
+    }
+    for (const post of posts) {
+      checkAssetPath(post.data.cover, 'cover', post.filename, unusedProblems, claimedPaths);
+    }
+
+    function walk(dir: string): string[] {
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return [];
+      }
+      return entries.flatMap((entry) => {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) return walk(full);
+        if (!IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) return [];
+        return [full];
+      });
+    }
+
+    const realFiles = walk(PROJECT_MEDIA_ROOT);
+    const orphans = realFiles
+      .map((absolute) => '/' + path.relative(PUBLIC_ROOT, absolute).split(path.sep).join('/'))
+      .filter((publicPath) => !claimedPaths.has(publicPath));
+
+    expect(
+      orphans,
+      orphans.length > 0
+        ? `these image files under public/images/projects/ are referenced by no content file's cover/media[].src/media[].poster:\n${orphans.join('\n')}`
+        : undefined,
+    ).toEqual([]);
   });
 });

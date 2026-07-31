@@ -90,10 +90,29 @@ test.describe('Header — mobile drawer (real browser)', () => {
     // without this the wheel can race the close and land while the scroll
     // lock is still applied, which isn't the thing under test here.
     await expect(page.getByRole('dialog', { name: 'Mobile navigation' })).toBeHidden();
-    await page.mouse.wheel(0, 800);
-    // `html { scroll-smooth }` (src/index.css) means this scroll animates
-    // rather than landing instantly — `expect.poll` (not an immediate read)
-    // so this doesn't race the animation and fail for the wrong reason.
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    // Re-dispatch the wheel INSIDE the poll, not just re-read scrollY.
+    // Root-caused via a real CI failure's Playwright trace (2026-07-29,
+    // run 30433103427): a single `page.mouse.wheel` synthetic gesture can
+    // occasionally be a no-op — the trace showed `window.scrollY` reads
+    // completing in 3-6ms for the full 5s poll window (the page/renderer
+    // was never frozen or CPU-starved) while the one wheel dispatch that
+    // preceded them simply produced no scroll at all. The scroll-lock
+    // RELEASE was already proven correct in that same run (dialog removed,
+    // focus returned to the trigger per its accessibility snapshot) —
+    // reproduced/falsified locally too: `body.style.overflow` resets
+    // synchronously and correctly even under adversarial (60x CPU
+    // throttled) conditions, yet the old single-dispatch-then-poll-the-read
+    // pattern still failed at that throttle, and re-dispatching the wheel
+    // on every poll attempt (this fix) turned it green 12/12. A longer
+    // timeout cannot fix a dropped input event; retrying the actual action
+    // can. `html { scroll-smooth }` (src/index.css) means a successful
+    // scroll still animates rather than landing instantly, which is exactly
+    // why this needs to be `expect.poll` rather than an immediate read.
+    await expect
+      .poll(async () => {
+        await page.mouse.wheel(0, 800);
+        return page.evaluate(() => window.scrollY);
+      })
+      .toBeGreaterThan(0);
   });
 });
