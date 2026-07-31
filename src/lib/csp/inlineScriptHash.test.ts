@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { computeCspScriptHash, extractCspHashes, extractInlineScripts } from './inlineScriptHash';
+import {
+  computeCspScriptHash,
+  extractCspHashes,
+  extractInlineScripts,
+  findCspHeaderValue,
+} from './inlineScriptHash';
 
 const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
 // This file lives at src/lib/csp/ — three levels below the repo root.
@@ -94,20 +99,3 @@ describe('index.html inline script hash matches vercel.json CSP (regression guar
     ).toBe(shippedHash);
   });
 });
-
-/** Finds the `Content-Security-Policy` header value from a parsed
- * `vercel.json`'s `headers` array (Vercel's `{ source, headers: [{key,value}] }`
- * shape). Throws with a clear message if the shape ever changes so this
- * guard fails loudly rather than silently passing on `undefined`. */
-function findCspHeaderValue(vercelConfig: unknown): string {
-  const config = vercelConfig as { headers?: Array<{ headers?: Array<{ key: string; value: string }> }> };
-  for (const rule of config.headers ?? []) {
-    for (const header of rule.headers ?? []) {
-      if (header.key === 'Content-Security-Policy') return header.value;
-    }
-  }
-  throw new Error(
-    "No 'Content-Security-Policy' header found in vercel.json's headers[] — " +
-      'has the headers config shape changed?',
-  );
-}

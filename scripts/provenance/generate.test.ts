@@ -351,14 +351,26 @@ describe('generateProvenance — failure table (§5.2)', () => {
 describe('generateProvenance — against the REAL reports/ directory', () => {
   // Was "zero blocks shipped yet -> {}" (true 2026-07-23). The first backfill
   // tranche (2026-07-27, team/2026-07-27-provenance-backfill) shipped
-  // `yaml provenance` blocks for eight logbook posts, so the real reports now
-  // produce eight records. This test's job is now to guard that the real
-  // reports keep PARSING CLEANLY (no schema/cast/uniqueness error) and that
-  // records key off exactly the expected produced paths — not to snapshot the
-  // full record shape (the happy-path tests above already own that), and not
-  // to assert commit values (this fake git runner resolves none; the real
-  // generator resolves them at build time).
-  it('parses cleanly and produces one record per backfilled post path', async () => {
+  // `yaml provenance` blocks for eight logbook posts. The second
+  // (2026-07-29, team/2026-07-29-provenance-project-strip, docs/
+  // provenance-model.md §12 PR 7) added a SECOND block to
+  // `reports/2026-07-16.md` covering exactly the three project write-ups
+  // that report's own commit (`48e4fe5`) actually created —
+  // pizzaparty/mensapp/lovediary. The other three project write-ups named in
+  // that same report's "Files" section (soulforge, portfolio,
+  // chart-token-playground) were "replaced placeholders", not new files —
+  // their real adding commit (`980a4c2`) belongs to an earlier, different
+  // run that shipped placeholder text, not this one — so they are
+  // deliberately NOT in `produced` and correctly render "no run record" on
+  // the site (see the report's own "Project write-ups backfill" section and
+  // the ProjectDetail PR body for the full accounting). This test's job is
+  // now to guard that the real reports keep PARSING CLEANLY (no
+  // schema/cast/uniqueness error) and that records key off exactly the
+  // expected produced paths — not to snapshot the full record shape (the
+  // happy-path tests above already own that), and not to assert commit
+  // values (this fake git runner resolves none; the real generator resolves
+  // them at build time).
+  it('parses cleanly and produces one record per backfilled post/project path', async () => {
     const REPO_ROOT = path.resolve(DIRNAME, '..', '..');
     const records = await generateProvenance({
       repoRoot: REPO_ROOT,
@@ -375,7 +387,20 @@ describe('generateProvenance — against the REAL reports/ directory', () => {
       'content/posts/2026-07-20-red-is-not-self-justifying.md',
       'content/posts/2026-07-22-one-commit-and-it-was-the-post.md',
       'content/posts/2026-07-23-two-things-that-passed-every-gate.md',
+      'content/projects/lovediary.md',
+      'content/projects/mensapp.md',
+      'content/projects/pizzaparty.md',
     ]);
+    // Deliberately excluded — see the doc comment above. Asserted here so a
+    // future report block accidentally re-claiming one of these under a
+    // wrong commit fails this test loudly, not silently.
+    for (const excludedPath of [
+      'content/projects/soulforge.md',
+      'content/projects/portfolio.md',
+      'content/projects/chart-token-playground.md',
+    ]) {
+      expect(records[excludedPath]).toBeUndefined();
+    }
     // Every real record satisfies the schema's floor (authors non-empty).
     for (const record of Object.values(records)) {
       expect(record.authors.length).toBeGreaterThan(0);

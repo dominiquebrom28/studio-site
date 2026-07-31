@@ -41,16 +41,36 @@ describe('Footer — conversion-path block (shipping state: all three optional c
     ).toBeTruthy();
   });
 
-  it('renders the GitHub CTA pointing at the same URL as the existing footer nav GitHub link (both derive from GITHUB_URL)', () => {
+  it('renders the GitHub CTA pointing at the studio-site repo (the proof, not Dom\'s bare profile), matching the footer nav GitHub link (both derive from GITHUB_URL)', () => {
     renderFooter();
 
     const cta = screen.getByRole('link', { name: 'Find Dom on GitHub' });
-    const navLink = screen.getByRole('navigation', { name: 'Footer' }).querySelector('a[href*="github.com"]');
+    // Queried by accessible name, NOT `a[href*="github.com"]` — the nav now
+    // holds two github.com links ("Run reports" and "GitHub"), and a
+    // first-match selector would silently assert against whichever happens
+    // to come first in the DOM.
+    const navLink = screen.getByRole('link', { name: 'GitHub' });
 
-    expect(cta.getAttribute('href')).toBe('https://github.com/dominiquebrom28');
-    expect(navLink?.getAttribute('href')).toBe(cta.getAttribute('href'));
+    expect(cta.getAttribute('href')).toBe('https://github.com/dominiquebrom28/studio-site');
+    expect(navLink.getAttribute('href')).toBe(cta.getAttribute('href'));
     expect(cta.getAttribute('target')).toBe('_blank');
     expect(cta.getAttribute('rel')).toBe('noreferrer');
+  });
+
+  it('exposes a reachable reports/ deep link in the global footer nav (not only in BlogIndex\'s never-rendered empty state)', () => {
+    renderFooter();
+
+    // PROJECT-BRIEF goal 3 — the run reports ARE content. The backlog item
+    // asked for a `reports/` deep link; placing it only in BlogIndex's empty
+    // state made it unreachable in production (13 posts, so that branch never
+    // renders). RootLayout mounts this footer on every route.
+    const reports = screen.getByRole('link', { name: 'Run reports' });
+
+    expect(reports.getAttribute('href')).toBe(
+      'https://github.com/dominiquebrom28/studio-site/tree/main/reports',
+    );
+    expect(reports.getAttribute('target')).toBe('_blank');
+    expect(reports.getAttribute('rel')).toBe('noreferrer');
   });
 
   it('never renders a mailto: link anywhere in the footer when DOM_EMAIL is unset (the real, current constant)', () => {

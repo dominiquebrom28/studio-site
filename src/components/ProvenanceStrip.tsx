@@ -183,8 +183,16 @@ function runField(record: ProvenanceRecord): ProvenanceField {
  * separately rather than derived from `record.authors`, because the "Written
  * by" chip has always been driven by the `author` prop (the same identity
  * `Byline`/`BylineGroup` render above this component) — see the component
- * doc comment on why that stays a prop, not a record read. */
-function buildFields(written: ProvenanceField, record: ProvenanceRecord): ProvenanceField[] {
+ * doc comment on why that stays a prop, not a record read.
+ *
+ * `written` is nullable (docs/provenance-model.md §12 PR 7): `ProjectDetail`
+ * has no independent, per-file "who wrote this" fact the way a post's
+ * `author` frontmatter does — a project's write-up credit is only knowable
+ * AT ALL when a `ProvenanceRecord` names it (`record.authors[0]`, passed in
+ * by the caller). When `written` is `null` here it's simply omitted, same
+ * as every other absent field — never a fabricated "Written by Dom"/"Written
+ * by the studio" standing in for a fact nobody actually recorded. */
+function buildFields(written: ProvenanceField | null, record: ProvenanceRecord): ProvenanceField[] {
   return [
     written,
     ...reviewerFields(record.reviewers),
@@ -307,8 +315,16 @@ export function ProvenanceStrip({
 }: {
   /** The post/project's primary credited author (raw frontmatter value,
    * e.g. "designer", or "Dom") — drives the "Written by" chip independently
-   * of whether `provenance` exists at all (see `buildFields`'s doc comment). */
-  author: string;
+   * of whether `provenance` exists at all (see `buildFields`'s doc comment).
+   *
+   * Optional (docs/provenance-model.md §12 PR 7): every `Post` has an
+   * always-populated `author` (frontmatter, normalized in `loader.ts`), but
+   * `Project` has no such field — a project's write-up credit is knowable
+   * ONLY through a `ProvenanceRecord`. Callers with no independent authorship
+   * fact (i.e. `ProjectDetail` for a project with `provenance === undefined`)
+   * omit this prop rather than pass a guess; the "Written by" chip/row is
+   * then simply absent, same honest-omission rule as every other field. */
+  author?: string;
   /** `undefined` is the honest, designed "no run record" state (§4.2) — not
    * a loading state, not an error. See the component doc comment's "none". */
   provenance?: ProvenanceRecord;
@@ -317,7 +333,7 @@ export function ProvenanceStrip({
    * graded-paper badge + the `judge: null` explanatory row. */
   variant?: 'inline' | 'rail';
 }) {
-  const written = writtenField(author);
+  const written = author ? writtenField(author) : null;
 
   if (!provenance) {
     // The "none" state (§6): visibly, deliberately present — never a silent
@@ -334,7 +350,7 @@ export function ProvenanceStrip({
         >
           <InlineChips
             fields={[
-              written,
+              ...(written ? [written] : []),
               { key: 'no-record', label: '', inline: <span title={NO_RECORD_TOOLTIP}>no run record for this entry</span>, value: null },
             ]}
           />
@@ -344,8 +360,11 @@ export function ProvenanceStrip({
 
     return (
       <div role="note" aria-label="Provenance" className="font-mono text-[13px]">
-        <RailRows fields={[written]} />
-        <p className="mt-2.5 border-t border-dashed border-hairline pt-2.5 text-ink-muted" title={NO_RECORD_TOOLTIP}>
+        {written && <RailRows fields={[written]} />}
+        <p
+          className={`text-ink-muted ${written ? 'mt-2.5 border-t border-dashed border-hairline pt-2.5' : ''}`}
+          title={NO_RECORD_TOOLTIP}
+        >
           no run record for this entry
         </p>
       </div>

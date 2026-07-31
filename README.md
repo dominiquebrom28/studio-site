@@ -12,11 +12,21 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
 ## CI gates (`.github/workflows/ci.yml`)
 
 - **`build`** (required — this is the `CI / build` check branch protection
-  depends on, see `.github/AUTO-MERGE-SETUP.md`): `npm audit` (high/critical
-  fails it) → typecheck → unit tests → a real-DOM smoke test
-  (`npm run test:smoke` — mounts every key route in jsdom under
-  `<StrictMode>`, the only way to catch double-invoke-only bugs a static
-  render can't reproduce) → production build.
+  depends on, see `.github/AUTO-MERGE-SETUP.md`): dependency audit
+  (`npx audit-ci --config ./audit-ci.jsonc`, i.e. `npm run audit` — **not**
+  raw `npm audit`, see the preflight note below) → typecheck → unit tests →
+  a real-DOM smoke test (`npm run test:smoke` — mounts every key route in
+  jsdom under `<StrictMode>`, the only way to catch double-invoke-only bugs
+  a static render can't reproduce) → production build.
+
+  **Preflight before treating a dependency audit as a merge blocker:** run
+  `npm run audit` (the real CI gate), not raw `npm audit --audit-level=high`.
+  The two can disagree — raw `npm audit` has no per-advisory allowlist, so it
+  flags advisories `audit-ci.jsonc` has already reviewed and excluded as
+  non-applicable or already-patched-but-misreported (see that file's own
+  comments for the current allowlist and why). A 2026-07-28 run lost time
+  treating a raw-`npm-audit` "7 high vulns" as blocking before checking
+  `npm run audit`, which passed.
 - **`validate-content`** (runs on every PR, **not yet required**): frontmatter
   rules over `content/posts/*.md` — `npm run validate:content`. Currently
   RED against real content (two posts share a date, 2026-07-18) — a known,
