@@ -1207,6 +1207,25 @@ site whose provenance device is still decorative.
       `npm run audit` preflight note in `README.md`. _Source: 2026-07-31
       maintenance run — the fix landed, the process gap did not._
 
+- [ ] **LOW — Nine stale worktrees, 764MB, and one holding 11-day-old
+      uncommitted work.** Extends the two existing worktree items above with
+      measurements. `git worktree list` shows **nine** leftover worktrees no
+      run ever removed: five under `.claude/worktrees/` (**764MB** total,
+      `dom4-capture` alone is 197MB of captured media) and four under a dead
+      2026-07-28 session's scratchpad, which still exist on disk. Eight are
+      clean and safely removable. **The ninth is not:**
+      `.claude/worktrees/mystifying-wilbur-276efe` on
+      `team/2026-07-20-fix-post-count` still has **1 uncommitted file** — the
+      pin-by-slug fix the 2026-07-20 report described and deliberately left "in
+      case that session is still live." It is not live; it has sat there 11
+      days. So a blind `git worktree prune`/`remove --force` sweep would
+      destroy real work, which is presumably why nobody has swept. Right-sized
+      fix: decide that one file's fate first (commit it onto a branch or
+      discard it explicitly), then remove the other eight and have runs clean
+      up their own worktrees on exit. _Source: 2026-07-31 maintenance run —
+      found while removing this run's own two worktrees, which is exactly the
+      step every prior run skipped._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
