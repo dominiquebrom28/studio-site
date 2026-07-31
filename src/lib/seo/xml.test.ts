@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   escapeXml,
   buildSitemapEntries,
@@ -11,6 +14,9 @@ import {
   type FeedItem,
 } from './xml';
 import type { Post, Project } from '@/content/schemas';
+
+const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(DIRNAME, '..', '..', '..');
 
 /** Matches any `&` NOT already the start of one of the five predefined XML
  * entities — the exact bug class this whole feature exists to prevent
@@ -283,5 +289,47 @@ describe('buildRobotsTxt', () => {
   it('works starting from an empty robots.txt', () => {
     const result = buildRobotsTxt('', 'https://example.com/sitemap.xml');
     expect(result).toContain('Sitemap: https://example.com/sitemap.xml');
+  });
+});
+
+describe('STATIC_ROUTES — kept in sync with the real router (contract point d)', () => {
+  /**
+   * `STATIC_ROUTES`'s own doc comment says "Keep in sync with
+   * `src/router.tsx` by hand" — a promise nothing previously enforced. A
+   * new static route type added to the router (e.g. `/about` going live)
+   * would silently never appear in the sitemap, with no test failing.
+   *
+   * This derives the router's real static leaf paths from `src/router.tsx`
+   * SOURCE TEXT via a plain regex — deliberately not by `import`-ing
+   * `router.tsx` itself (which calls `createBrowserRouter` at module scope,
+   * a DOM/`window.history` API this node-environment config doesn't
+   * provide, and would drag in React/JSX for a check that's really about a
+   * list of path strings). Same "regex over source, no dependency, no
+   * runtime" convention `scripts/check-deployed-routes.mjs` already uses
+   * for the identical reason (see that file's `firstSlug` comment).
+   *
+   * "Static" here means every route with neither a `:param` (dynamic,
+   * per-slug — already covered separately, one entry per project/post) nor
+   * `*` (the catch-all NotFound route — explicitly excluded from the
+   * sitemap per STATIC_ROUTES's own doc comment).
+   */
+  it('STATIC_ROUTES is exactly the set of non-dynamic, non-wildcard paths declared in the real route tree', () => {
+    const routerSource = readFileSync(path.join(REPO_ROOT, 'src', 'router.tsx'), 'utf8');
+
+    // `export const routes: RouteObject[] = [ ... ];` — grab just that
+    // array literal so a `path:` string anywhere else in the file (there
+    // isn't one today, but this is a test, not the app) can't leak in.
+    const routesBlockMatch = /export const routes: RouteObject\[\] = (\[[\s\S]*?\n\]);/.exec(routerSource);
+    expect(routesBlockMatch, 'expected to find the `export const routes: RouteObject[] = [...]` block in router.tsx').not.toBeNull();
+    const routesBlock = routesBlockMatch![1];
+
+    const declaredPaths = [...routesBlock.matchAll(/path:\s*'([^']+)'/g)].map((match) => match[1]);
+    expect(declaredPaths.length).toBeGreaterThan(0);
+
+    const staticDeclaredPaths = new Set(
+      declaredPaths.filter((p) => !p.includes(':') && p !== '*').map((p) => (p === '/' ? '/' : `/${p}`)),
+    );
+
+    expect(staticDeclaredPaths).toEqual(new Set(STATIC_ROUTES));
   });
 });
