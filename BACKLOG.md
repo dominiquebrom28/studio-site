@@ -1138,6 +1138,75 @@ site whose provenance device is still decorative.
       PR. _Source: 2026-07-29 Notion reconciliation — the API rejected the
       write._
 
+### Added 2026-07-31 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — The auto-merge lane works and the studio stopped using it; that
+      is why the review queue is over throttle.** On 2026-07-31 the queue stood
+      at **7 open PRs** against a stated throttle of ~4–6, which is itself a
+      stop condition for the build run — so the pile-up does not just delay
+      Dom, it halts the studio. The cause is not broken infrastructure.
+      `.github/workflows/auto-merge.yml` **demonstrably works**: PRs #10, #11,
+      #12 and #17 were all merged by `app/github-actions` on 2026-07-18. Those
+      are the workflow's **only four successful runs, ever, all on that one
+      day**; its whole remaining history is 13 runs that **skipped**, 12 of them
+      dated 2026-07-19 or later, because the
+      `if: contains(labels, 'safe-auto')` gate never matched — **no PR has
+      carried the `safe-auto` label in the 12 days since 2026-07-18.**
+      Re-running the workflow's own path-guard shell verbatim over the 7 open
+      PRs shows **5 of them (#69, #75, #76, #79, #80) pass the allowlist
+      untouched**; only #77 (`scripts/*.mjs`, `tsconfig.app.json`) and #78
+      (product code in `src/`) genuinely need a human read. So roughly
+      **two-thirds of the queue blocking this studio was built to merge
+      itself.** Fix is a process change, not code: the run playbook's step 3
+      ("commit → push → open PR") must gain a step 4 — classify the PR against
+      the allowlist and apply `safe-auto` when it qualifies. Worth pairing
+      with the pending P2 "drop `*.test.*` from the auto-merge allowlist" item,
+      since #69 qualifies **only** via the `*.test.ts` pattern that item wants
+      removed. _Source: 2026-07-31 maintenance run — measured, not inferred._
+- [ ] **HIGH — Branch protection on `main` was never configured, so the
+      auto-merge lane's CI gate does not exist.**
+      `gh api repos/dominiquebrom28/studio-site/branches/main/protection`
+      returns **404 "Branch not protected."** `.github/AUTO-MERGE-SETUP.md`
+      lists four one-time manual steps; three are done (Allow auto-merge is on,
+      the `safe-auto` label exists, `gh` is authenticated) but **step 2 —
+      require the `CI / build` check on `main` — is not**. The setup doc calls
+      that step "the actual deploy/merge gate… even a PR with `safe-auto`
+      enabled cannot merge until this required check is green," and that
+      sentence is currently false. Consequence: the four PRs the lane merged on
+      2026-07-18 were guarded by the **path allowlist alone**, never by CI, and
+      any future labeled PR would be too. This is the same
+      green-but-covering-nothing shape as the unset `SMOKE_URL` item above —
+      a gate whose designed happy path silently became "no gate." **Sequence
+      this BEFORE adopting the labeling habit in the item above**, or the
+      studio would be turning on self-merge with the safety interlock missing.
+      One-time Dom action in the GitHub UI, no PR. While there, confirm
+      empirically what `gh pr merge --auto` does on a repo with no required
+      checks — GitHub may refuse it outright on an already-mergeable PR, which
+      would mean the lane is not merely unguarded but would also fail on its
+      next use. _Source: 2026-07-31 maintenance run._
+
+- [ ] **MEDIUM — Nothing surfaces a red CI check, and nobody reads the
+      artifacts that would explain it.** PR #69's `e2e` job failed on
+      2026-07-29 and sat red and unexamined for **two days** while six green PRs
+      queued behind it — it was the only red check in the entire queue. It was
+      diagnosable the whole time: an unexpired 2MB `playwright-report` artifact
+      with a full trace, one `gh run download 30433103427 -n playwright-report`
+      away, which is exactly how the 2026-07-31 run root-caused it in the end.
+      Two separable gaps: (a) **nothing notifies** when a check goes red — the
+      studio's own run playbook checks PR CI status only incidentally, and a
+      non-required job (`e2e` is deliberately non-required, see `ci.yml`) shows
+      red on the checks screen and blocks nothing; (b) **the run playbook has no
+      "download the artifact before re-running" step**, and a re-run destroys
+      the cheapest evidence available. Note the irony worth preserving: PR #70
+      (2026-07-29) added artifact capture for the *smoke* suite on the theory
+      that the next failure should be diagnosable — it was right, and the very
+      next red check proved it, using an artifact Playwright's config had been
+      writing all along. **Capturable is not the same as read.** Cheap fixes:
+      add a red-check scan to the run playbook's step 0 reconciliation, and a
+      one-line "download the artifact first" note next to the existing
+      `npm run audit` preflight note in `README.md`. _Source: 2026-07-31
+      maintenance run — the fix landed, the process gap did not._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
