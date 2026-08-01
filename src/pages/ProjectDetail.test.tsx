@@ -56,6 +56,35 @@ describe('ProjectDetail — accessibility (axe)', () => {
 });
 
 /**
+ * Solo/team build disambiguation — `ProjectHero`'s "SOLO BUILD · NO AGENT
+ * TEAM" chip (BACKLOG P1 "positioning disambiguation", PR #51). `ProjectCard.
+ * test.tsx` already covers both branches against a synthetic fixture, but PR
+ * #51 itself disclosed a real gap this closes: the inverse branch (a
+ * team-built project correctly rendering NO chip) had never been exercised
+ * against real committed content, because no `soloBuild: false` project file
+ * existed until `content/projects/studio-site.md` — the studio's own site,
+ * the first project the AI team itself built.
+ */
+describe('ProjectDetail — solo/team build disambiguation (real content)', () => {
+  it('renders the "SOLO BUILD · NO AGENT TEAM" chip for a real solo-built project (soulforge, soloBuild: true)', async () => {
+    await renderProject('soulforge');
+    expect(screen.getByText('SOLO BUILD · NO AGENT TEAM')).toBeTruthy();
+  });
+
+  it('renders NO solo-build chip for the one real team-built project (studio-site, soloBuild: false)', async () => {
+    await renderProject('studio-site');
+    expect(screen.queryByText('SOLO BUILD · NO AGENT TEAM')).toBeNull();
+    expect(screen.queryByText('ONE SITTING · SOLO BUILD')).toBeNull();
+  });
+
+  it('has zero axe violations on the team-built project page (studio-site)', async () => {
+    await renderProject('studio-site');
+    const results = await axe.run(document.body);
+    expect(results.violations).toEqual([]);
+  });
+});
+
+/**
  * Provenance strip on project detail (docs/provenance-model.md §12 PR 7).
  *
  * Fixtures are real committed content, not synthetic — the backfill in
