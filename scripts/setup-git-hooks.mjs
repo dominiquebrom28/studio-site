@@ -48,6 +48,35 @@ function main() {
     return;
   }
   try {
+    // Never clobber a hooks path someone else set. `npm install` silently
+    // overwriting a developer's existing `core.hooksPath` would be exactly
+    // the "automation that mutates your setup without telling you" failure
+    // this script's own header argues against — and it could disable an
+    // unrelated hook suite (husky, lefthook, a personal one) as a side
+    // effect of installing dependencies. Report the conflict and leave it
+    // alone; `npm run check:deps` still works by hand.
+    const existing = execFileSync('git', ['config', '--get', 'core.hooksPath'], {
+      cwd: REPO_ROOT,
+      stdio: 'pipe',
+      encoding: 'utf8',
+    })
+      .trim()
+      // `git config --get` exits 1 when unset, which throws — so reaching
+      // here at all means SOMETHING is set.
+      .replace(/^$/, '');
+    if (existing && existing !== '.githooks') {
+      console.warn(
+        `[setup-git-hooks] core.hooksPath is already set to "${existing}" — leaving it alone. ` +
+          'The dependency-drift check will NOT fire on checkout/merge. ' +
+          'Run it by hand with `npm run check:deps`, or point that hooks path at .githooks yourself.',
+      );
+      return;
+    }
+  } catch {
+    // `git config --get` exits non-zero when the key is unset. That is the
+    // normal, expected case — fall through and set it.
+  }
+  try {
     execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: REPO_ROOT, stdio: 'pipe' });
     console.log('[setup-git-hooks] core.hooksPath -> .githooks (dependency-drift check active on checkout/merge)');
   } catch (error) {
