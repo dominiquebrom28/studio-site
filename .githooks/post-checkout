@@ -1,0 +1,20 @@
+#!/bin/sh
+# Fires after `git checkout <ref>` / `git switch` (and after `git clone`).
+# Third arg is 1 for a branch/ref checkout, 0 for a plain file checkout
+# (`git checkout -- some/file`) — only the former can change which
+# package.json a worktree is on, so only that case is worth the check.
+#
+# This hook, plus post-merge (same script), is the AUTOMATIC half of the
+# dependency-drift preflight — see scripts/check-deps-drift.mjs's header
+# comment and README.md's "Local dev preflight" section for the full
+# reasoning on why this lives here instead of package.json's pre* scripts or
+# a documented-only playbook step.
+#
+# Non-blocking by design: post-checkout/post-merge exit codes do NOT abort
+# the git command that triggered them. This is a report, not a gate — see
+# check-deps-drift.mjs for why blocking here would violate this task's own
+# "never silently mutate, never silently block" constraint.
+flag="$3"
+if [ "$flag" = "1" ]; then
+  node "$(git rev-parse --show-toplevel)/scripts/check-deps-drift.mjs" || true
+fi
