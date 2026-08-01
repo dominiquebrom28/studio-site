@@ -1315,7 +1315,7 @@ site whose provenance device is still decorative.
       hosted Plausible/Umami, or server-side-only log analysis with zero client
       JS. _Source: named product gap; found 2026-07-30 while specifying the
       reports surface. Recommend costing before building._
-- [ ] **HIGH — A run cannot record its own provenance until its PRs merge (and
+- [x] **HIGH — A run cannot record its own provenance until its PRs merge (and
       2026-07-30's three blocks are outstanding because of it).** Undocumented
       ordering constraint in the provenance format, hit for the first time on
       2026-07-30. A `yaml provenance` block is a **creation record** and
@@ -1339,6 +1339,21 @@ site whose provenance device is still decorative.
       creation-record guarantee); or move the block into the branch that creates
       the files rather than the report. _Source: Project Lead, 2026-07-30 —
       observed, not hypothetical._
+      _(2026-08-01, team/2026-08-01-provenance-ordering — **(a) done:** PRs #76,
+      #77 and #78 all merged 2026-07-31, so the three preserved blocks were
+      appended to `reports/2026-07-30.md` and the generator accepts all three
+      (15 records, was 12). **(b) decided:** `docs/provenance-model.md` §13.
+      Option 2 (merge report last, accept red CI) confirmed rejected. Option 3
+      (relax the generator to trust an unmerged branch) rejected — it would
+      either drop the on-disk existence check entirely or add a report-content-
+      driven cross-branch GitHub lookup, reopening the injection/drift concerns
+      §4.3/§7/§5.2 close. Option 4 (block lives on the creating branch) looked
+      promising but does not survive contact with `parse.mjs`,
+      `ProvenanceStrip.tsx`, or the (spec-only) `docs/reports-surface.md` index
+      — see §13.2 for the three concrete failure modes. **Recommended and
+      adopted: Option 1**, formalized as a standing step in this file's
+      "Provenance blocks" convention below — pending Dom's ratification, since
+      it changes the format's binding convention.)_
 - [ ] **LOW — The "QA pass" item at the top of this file is stale and should be
       re-scoped or closed with evidence.** It has been open and unchanged since
       day one, reading "all states, responsive, accessibility; fix findings" —
@@ -1379,6 +1394,22 @@ the literal `"Dom"`. Forgetting the block is self-correcting — the site
 shows "no run record" — so **never invent one to fill the gap**, and a run
 that created no content files should say so in prose rather than force a
 block.
+
+**Ordering constraint (binding since 2026-08-01 — `docs/provenance-model.md`
+§13):** if a run's report is opened before every PR it describes has merged,
+a block whose `produced` path doesn't exist on `main` yet will be correctly
+rejected by the generator. Do not force it, and do not hold the report PR
+open waiting on the other PRs. Instead: (1) leave the block out of the report
+PR, (2) preserve its exact intended content — branch, produced paths,
+authors, reviewer(s) + kind, `judge`, `tokens` — in prose under a clearly
+labelled subsection, naming which PRs it's waiting on, (3) open/reuse a
+backlog item tracking the deferral, (4) once those PRs merge, append the
+preserved blocks in a small follow-up commit, run `npm run
+provenance:generate`, and commit the regenerated
+`src/content/provenance.generated.json` alongside the report edit. This is a
+routine step on any multi-lane run, not a failure state — see
+`reports/2026-07-30.md` ("Provenance blocks — deliberately deferred, and
+why") for a worked example of both halves.
 
 ````
 ```yaml provenance

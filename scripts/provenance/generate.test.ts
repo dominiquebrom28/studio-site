@@ -363,13 +363,18 @@ describe('generateProvenance — against the REAL reports/ directory', () => {
   // run that shipped placeholder text, not this one — so they are
   // deliberately NOT in `produced` and correctly render "no run record" on
   // the site (see the report's own "Project write-ups backfill" section and
-  // the ProjectDetail PR body for the full accounting). This test's job is
-  // now to guard that the real reports keep PARSING CLEANLY (no
-  // schema/cast/uniqueness error) and that records key off exactly the
-  // expected produced paths — not to snapshot the full record shape (the
-  // happy-path tests above already own that), and not to assert commit
-  // values (this fake git runner resolves none; the real generator resolves
-  // them at build time).
+  // the ProjectDetail PR body for the full accounting). The third
+  // (2026-08-01, team/2026-08-01-provenance-ordering, docs/
+  // provenance-model.md §13) appended the three blocks `reports/2026-07-30.md`
+  // itself had deferred until PRs #76/#77/#78 merged (the "run cannot record
+  // its own creations until its PRs merge" ordering constraint) — four
+  // produced paths, since the `seo-loader-contract` item names two files.
+  // This test's job is now to guard that the real reports keep PARSING
+  // CLEANLY (no schema/cast/uniqueness error) and that records key off
+  // exactly the expected produced paths — not to snapshot the full record
+  // shape (the happy-path tests above already own that), and not to assert
+  // commit values (this fake git runner resolves none; the real generator
+  // resolves them at build time).
   it('parses cleanly and produces one record per backfilled post/project path', async () => {
     const REPO_ROOT = path.resolve(DIRNAME, '..', '..');
     const records = await generateProvenance({
@@ -390,6 +395,10 @@ describe('generateProvenance — against the REAL reports/ directory', () => {
       'content/projects/lovediary.md',
       'content/projects/mensapp.md',
       'content/projects/pizzaparty.md',
+      'docs/cls-fallback-decision.md',
+      'docs/reports-surface.md',
+      'scripts/generate-seo-files.d.mts',
+      'scripts/generate-seo-files.test.ts',
     ]);
     // Deliberately excluded — see the doc comment above. Asserted here so a
     // future report block accidentally re-claiming one of these under a

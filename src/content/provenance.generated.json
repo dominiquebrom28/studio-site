@@ -191,5 +191,105 @@
       "short": "48e4fe545224",
       "date": "2026-07-16T20:04:58+02:00"
     }
+  },
+  "docs/cls-fallback-decision.md": {
+    "runId": "2026-07-30",
+    "reportPath": "reports/2026-07-30.md",
+    "item": "cls-suspense-fallback",
+    "branch": "team/2026-07-30-cls-suspense-fallback",
+    "authors": [
+      "designer",
+      "frontend-dev"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "browser-verify"
+      }
+    ],
+    "judge": null,
+    "commit": {
+      "hash": "0de1a64fbcdab1e3bd73badd2b2f605fbe5a98be",
+      "short": "0de1a64fbcda",
+      "date": "2026-07-30T10:12:04+02:00"
+    }
+  },
+  "docs/reports-surface.md": {
+    "runId": "2026-07-30",
+    "reportPath": "reports/2026-07-30.md",
+    "item": "reports-surface-spec",
+    "branch": "team/2026-07-30-reports-surface-spec",
+    "authors": [
+      "architect"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "fact-check"
+      }
+    ],
+    "judge": null,
+    "tokens": {
+      "approx": 147000,
+      "scope": "agent",
+      "agent": "architect"
+    },
+    "commit": {
+      "hash": "fc452fe1df6f9899c30432a20d6b20a2f7527267",
+      "short": "fc452fe1df6f",
+      "date": "2026-07-30T09:51:06+02:00"
+    }
+  },
+  "scripts/generate-seo-files.d.mts": {
+    "runId": "2026-07-30",
+    "reportPath": "reports/2026-07-30.md",
+    "item": "seo-loader-contract",
+    "branch": "team/2026-07-30-seo-loader-contract",
+    "authors": [
+      "qa-tester"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "lead-review"
+      }
+    ],
+    "judge": null,
+    "tokens": {
+      "approx": 129000,
+      "scope": "agent",
+      "agent": "qa-tester"
+    },
+    "commit": {
+      "hash": "f6e3281c89930fcb059010af9ed3258f55c8e49b",
+      "short": "f6e3281c8993",
+      "date": "2026-07-30T09:54:13+02:00"
+    }
+  },
+  "scripts/generate-seo-files.test.ts": {
+    "runId": "2026-07-30",
+    "reportPath": "reports/2026-07-30.md",
+    "item": "seo-loader-contract",
+    "branch": "team/2026-07-30-seo-loader-contract",
+    "authors": [
+      "qa-tester"
+    ],
+    "reviewers": [
+      {
+        "by": "Project Lead",
+        "kind": "lead-review"
+      }
+    ],
+    "judge": null,
+    "tokens": {
+      "approx": 129000,
+      "scope": "agent",
+      "agent": "qa-tester"
+    },
+    "commit": {
+      "hash": "f6e3281c89930fcb059010af9ed3258f55c8e49b",
+      "short": "f6e3281c8993",
+      "date": "2026-07-30T09:54:13+02:00"
+    }
   }
 }
