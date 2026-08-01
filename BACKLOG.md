@@ -1531,6 +1531,45 @@ nothing compares a report's claims against its own diff.
       named product gap, found 2026-08-01 by the lead while reviewing the
       studio-site portfolio copy; both figures verified against
       `PROJECT-BRIEF.md` and the rendered footer._
+- [ ] **MEDIUM — The provenance format can only record file *creation*, so a
+      run whose deliverable is an edit has nothing it can honestly claim.**
+      Surfaced 2026-08-01 by the very first application of the new §13 rule,
+      on the run that wrote §13. A `yaml provenance` block's `produced` list
+      is a creation record and `generate.mjs` resolves each path's *adding*
+      commit (`--diff-filter=A`). But three of this run's four lanes shipped
+      work whose main artifact is a **modification** — §13 into an existing
+      `docs/provenance-model.md`, the regex pinning in
+      `provenance-schema.ts`, the auto-merge allowlist line. Claiming those
+      files as `produced` would attribute an earlier run's creation commit to
+      this run — the exact error PR #72's archaeology refused when it excluded
+      three project pages, and the reason those pages honestly show "no run
+      record". So the honest options today are to omit the block entirely (a
+      real run showing no record) or to record only the incidentally-created
+      files, which under-describes the work. **Do not fix this by loosening
+      `--diff-filter=A`** — that is what makes a creation record true. Worth
+      deciding deliberately: a second block kind (`modified:`) with different
+      commit semantics, an explicit "this run edited, did not create" prose
+      convention, or accepting the gap and documenting it in §13 so the next
+      run does not re-derive it. _Source: Project Lead, 2026-08-01 — observed
+      while applying §13 to this run's own report, not hypothetical._
+- [ ] **MEDIUM — Nothing checks a run report's claims against its own diff.**
+      PR #81 was titled "Backlog + 2026-07-31 run report", its report said the
+      branch was "`BACKLOG.md` + this report", and it touched only
+      `reports/2026-07-31.md`. Four findings existed solely in the Notion
+      mirror for a day (recovered 2026-08-01 — see the RECOVERED section
+      above). Every other artifact in this repo is gated: content is
+      Zod-validated, routes are smoke-tested, both generated artifacts are
+      drift-checked. A run report can assert anything about its own branch
+      with nothing verifying it, which makes it the last unaudited artifact
+      here — and reports are load-bearing, since blog posts and this backlog
+      are both derived from them. Cheapest useful gate: on a branch containing
+      a new `reports/*.md`, compare file paths named in its "Item worked on"
+      table and prose against `git diff --name-only main...<branch>`, and fail
+      on a claimed path the branch does not touch. Keep it narrow — it should
+      catch "said BACKLOG.md, did not touch BACKLOG.md", not grade prose.
+      _Source: Project Lead, 2026-08-01 — the fourth
+      backlog-misreports-its-own-state incident, and the first that is a false
+      claim rather than a stale one._
 - [ ] **MEDIUM — 16 posts, one reverse-chronological list, and no way in.**
       The blog is the site's main body of work (PROJECT-BRIEF goal 2) and it
       has exactly one view: everything, newest first. A first-time reader
