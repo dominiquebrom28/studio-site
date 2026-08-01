@@ -20,3 +20,10 @@ blob-report/
 # regenerated + drift-checked in CI (full clone, `fetch-depth: 0`), so it can
 # never go stale; the build falls back to it when git history is unavailable.
 # See docs/provenance-model.md §5.2/§5.3.
+#
+# src/content/runs.generated.json is ALSO committed, same reasoning
+# (docs/reports-surface.md §3.2/§6 PR 1) — it keeps Vercel's shallow clone
+# working and is drift-checked in CI. It never needs the provenance
+# artifact's git-history fallback (it is entirely git-free), but it is
+# committed from day one to match the 2026-07-27 "commit the artifact"
+# decision rather than re-litigating it per generated file.

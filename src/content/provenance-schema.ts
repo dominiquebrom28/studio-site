@@ -26,6 +26,27 @@ import { z } from 'zod';
 /** Kebab-case slug — same pattern `schemas.ts` uses for content slugs. */
 const itemSlugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+/**
+ * `runId` / `reportPath` pin (`docs/reports-surface.md` §4.1, §6 PR 0):
+ * both were bare `z.string()` until now — safe in practice only because
+ * `generate.mjs` writes them from the filesystem rather than from block
+ * content, an invariant enforced nowhere in the schema. `reportPath` is
+ * already interpolated into an `href` in `ProvenanceStrip.tsx` (`runField`),
+ * so an unconstrained string here is a latent injection surface on the one
+ * device whose entire purpose is verification. Validated against every real
+ * value in `src/content/provenance.generated.json` and every filename in
+ * `reports/` before landing (see `provenance-schema.test.ts`).
+ *
+ * `runId` = a report filename stem: an optional `maintenance-` prefix, a
+ * `YYYY-MM-DD` date, and an optional `-kebab-suffix` (`2026-07-18`,
+ * `2026-07-21-review`, `maintenance-2026-07-20`).
+ */
+export const RUN_ID_PATTERN = /^(maintenance-)?\d{4}-\d{2}-\d{2}(-[a-z0-9-]+)?$/;
+
+/** `reportPath` = `reports/<filename>.md`, repo-relative, no `..`, no
+ * absolute URL, no path outside `reports/`. */
+export const REPORT_PATH_PATTERN = /^reports\/[A-Za-z0-9._-]+\.md$/;
+
 export const CommitSchema = z.object({
   hash: z.string().regex(/^[0-9a-f]{40}$/, 'must be a full 40-char lowercase hex commit hash'),
   short: z.string().regex(/^[0-9a-f]{7,12}$/, 'must be a 7-12 char lowercase hex short hash'),
@@ -98,8 +119,8 @@ export type ProvenanceBlock = z.infer<typeof ProvenanceBlockSchema>;
  * exactly the ambiguity §5.2's failure table exists to remove.
  */
 export const ProvenanceRecordSchema = z.object({
-  runId: z.string(), // report file stem, e.g. "2026-07-18"
-  reportPath: z.string(), // "reports/2026-07-18.md"
+  runId: z.string().regex(RUN_ID_PATTERN, 'must be a report filename stem, e.g. "2026-07-18" or "maintenance-2026-07-20"'), // report file stem
+  reportPath: z.string().regex(REPORT_PATH_PATTERN, 'must be "reports/<filename>.md" — repo-relative, no ".." '), // "reports/2026-07-18.md"
   item: z.string().regex(itemSlugPattern),
   branch: z.string().optional(),
   authors: z.array(z.string().min(1)).min(1),
@@ -120,3 +141,59 @@ export type ProvenanceRecord = z.infer<typeof ProvenanceRecordSchema>;
  */
 export const ProvenanceArtifactSchema = z.record(z.string(), ProvenanceRecordSchema);
 export type ProvenanceArtifact = z.infer<typeof ProvenanceArtifactSchema>;
+
+/**
+ * The runs artifact (`src/content/runs.generated.json`, `docs/reports-surface.md`
+ * §3.2) — one row per file in `reports/`. No consumer exists yet (PR 1 of
+ * that spec's §6 decomposition: schema + generator only, nothing visible).
+ *
+ * Every field is derived MECHANICALLY, never authored:
+ * - `runId` / `reportPath`: same shape and same regex as
+ *   `ProvenanceRecordSchema` above (this row's `reportPath` and a
+ *   provenance record's `reportPath` are the same string space).
+ * - `date`: from the FILENAME (`RUN_ID_PATTERN`'s embedded `YYYY-MM-DD`),
+ *   never the H1 — `2026-07-19-evening.md`'s H1 ends "— BACKFILLED
+ *   2026-07-21" and would date that run two days late if parsed from title.
+ * - `title`: the report's first H1, verbatim — never rewritten or truncated.
+ * - `kind`: an allowlist on the H1 prefix before the first em dash ("—").
+ *   Unrecognised prefixes omit the key entirely (cosmetic field, honest
+ *   degrade) rather than failing the build — see `RUN_KIND_BY_H1_PREFIX`.
+ */
+const RUN_KINDS = ['run-report', 'critical-review', 'maintenance-sweep', 'hire-report'] as const;
+export type RunKind = (typeof RUN_KINDS)[number];
+
+/**
+ * Maps a report's H1 prefix (the text before the first em dash "—") to its
+ * `kind` value. Exactly four prefixes occur in `reports/` today (verified
+ * against every file on disk, `docs/reports-surface.md` §3): `Run report`,
+ * `Critical review`, `Maintenance sweep`, `Hire report`. A prefix not in
+ * this map is a soft degrade (§3.2's failure table): the row is still
+ * emitted, just without a `kind`.
+ *
+ * Single source of truth: `scripts/provenance/runs.mjs` loads this object
+ * (via the same Vite `ssrLoadModule` boot `generate.mjs` already uses to
+ * reach this file) rather than duplicating the four strings in a plain
+ * `.mjs` file, so the allowlist and the schema's enum can never drift apart.
+ */
+export const RUN_KIND_BY_H1_PREFIX: Record<string, RunKind> = {
+  'Run report': 'run-report',
+  'Critical review': 'critical-review',
+  'Maintenance sweep': 'maintenance-sweep',
+  'Hire report': 'hire-report',
+};
+
+export const RunsArtifactRowSchema = z.object({
+  runId: z.string().regex(RUN_ID_PATTERN),
+  reportPath: z.string().regex(REPORT_PATH_PATTERN),
+  title: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD'),
+  kind: z.enum(RUN_KINDS).optional(),
+});
+export type RunsArtifactRow = z.infer<typeof RunsArtifactRowSchema>;
+
+/** The generated artifact's shape (`src/content/runs.generated.json`): an
+ * array of rows, one per report file, in the order `scripts/provenance/
+ * runs.mjs` writes them (sorted by `reportPath`, matching the sort applied
+ * to `provenance.generated.json`'s keys). */
+export const RunsArtifactSchema = z.array(RunsArtifactRowSchema);
+export type RunsArtifact = z.infer<typeof RunsArtifactSchema>;

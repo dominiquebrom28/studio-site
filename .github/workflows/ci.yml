@@ -181,6 +181,19 @@ jobs:
       - name: Provenance artifact is up to date (drift gate)
         run: git diff --exit-code src/content/provenance.generated.json
 
+      # Runs artifact drift gate (docs/reports-surface.md §3.2 / §6 PR 1) —
+      # same mechanism as the provenance drift gate immediately above, for
+      # the SAME generator's second committed output
+      # (`src/content/runs.generated.json`, written by the same
+      # `predev`/`prebuild`/`pretest` hooks). No consumer exists yet (this
+      # PR is schema + generator only), but the artifact is committed from
+      # day one for the same reason `provenance.generated.json` is (the
+      # 2026-07-27 "commit the artifact" reversal, and Vercel's shallow-clone
+      # fallback) — so its own freshness needs its own gate immediately, not
+      # deferred to whichever PR adds the first consumer.
+      - name: Runs artifact is up to date (drift gate)
+        run: git diff --exit-code src/content/runs.generated.json
+
   # Plain HTTP smoke check against a REAL deployed URL (Vercel preview or
   # production) — see scripts/check-deployed-routes.mjs's header comment for
   # why this exists (2026-07-18: every route but `/` 404'd in production,

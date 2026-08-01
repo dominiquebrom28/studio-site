@@ -38,3 +38,37 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
   by hand, or set the `SMOKE_URL` repo variable / pass `deployed_url` on a
   manual workflow run to wire it up. See the job's comment in `ci.yml` for
   the full one-time setup.
+
+## Local dev preflight: `node_modules` drift from `package.json`
+
+CI always runs `npm ci`, so it can never see a stale local `node_modules` —
+which is exactly why this is a **local-only trap**: a PR adds a dependency
+and merges, nobody re-runs `npm install` in a local checkout, and the next
+`npm run build`/`typecheck` fails with a confusing `Cannot find module`
+that has nothing to do with the change actually being worked on (real
+incident: `axe-core`/PR #43, BACKLOG.md, 2026-07-24 — cost a full day
+before anyone connected the failure to its cause).
+
+`scripts/check-deps-drift.mjs` (Node built-ins only, no new dependency)
+compares `package.json` against what's actually installed and reports —
+loudly, never silently — whether they agree:
+
+- Run it by hand any time: `npm run check:deps`.
+- It also runs **automatically**, non-blocking, after `git checkout`/`git
+  switch` and after `git merge` (including a fast-forward `git pull`), via
+  the committed `.githooks/` directory. `npm install`/`npm ci` wires this up
+  for you (`prepare` script runs `scripts/setup-git-hooks.mjs`, which sets
+  `core.hooksPath` to `.githooks`) — nothing to remember, nothing to
+  configure by hand. Because `core.hooksPath` lives in the repo's shared
+  git config, this activates for every `git worktree` of this repo the
+  moment it's set once anywhere, including worktrees created afterward.
+- It never runs `npm install` itself and never touches `node_modules` —
+  it only reports, and prints the exact fix command. If your `node_modules`
+  is a **symlink** (the normal setup for an agent worktree here, sharing the
+  main checkout's install), the printed fix points at the symlink's real
+  target, not `cwd` — running `npm install` inside a worktree instead would
+  silently fork a private copy for that worktree only, per the existing
+  worktree-isolation BACKLOG item.
+- If it can't determine an answer (no `node_modules` at all, unreadable
+  `package.json`) it exits **inconclusive**, distinct from a clean pass —
+  it never reports green when it didn't actually check anything.
