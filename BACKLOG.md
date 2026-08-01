@@ -113,8 +113,31 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       better call because it matches the caption's own claim. Re-skinning a
       correct page would be churn, so this is checked off as verified rather
       than rebuilt.)_
-- [ ] **QA pass** — qa-tester: all states, responsive, accessibility;
+- [x] **QA pass** — qa-tester: all states, responsive, accessibility;
       fix findings.
+      _(**Closed 2026-08-01 by enumeration, not by assertion** — the LOW item
+      "The 'QA pass' item at the top of this file is stale" asked for exactly
+      this: name what it still means that no gate covers, or check it off
+      citing the gates that closed it. Each of its three clauses now has a
+      gate that runs on every PR: **responsive** — the Playwright lane at
+      375/768/1280 (PR #53), plus `e2e/overflow.spec.ts` and
+      `e2e/reading-order.spec.ts`; **accessibility** — axe-core against
+      Header/BlogPost/ProjectDetail/Home (PR #43) and real-browser
+      colour-contrast (PR #53), which found and fixed a genuine AA failure
+      (PR #57); **all states** — the route smoke suite mounts every route and
+      asserts one `<h1>`, resolvable internal hrefs and zero console errors
+      (PR #20), with component-level interaction tests behind it (PR #32,
+      #43). Add the content-validation gate (PR #36) and the performance
+      budget (PR #73) and the original scope is covered. **The honest
+      residue, stated rather than buried:** this closes the item as
+      *specified*, not as *"nothing can be wrong"* — five browser-only
+      defects have shipped past full-green CI in this project's history, four
+      of them found by a human opening a page. What no gate here does is look
+      at a page and judge whether it is any **good**; that is the still-open
+      "Pre-launch review" item below and the designer's job, not this one's.
+      Closing a permanently-open vague item is the point — three separate
+      incidents of this backlog misreporting its own state make a
+      never-closing checkbox a liability, not a safety net.)_
 - [x] **Second blog post** — distill learnings from `reports/` so far: what
       the autonomous runs got right and wrong.
       _(2026-07-18, team/2026-07-18-second-post — "What the green checkmarks
@@ -648,7 +671,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       checkout is on a branch it owns before touching it. _Source: Project Lead,
       2026-07-24 run — observed, not hypothetical._
 
-- [ ] **LOW — `npm install` drift between `package.json` and the local
+- [x] **LOW — `npm install` drift between `package.json` and the local
       `node_modules`.** PR #43 added `axe-core` to devDependencies and merged,
       but nobody ran `npm install` in the main checkout — so on 2026-07-24
       `npm run build` and `npm run typecheck` failed repo-wide with
@@ -660,6 +683,23 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       or a preflight check in the run playbook that diffs `package.json`
       against installed packages before any agent is dispatched. _Source:
       devops + Project Lead, 2026-07-24 run._
+      _(2026-08-01, team/2026-08-01-dep-drift-preflight, PR #86 — awaiting
+      Dom. `scripts/check-deps-drift.mjs`, dependency-free, 0.22s on the real
+      33-dep tree, reporting **three** states — `clean`/`drift`/
+      **`inconclusive`** — so a missing `node_modules` can never be reported
+      as fine. A fourth green-but-checking-nothing gate was not worth adding.
+      Fires from committed `.githooks/{post-checkout,post-merge}` wired via
+      `core.hooksPath` (chosen because `.git/hooks/` does not propagate to a
+      `git worktree`, which this project uses constantly), non-blocking by
+      design. Worktree-aware: on drift it resolves a symlinked `node_modules`
+      and points the fix at the real target, since `npm install` inside a
+      worktree replaces the symlink and silently stops sharing the cache —
+      the hazard already logged two items above. **Lead review caught the
+      prepare script clobbering an existing `core.hooksPath`** (it would have
+      disabled an unrelated husky/lefthook setup as a side effect of `npm
+      install`); it now refuses and reports, falsified across all three
+      starting states. **Note for Dom: merging this makes `npm install` set
+      repo-local git config** — deliberate, but a conscious call.)_
 
 ### Critical review findings (2026-07-21) — whole team + Judge
 
@@ -1244,7 +1284,7 @@ site whose provenance device is still decorative.
 
 ### Added 2026-07-30 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — studio-site itself is missing from the portfolio.** `content/
+- [x] **HIGH — studio-site itself is missing from the portfolio.** `content/
       projects/` holds six write-ups and **all six are `soloBuild: true`** —
       verified, every file. The one project the AI team actually built, the
       site making the claim, is not in its own portfolio. This is the site's
@@ -1265,6 +1305,26 @@ site whose provenance device is still decorative.
       project count, and "2–4 fully documented case studies beat 8–10 shallow
       entries" (greatfrontend.com, "Frontend Developer Portfolio: What to Build
       and How to Stand Out in 2026")._
+      _(2026-08-01, team/2026-08-01-studio-site-portfolio-entry, PR #84 —
+      awaiting Dom, **DOM CHECKPOINT: public, self-referential copy**. Leads
+      with what went wrong, as the item recommended: four browser-only P0s,
+      three wrong-gate incidents, three backlog-misreports-its-own-state
+      incidents, the auto-merge lane that ran for one day. Every figure is
+      scoped to a stated window (2026-07-14–2026-07-31) so the entry cannot
+      silently rot, and the lead re-derived all of them independently — 210
+      commits / 118 non-merge / 17 of 18 days / 81 PRs (77 Dom, 4 auto) / 23
+      reports, all exact. Closes the inverse-chip test gap PR #51 disclosed:
+      `ProjectDetail.test.tsx` now covers a team-built project rendering NO
+      chip, with a `soulforge` positive control and an axe pass, falsified by
+      removing the gate in `ProjectHero.tsx`. **Lead copy pass caught one real
+      accuracy drift** — the draft said "roughly two-thirds of that backlog"
+      when the 07-31 finding was about the review QUEUE (5 of 7 open PRs) —
+      and pulled the `soloBuild: false` schema field name out of public prose.
+      **Two calls deferred to Dom, not made silently:** `featured: false` (a
+      flagged entry would push one of the three current projects off the
+      homepage), and no exact agent headcount in the copy, because
+      PROJECT-BRIEF.md's "8 specialist subagents" now contradicts the footer's
+      "10 AI characters" — logged as its own item below.)_
 - [ ] **MEDIUM — Provenance follow-ups the strip work deferred.** Named as
       "remaining follow-ups are NOT this item" in PRs #58 and #72 and then never
       became an item, which is how work goes missing here. Three parts:
@@ -1279,7 +1339,7 @@ site whose provenance device is still decorative.
       permanently or get a record. **Do not invent records to fill the gaps** —
       the "no run record" degrade is the honest state and PR #72 already refused
       this once. _Source: PRs #58 / #72 follow-up notes, 2026-07-27 + 2026-07-29._
-- [ ] **MEDIUM — `runId`/`reportPath` are unvalidated `z.string()` and one is
+- [x] **MEDIUM — `runId`/`reportPath` are unvalidated `z.string()` and one is
       already in an `href`.** `src/content/provenance-schema.ts:101-102` declares
       both as bare `z.string()`, and `ProvenanceStrip.tsx:169` interpolates
       `record.reportPath` straight into `href={`${REPO_BASE}/blob/main/${...}`}`.
@@ -1291,7 +1351,15 @@ site whose provenance device is still decorative.
       value could ever become a route segment. _Source: architect, 2026-07-30
       reports-surface spec §4.1 (PR #76) — surfaced as worth doing regardless of
       that item's outcome; both facts verified against the tree by the lead._
-- [ ] **MEDIUM — The auto-merge allowlist and the committed generated artifact
+      _(2026-08-01, team/2026-08-01-runs-artifact, PR #85 — awaiting Dom.
+      Both pinned as `RUN_ID_PATTERN` / `REPORT_PATH_PATTERN`. Validated
+      against reality before commit: all 11 entries in
+      `provenance.generated.json` and all 23 filenames in `reports/` match.
+      Rejection tests cover the hazards that actually matter for a value
+      already interpolated into an `href` — `../` traversal, an absolute
+      `https://` URL, an absolute filesystem path, and a path outside
+      `reports/`.)_
+- [x] **MEDIUM — The auto-merge allowlist and the committed generated artifact
       contradict each other.** `.github/workflows/auto-merge.yml` allowlists
       `content/**`, `docs/**`, `reports/**`, root `*.md` and `**/*.test.ts(x)` —
       confirmed, nothing under `src/`. But `src/content/provenance.generated.json`
@@ -1302,6 +1370,17 @@ site whose provenance device is still decorative.
       drift gate in the same PR) or accept that these PRs are always manual and
       say so. Do not widen the allowlist further under `src/`. _Source:
       architect, 2026-07-30 (PR #76 §5); verified against both files by the lead._
+      _(2026-08-01, team/2026-08-01-runs-artifact, PR #85 — awaiting Dom.
+      Resolved the first way: exactly one pattern added,
+      `src/content/*.generated.json`. Nothing else under `src/` — it
+      deliberately does not match `.ts`/`.tsx`. Hand-verified against the
+      guard's real shell `case` logic (it is not a `paths:` filter): a routine
+      report PR keeps `safe-auto`, and PR #85's own file list correctly stays
+      unsafe. Disclosed rather than left to be found: bash `case` patterns
+      match `/` inside `*`, so the pattern would also match a hypothetical
+      nested `src/content/sub/foo.generated.json` — no such file exists, and
+      every pre-existing pattern in that guard (`docs/*`, `content/*`) has the
+      same property.)_
 - [ ] **MEDIUM — Nothing measures whether anyone reads this site.**
       PROJECT-BRIEF goal 2 wants readers; there is no analytics of any kind, so
       every prioritisation decision about content is made blind — the
@@ -1339,7 +1418,7 @@ site whose provenance device is still decorative.
       creation-record guarantee); or move the block into the branch that creates
       the files rather than the report. _Source: Project Lead, 2026-07-30 —
       observed, not hypothetical._
-- [ ] **LOW — The "QA pass" item at the top of this file is stale and should be
+- [x] **LOW — The "QA pass" item at the top of this file is stale and should be
       re-scoped or closed with evidence.** It has been open and unchanged since
       day one, reading "all states, responsive, accessibility; fix findings" —
       but since it was written the studio has shipped the route smoke suite
@@ -1352,6 +1431,127 @@ site whose provenance device is still decorative.
       means that no existing gate covers, and either rewrite it as that specific
       list or check it off citing the gates that closed it. _Source: lead
       backlog-health review, 2026-07-30._
+
+### Added 2026-07-31 — RECOVERED 2026-08-01 (see note)
+
+**These four items were never written to this file.** The 2026-07-31 run
+reported them as "logged as new HIGH backlog items" and its "For Dom to
+review" section describes its branch as "`BACKLOG.md` + this report", but
+PR #81 touched **only** `reports/2026-07-31.md` — verified with
+`gh pr view 81 --json files`. Their rows were created in the Notion mirror,
+so for one day the read-only mirror was the *only* record of four findings
+and the source of truth silently lacked them. Recovered here on 2026-08-01
+from `reports/2026-07-31.md` (merged, authoritative) with the Notion rows as
+corroboration — not rewritten from Notion. **This is the fourth
+backlog-misreports-its-own-state incident, and a new variant of it:** the
+previous three were items left unchecked after shipping; this one is a report
+asserting a file change that did not happen, which no gate catches because
+nothing compares a report's claims against its own diff.
+
+- [ ] **HIGH — Branch protection on `main` was never configured, so the
+      auto-merge CI gate does not exist.** `gh api
+      repos/dominiquebrom28/studio-site/branches/main/protection` returns
+      `404 "Branch not protected"` — re-confirmed 2026-08-01, still 404.
+      `.github/AUTO-MERGE-SETUP.md` lists four one-time manual steps; three
+      are done (auto-merge enabled, the `safe-auto` label exists, `gh`
+      authenticated) but **step 2 — require the `CI / build` check on `main` —
+      never was.** That doc's own words about step 2: "even a PR with
+      `safe-auto` enabled cannot merge until this required check is green."
+      That sentence is currently false. The four PRs the lane merged on
+      2026-07-18 were guarded by the path allowlist alone, never by CI.
+      **Sequence this BEFORE re-adopting the labeling habit** — turning the
+      lane back on first would be enabling self-merge with the safety catch
+      off. One-time Dom action in the GitHub UI, no PR. _Source: 2026-07-31
+      run; re-verified 2026-08-01._
+- [ ] **HIGH — The auto-merge lane works, and the studio stopped using it.**
+      Not broken infrastructure: the lane merged PRs #10/#11/#12/#17 on
+      2026-07-18 via `app/github-actions` — **those four are its only
+      successful runs in the repo's entire history, all on that one day.**
+      Everything since is skipped runs, because no PR has carried the
+      `safe-auto` label since. Re-checked 2026-08-01: **still zero labelled
+      PRs**, and Dom merged all seven of the 2026-07-31 batch by hand. Fix is
+      process, not code — the run playbook should classify and label each PR
+      after opening it. **But this may simply be Dom's preference**, and if so
+      the honest resolution is to close this item as a deliberate decision
+      rather than leave it open forever; ask before building the habit.
+      Sequence AFTER branch protection. _Source: 2026-07-31 run; re-verified
+      2026-08-01._
+- [ ] **MEDIUM — Nothing surfaces a red CI check, and nobody reads the
+      artifacts.** PR #69's `e2e` failed 2026-07-29 and sat red and unexamined
+      for two days while six green PRs queued behind it — the only red check
+      in the queue. It was diagnosable the whole time: an unexpired 2MB
+      `playwright-report` artifact with a full trace, one `gh run download`
+      away, which is how the 07-31 run eventually root-caused it. Two gaps:
+      (a) nothing notifies when a check goes red, and `e2e` is deliberately
+      non-required so it blocks nothing; (b) the run playbook has no
+      "download the artifact **before** re-running" step, and a re-run
+      destroys the cheapest evidence available. Worth keeping the irony: PR
+      #70 added artifact capture for the smoke suite on the theory that the
+      next failure should be diagnosable — it was right, and the artifact that
+      solved it was one Playwright had been writing all along. **Capturable is
+      not the same as read.** _Source: 2026-07-31 run._
+- [ ] **LOW — Nine stale worktrees, 764MB — and the blocker is now cleared.**
+      `git worktree list` holds nine leftovers no run ever removed: five under
+      `.claude/worktrees/` (764MB total; `dom4-capture` alone is 197MB of
+      captured media) and four under a dead 2026-07-28 session's scratchpad.
+      The 2026-07-31 run refused to sweep because one of them —
+      `mystifying-wilbur-276efe` on `team/2026-07-20-fix-post-count` — still
+      held an uncommitted pin-by-slug fix, and a blind sweep would have
+      destroyed real work. **Resolved 2026-08-01:** the lead diffed that file
+      against `main` and it is **fully superseded** — PR #26 shipped the same
+      five-slug pin more thoroughly (a dedicated `LEGACY_POSTS` test plus a
+      `>=` floor, instead of the stranded diff's inline rewrite of
+      `expect(posts.length).toBe(5)`). The only fragment `main` lacked was a
+      stale comment reading "currently 3-post" when there are 16; **that
+      one-line fix is carried forward in this PR**, so nothing is lost by
+      removing the worktree. All nine are now clean (`git status --porcelain`
+      empty in each). Sweeping is a destructive operation across other
+      sessions' directories, so it stays Dom's call — the branches and commits
+      survive `git worktree remove`; only the checkouts go. _Source:
+      2026-07-31 run; blocker cleared by the lead 2026-08-01._
+
+### Added 2026-08-01 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **MEDIUM — `PROJECT-BRIEF.md`'s team headcount is stale, and the site
+      contradicts it in public.** The brief — the document every scheduled run
+      reads first, and the stated source of truth for goals and voice — says
+      "one Project Lead orchestrating **8 specialist subagents**". The roster
+      has since grown by the `visual-media` hire (DOM-5, PR #13), and the
+      site's own footer copy says **"10 AI characters"**. Two surfaces, two
+      numbers, both public. This blocked real work rather than being cosmetic:
+      the 2026-08-01 studio-site write-up **deliberately avoided stating any
+      headcount** because there was no number it could state without
+      contradicting one surface or the other, so a page about the AI team
+      cannot currently say how big the AI team is. Fix at the source — correct
+      the brief, then grep for every other place a count is asserted
+      (`content/`, `src/components/`, `docs/`) and make them agree, or state
+      the count in exactly one place and derive it. Related: the Notion mirror
+      still cannot attribute the tenth cast member (item above), which is the
+      same "the cast grew to 10 and a system still says 9" class. _Source:
+      named product gap, found 2026-08-01 by the lead while reviewing the
+      studio-site portfolio copy; both figures verified against
+      `PROJECT-BRIEF.md` and the rendered footer._
+- [ ] **MEDIUM — 16 posts, one reverse-chronological list, and no way in.**
+      The blog is the site's main body of work (PROJECT-BRIEF goal 2) and it
+      has exactly one view: everything, newest first. A first-time reader
+      landing on `/blog` gets 16 similarly-titled logbook entries with no
+      indication which are the good ones, and the genuinely strong
+      retrospectives ("What the green checkmarks missed", "True by accident")
+      are indistinguishable from routine day-logs. **Record the constraint
+      before someone builds the obvious thing:** tag-filtering is NOT the
+      answer here and should not be built without new evidence — tags are
+      already authored on every post and rendered as text by `PostCard` and
+      `BlogPost`, but the vocabulary is lopsided (**14 of 16 posts are tagged
+      `logbook`**; 15 of the 22 distinct tags appear exactly once), so a tag
+      filter would mostly render one bucket containing almost everything.
+      What is actually missing is editorial: a small curated "start here" set,
+      or a visible distinction between retrospectives and day-logs. That is a
+      content-judgement call and reads as a **Dom checkpoint**, not something
+      to auto-generate. Sequence after the `/reports` surface question is
+      settled — both are "how does a reader navigate this site's own record"
+      and answering them separately risks two competing indexes. _Source:
+      named product gap, found 2026-08-01; tag counts measured across
+      `content/posts/*.md`._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.

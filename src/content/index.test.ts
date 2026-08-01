@@ -211,7 +211,7 @@ describe('content loader — real repo content', () => {
 /**
  * `getAdjacentPostsFrom` — the pure, parameterized core of `getAdjacentPosts`
  * — exercised against synthetic data so edge cases that don't naturally
- * exist in the real (currently 3-post) content set can be asserted directly:
+ * exist in the real content set can be asserted directly:
  * a single-post corpus, draft exclusion, and identical-date tie-break order.
  */
 describe('getAdjacentPostsFrom', () => {
