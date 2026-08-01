@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateProvenance, ProvenanceGitError } from './generate.mjs';
+import { generateProvenance, generateRunsArtifact, ProvenanceGitError } from './generate.mjs';
 import { ProvenanceValidationError } from './parse.mjs';
-import { ProvenanceBlockSchema, ProvenanceRecordSchema } from '../../src/content/provenance-schema';
+import { RunsArtifactValidationError } from './runs.mjs';
+import { ProvenanceBlockSchema, ProvenanceRecordSchema, RUN_KIND_BY_H1_PREFIX, RunsArtifactSchema } from '../../src/content/provenance-schema';
 import { cast } from '../../src/content/cast';
 
 const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
@@ -11,6 +12,35 @@ const FIXTURES_ROOT = path.join(DIRNAME, '__fixtures__', 'repo');
 
 function reportsDir(scenario: string): string {
   return path.join(FIXTURES_ROOT, 'reports', scenario);
+}
+
+// `__fixtures__/repo-success/<scenario>/` — a SEPARATE, isolated fixture
+// tree from `__fixtures__/repo/reports/<scenario>/` above, used ONLY by the
+// "happy path" describe block below. Necessary because `REPORT_PATH_PATTERN`
+// (provenance-schema.ts, docs/reports-surface.md §6 PR 0) now requires
+// `reportPath` to be exactly `reports/<file>.md` — a SINGLE path segment,
+// matching every real file in `reports/` (none of which sit in a
+// subdirectory). The shared `__fixtures__/repo/reports/<scenario>/` tree
+// nests each scenario one level deeper (`reports/<scenario>/<file>.md`) so
+// `readReportFiles` can scope a test to one scenario at a time — a
+// deliberate, still-valid isolation trick for `parseAllReports`/
+// `ProvenanceBlockSchema` tests (which never touch `reportPath`'s format),
+// but it produces a `reportPath` the NEW schema regex correctly rejects once
+// a record reaches `ProvenanceRecordSchema.parse()` (the "happy path"
+// describe block's whole point). Each scenario here is its OWN tiny
+// self-contained repo root (its own `reports/` AND `content/`) so the
+// computed `reportPath` is exactly one segment, matching production shape.
+const SUCCESS_FIXTURES_ROOT = path.join(DIRNAME, '__fixtures__', 'repo-success');
+
+function successFixtureRoot(scenario: string): string {
+  return path.join(SUCCESS_FIXTURES_ROOT, scenario);
+}
+
+/** Test double for `generateRunsArtifact`'s `loadModules`: returns the REAL
+ * `RunsArtifactSchema` / `RUN_KIND_BY_H1_PREFIX`, same reasoning as
+ * `fakeLoadModules` below for the provenance side. */
+async function fakeLoadRunsModules() {
+  return { RunsArtifactSchema, RUN_KIND_BY_H1_PREFIX };
 }
 
 /**
@@ -86,8 +116,8 @@ describe('generateProvenance — zero-blocks case (§9 / caution: must be fast a
 describe('generateProvenance — happy path / commit resolution', () => {
   it('resolves a real commit for a produced path git has history for', async () => {
     const records = await generateProvenance({
-      repoRoot: FIXTURES_ROOT,
-      reportsDir: reportsDir('happy'),
+      repoRoot: successFixtureRoot('happy'),
+      reportsDir: path.join(successFixtureRoot('happy'), 'reports'),
       loadModules: fakeLoadModules,
       gitRunner: makeGitRunner({ logOutputs: { 'content/happy-item.md': REAL_COMMIT_LINE } }),
     });
@@ -99,7 +129,7 @@ describe('generateProvenance — happy path / commit resolution', () => {
       date: '2026-07-21T14:29:06+02:00',
     });
     expect(record.runId).toBe('2026-01-01-happy');
-    expect(record.reportPath).toBe('reports/happy/2026-01-01-happy.md');
+    expect(record.reportPath).toBe('reports/2026-01-01-happy.md');
     expect(record.item).toBe('happy-item');
     expect(record.branch).toBe('team/2026-01-01-happy');
     expect(record.judge).toBeNull();
@@ -112,8 +142,8 @@ describe('generateProvenance — happy path / commit resolution', () => {
 
   it('§5.2: file exists but has no commit yet -> commit: null, build succeeds (distinct from a git failure)', async () => {
     const records = await generateProvenance({
-      repoRoot: FIXTURES_ROOT,
-      reportsDir: reportsDir('happy'),
+      repoRoot: successFixtureRoot('happy'),
+      reportsDir: path.join(successFixtureRoot('happy'), 'reports'),
       loadModules: fakeLoadModules,
       gitRunner: makeGitRunner({ logOutputs: {} }), // empty stdout for every `git log` call
     });
@@ -122,8 +152,8 @@ describe('generateProvenance — happy path / commit resolution', () => {
 
   it('carries judge/tokens objects and branch-omission through multi-item reports untouched', async () => {
     const records = await generateProvenance({
-      repoRoot: FIXTURES_ROOT,
-      reportsDir: reportsDir('multi-item'),
+      repoRoot: successFixtureRoot('multi-item'),
+      reportsDir: path.join(successFixtureRoot('multi-item'), 'reports'),
       loadModules: fakeLoadModules,
       gitRunner: makeGitRunner({
         logOutputs: {
@@ -141,8 +171,8 @@ describe('generateProvenance — happy path / commit resolution', () => {
 
   it('the judge/tokens key being entirely absent in the block stays entirely absent in the record (the third, "unrecorded" state)', async () => {
     const records = await generateProvenance({
-      repoRoot: FIXTURES_ROOT,
-      reportsDir: reportsDir('no-judge-key'),
+      repoRoot: successFixtureRoot('no-judge-key'),
+      reportsDir: path.join(successFixtureRoot('no-judge-key'), 'reports'),
       loadModules: fakeLoadModules,
       gitRunner: makeGitRunner({ logOutputs: { 'content/no-judge-item.md': REAL_COMMIT_LINE } }),
     });
@@ -158,8 +188,8 @@ describe('generateProvenance — happy path / commit resolution', () => {
     // LAST line — the test double mirrors that ordering exactly.
     const multiHit = `${newerLine}\n${olderLine}\n`;
     const records = await generateProvenance({
-      repoRoot: FIXTURES_ROOT,
-      reportsDir: reportsDir('happy'),
+      repoRoot: successFixtureRoot('happy'),
+      reportsDir: path.join(successFixtureRoot('happy'), 'reports'),
       loadModules: fakeLoadModules,
       gitRunner: makeGitRunner({ logOutputs: { 'content/happy-item.md': multiHit } }),
     });
@@ -405,5 +435,126 @@ describe('generateProvenance — against the REAL reports/ directory', () => {
     for (const record of Object.values(records)) {
       expect(record.authors.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// `__fixtures__/runs-repo/<scenario>/` — see `runs.test.ts`'s header comment
+// for why this is a SEPARATE fixture tree from `__fixtures__/repo/reports/
+// <scenario>/` above: `RunsArtifactSchema` (which `generateRunsArtifact`
+// re-validates against, defense in depth) requires `reportPath` to be
+// exactly `reports/<file>.md` — one segment, matching real `reports/`'s flat
+// shape — so each scenario here is its own isolated repo root with a flat
+// `reports/` directory directly underneath.
+const RUNS_FIXTURES_ROOT = path.join(DIRNAME, '__fixtures__', 'runs-repo');
+
+function runsScenarioRoot(scenario: string): string {
+  return path.join(RUNS_FIXTURES_ROOT, scenario);
+}
+
+function runsReportsDir(scenario: string): string {
+  return path.join(runsScenarioRoot(scenario), 'reports');
+}
+
+describe('generateRunsArtifact (docs/reports-surface.md §3.2) — git-free, always runs', () => {
+  it('produces one validated row per fixture file, sorted by reportPath', async () => {
+    const rows = await generateRunsArtifact({
+      repoRoot: runsScenarioRoot('valid-shapes'),
+      reportsDir: runsReportsDir('valid-shapes'),
+      loadModules: fakeLoadRunsModules,
+    });
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.reportPath)).toEqual([
+      'reports/2026-07-21-review.md',
+      'reports/2026-07-29.md',
+      'reports/maintenance-2026-07-20.md',
+    ]);
+    expect(() => RunsArtifactSchema.parse(rows)).not.toThrow();
+  });
+
+  it('§3.2 failure table: filename has no YYYY-MM-DD -> build fails, naming the file', async () => {
+    await expect(
+      generateRunsArtifact({
+        repoRoot: runsScenarioRoot('no-date'),
+        reportsDir: runsReportsDir('no-date'),
+        loadModules: fakeLoadRunsModules,
+      }),
+    ).rejects.toThrow(RunsArtifactValidationError);
+
+    try {
+      await generateRunsArtifact({
+        repoRoot: runsScenarioRoot('no-date'),
+        reportsDir: runsReportsDir('no-date'),
+        loadModules: fakeLoadRunsModules,
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof RunsArtifactValidationError>;
+      expect(err.issues[0]).toContain('reports/notes.md');
+    }
+  });
+
+  it('§3.2 failure table: first non-blank line is not an H1 -> build fails, naming the file', async () => {
+    try {
+      await generateRunsArtifact({
+        repoRoot: runsScenarioRoot('no-h1'),
+        reportsDir: runsReportsDir('no-h1'),
+        loadModules: fakeLoadRunsModules,
+      });
+      expect.unreachable();
+    } catch (error) {
+      const err = error as InstanceType<typeof RunsArtifactValidationError>;
+      expect(err).toBeInstanceOf(RunsArtifactValidationError);
+      expect(err.issues[0]).toContain('reports/2026-01-01-no-h1.md');
+    }
+  });
+
+  it('§3.2 failure table: unrecognised H1 kind prefix -> row emitted, `kind` omitted, build succeeds', async () => {
+    const rows = await generateRunsArtifact({
+      repoRoot: runsScenarioRoot('unknown-kind'),
+      reportsDir: runsReportsDir('unknown-kind'),
+      loadModules: fakeLoadRunsModules,
+    });
+    expect(rows).toHaveLength(1);
+    expect('kind' in rows[0]).toBe(false);
+    expect(rows[0].title).toBe('Something else entirely — 2026-01-01');
+  });
+});
+
+describe('generateRunsArtifact — against the REAL reports/ directory', () => {
+  it('produces exactly one row per real file in reports/, every date parses, every title non-empty', async () => {
+    const REPO_ROOT = path.resolve(DIRNAME, '..', '..');
+    const rows = await generateRunsArtifact({
+      repoRoot: REPO_ROOT,
+      reportsDir: path.join(REPO_ROOT, 'reports'),
+      loadModules: fakeLoadRunsModules,
+    });
+
+    const fs = await import('node:fs');
+    const realFilenames = fs
+      .readdirSync(path.join(REPO_ROOT, 'reports'))
+      .filter((name) => name.endsWith('.md'));
+    expect(rows).toHaveLength(realFilenames.length);
+
+    for (const row of rows) {
+      expect(row.title.length).toBeGreaterThan(0);
+      expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(() => new Date(row.date).getTime()).not.toThrow();
+      expect(Number.isNaN(new Date(row.date).getTime())).toBe(false);
+    }
+
+    // 2026-07-19-evening.md's H1 ends "— BACKFILLED 2026-07-21" — its date
+    // must come from the FILENAME (07-19), not be dragged two days late by
+    // the title text.
+    const backfilled = rows.find((r) => r.reportPath === 'reports/2026-07-19-evening.md');
+    expect(backfilled?.date).toBe('2026-07-19');
+
+    // Every real `kind` value that DOES appear is one of the four allowlisted
+    // ones — never an ad hoc string leaking through.
+    const seenKinds = new Set(rows.map((r) => r.kind).filter((k) => k !== undefined));
+    for (const kind of seenKinds) {
+      expect(['run-report', 'critical-review', 'maintenance-sweep', 'hire-report']).toContain(kind);
+    }
+
+    expect(() => RunsArtifactSchema.parse(rows)).not.toThrow();
   });
 });

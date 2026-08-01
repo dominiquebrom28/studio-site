@@ -454,3 +454,92 @@ describe('content validation — asset paths resolve to real files on disk', () 
     ).toEqual([]);
   });
 });
+
+/**
+ * Runs-artifact content-validation gate (`docs/reports-surface.md` §3.2/§5,
+ * §6 PR 1's own requirement: "add a runs-artifact test to the
+ * content-validation suite ... Without this a deleted or renamed report
+ * silently produces a dangling row"). Reads the REAL committed
+ * `src/content/runs.generated.json`, `src/content/provenance.generated.json`,
+ * and `reports/` directory off disk — not fixtures — so a future report
+ * rename/delete that leaves a stale generated artifact behind (impossible in
+ * normal `npm run build`/`test` flows, since `generate.mjs` regenerates it on
+ * every one, but this gate exists for the same reason the drift gate does:
+ * defense against a hand-edited or stale-checkout artifact slipping through)
+ * fails loudly here instead of shipping a dangling row silently.
+ */
+describe('content validation — runs artifact (src/content/runs.generated.json)', () => {
+  const dirname = path.dirname(fileURLToPath(import.meta.url));
+  const REPO_ROOT = path.resolve(dirname, '../..');
+  const REPORTS_DIR = path.join(REPO_ROOT, 'reports');
+
+  function readRunsArtifact(): Array<{ runId: string; reportPath: string; title: string; date: string; kind?: string }> {
+    const raw = fs.readFileSync(path.join(REPO_ROOT, 'src', 'content', 'runs.generated.json'), 'utf8');
+    return JSON.parse(raw) as Array<{ runId: string; reportPath: string; title: string; date: string; kind?: string }>;
+  }
+
+  function readProvenanceArtifact(): Record<string, { reportPath: string }> {
+    const raw = fs.readFileSync(path.join(REPO_ROOT, 'src', 'content', 'provenance.generated.json'), 'utf8');
+    return JSON.parse(raw) as Record<string, { reportPath: string }>;
+  }
+
+  function realReportFilenames(): string[] {
+    return fs.readdirSync(REPORTS_DIR).filter((name) => name.endsWith('.md'));
+  }
+
+  it('has at least one report to validate (this suite is meaningless against zero files)', () => {
+    expect(realReportFilenames().length).toBeGreaterThan(0);
+  });
+
+  it('exactly one row per file in reports/ — no missing rows, no orphan rows', () => {
+    const rows = readRunsArtifact();
+    const rowPaths = rows.map((row) => row.reportPath).sort();
+    const realPaths = realReportFilenames()
+      .map((name) => `reports/${name}`)
+      .sort();
+    expect(rowPaths).toEqual(realPaths);
+  });
+
+  it('every row\'s `date` parses to a real calendar date', () => {
+    const rows = readRunsArtifact();
+    for (const row of rows) {
+      expect(row.date, `${row.reportPath}: date "${row.date}" is not YYYY-MM-DD`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      const parsed = new Date(`${row.date}T00:00:00Z`);
+      expect(Number.isNaN(parsed.getTime()), `${row.reportPath}: date "${row.date}" does not parse to a real date`).toBe(false);
+    }
+  });
+
+  it('every row\'s `title` is non-empty', () => {
+    const rows = readRunsArtifact();
+    for (const row of rows) {
+      expect(row.title.length, `${row.reportPath}: title is empty`).toBeGreaterThan(0);
+    }
+  });
+
+  it('every `reportPath` in provenance.generated.json resolves to a known run in the runs artifact', () => {
+    const provenance = readProvenanceArtifact();
+    const rows = readRunsArtifact();
+    const knownReportPaths = new Set(rows.map((row) => row.reportPath));
+
+    const dangling = Object.entries(provenance)
+      .filter(([, record]) => !knownReportPaths.has(record.reportPath))
+      .map(([producedPath, record]) => `${producedPath} -> reportPath "${record.reportPath}" (no matching runs-artifact row)`);
+
+    expect(
+      dangling,
+      dangling.length > 0
+        ? `these provenance.generated.json entries point at a reportPath with no corresponding runs-artifact row (a report was likely renamed/deleted without regenerating the artifact):\n${dangling.join('\n')}`
+        : undefined,
+    ).toEqual([]);
+  });
+
+  it('every row\'s `kind`, when present, is one of the four allowlisted values', () => {
+    const rows = readRunsArtifact();
+    for (const row of rows) {
+      if (row.kind === undefined) continue;
+      expect(['run-report', 'critical-review', 'maintenance-sweep', 'hire-report'], `${row.reportPath}: unexpected kind "${row.kind}"`).toContain(
+        row.kind,
+      );
+    }
+  });
+});
