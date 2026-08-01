@@ -1,0 +1,12 @@
+#!/bin/sh
+# Fires after `git merge` completes (including a fast-forward `git pull`) —
+# this is the exact trigger named in BACKLOG.md's original write-up of the
+# incident ("a postmerge/post-checkout git hook"): a PR merges upstream,
+# main pulls it in, and the local node_modules is now stale relative to the
+# package.json that just landed.
+#
+# See post-checkout (same directory) for the full design rationale — this
+# file is deliberately just a call to the same script; keeping the actual
+# check logic in one place (scripts/check-deps-drift.mjs) rather than
+# duplicated across hook files.
+node "$(git rev-parse --show-toplevel)/scripts/check-deps-drift.mjs" || true
