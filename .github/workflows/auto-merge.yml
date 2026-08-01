@@ -39,6 +39,18 @@ jobs:
               docs/*) is_safe=true ;;
               reports/*) is_safe=true ;;
               *.test.ts|*.test.tsx) is_safe=true ;;
+              # Generated content artifacts under src/content/ ONLY
+              # (docs/reports-surface.md §5/§6 PR 1) — every routine report
+              # PR now touches a committed `src/content/*.generated.json`
+              # (provenance.generated.json, and as of this PR
+              # runs.generated.json too), which would otherwise strip
+              # `safe-auto` from routine bookkeeping PRs. Defensible: these
+              # files are machine-generated, Zod-validated, non-executable
+              # JSON whose freshness is proven by the drift gate in the SAME
+              # required `build` job/PR. Do NOT widen this to anything else
+              # under src/ — this pattern intentionally does not match
+              # `.ts`/`.tsx` source.
+              src/content/*.generated.json) is_safe=true ;;
             esac
 
             # Root-level *.md only (no directory separator in the path).
@@ -79,7 +91,7 @@ jobs:
             cat "$UNSAFE_FILE"
             echo '```'
             echo
-            echo "Allowlist: \`content/**\`, \`docs/**\`, \`reports/**\`, root-level \`*.md\`, \`**/*.test.ts\`, \`**/*.test.tsx\`."
+            echo "Allowlist: \`content/**\`, \`docs/**\`, \`reports/**\`, root-level \`*.md\`, \`**/*.test.ts\`, \`**/*.test.tsx\`, \`src/content/*.generated.json\`."
             echo "This PR needs a human review and manual merge."
           } > "$RUNNER_TEMP/comment-body.md"
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$RUNNER_TEMP/comment-body.md"

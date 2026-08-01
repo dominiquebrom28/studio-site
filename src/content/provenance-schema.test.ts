@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   CommitSchema,
   JudgeSchema,
   TokensSchema,
   ProvenanceBlockSchema,
   ProvenanceRecordSchema,
+  RunsArtifactRowSchema,
+  RUN_ID_PATTERN,
+  REPORT_PATH_PATTERN,
+  RUN_KIND_BY_H1_PREFIX,
 } from './provenance-schema';
 
 const validCommit = {
@@ -183,5 +190,125 @@ describe('ProvenanceRecordSchema (§4.2 — the per-file generated record)', () 
     } as never);
     expect(parsed).not.toHaveProperty('produced');
     expect(parsed).not.toHaveProperty('title');
+  });
+
+  it('`runId` and `reportPath` are now regex-pinned, not bare strings (docs/reports-surface.md §4.1/§6 PR 0)', () => {
+    const base = {
+      item: 'second-blog-post',
+      authors: ['Project Lead'],
+      reviewers: [],
+      commit: null,
+    };
+    // A rejection that would actually matter: `reportPath` containing a
+    // directory traversal or an absolute URL — the exact hazard the spec
+    // calls out, since this value is interpolated into an `href` in
+    // `ProvenanceStrip.tsx`.
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: '2026-07-18', reportPath: 'reports/../../etc/passwd.md' })).toThrow();
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: '2026-07-18', reportPath: 'https://evil.example/x.md' })).toThrow();
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: '2026-07-18', reportPath: '/etc/passwd' })).toThrow();
+    // Wrong root directory — must be under `reports/`.
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: '2026-07-18', reportPath: 'docs/2026-07-18.md' })).toThrow();
+    // `runId` must not be free text either.
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: 'not-a-date-at-all', reportPath: 'reports/2026-07-18.md' })).toThrow();
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: '../escape', reportPath: 'reports/2026-07-18.md' })).toThrow();
+
+    // The real, legal shapes still parse.
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: '2026-07-18', reportPath: 'reports/2026-07-18.md' })).not.toThrow();
+    expect(() => ProvenanceRecordSchema.parse({ ...base, runId: '2026-07-21-review', reportPath: 'reports/2026-07-21-review.md' })).not.toThrow();
+    expect(() =>
+      ProvenanceRecordSchema.parse({ ...base, runId: 'maintenance-2026-07-20', reportPath: 'reports/maintenance-2026-07-20.md' }),
+    ).not.toThrow();
+  });
+});
+
+/**
+ * Regression guard, per the task: "validate these regexes against every real
+ * value currently in `src/content/provenance.generated.json` and every
+ * filename in `reports/` before committing — if a real existing value fails,
+ * the regex is wrong, not the data." Reads the REAL committed artifact and
+ * the REAL `reports/` directory off disk (not fixtures), so this fails the
+ * moment a future real report/artifact value stops matching the pattern.
+ */
+describe('RUN_ID_PATTERN / REPORT_PATH_PATTERN — against every real value on disk', () => {
+  const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+  it('every runId/reportPath already committed in provenance.generated.json matches both patterns', () => {
+    const artifactPath = path.join(REPO_ROOT, 'src', 'content', 'provenance.generated.json');
+    const raw = fs.readFileSync(artifactPath, 'utf8');
+    const artifact = JSON.parse(raw) as Record<string, { runId: string; reportPath: string }>;
+    const entries = Object.entries(artifact);
+    expect(entries.length).toBeGreaterThan(0); // meaningless against zero records
+
+    for (const [producedPath, record] of entries) {
+      expect(record.runId, `runId "${record.runId}" (from ${producedPath}) does not match RUN_ID_PATTERN`).toMatch(RUN_ID_PATTERN);
+      expect(
+        record.reportPath,
+        `reportPath "${record.reportPath}" (from ${producedPath}) does not match REPORT_PATH_PATTERN`,
+      ).toMatch(REPORT_PATH_PATTERN);
+    }
+  });
+
+  it('every real filename in reports/ produces a runId + reportPath that match both patterns', () => {
+    const reportsDir = path.join(REPO_ROOT, 'reports');
+    const filenames = fs.readdirSync(reportsDir).filter((name) => name.endsWith('.md'));
+    expect(filenames.length).toBeGreaterThan(0);
+
+    for (const filename of filenames) {
+      const runId = filename.replace(/\.md$/, '');
+      const reportPath = `reports/${filename}`;
+      expect(runId, `runId "${runId}" (from reports/${filename}) does not match RUN_ID_PATTERN`).toMatch(RUN_ID_PATTERN);
+      expect(reportPath, `reportPath "${reportPath}" does not match REPORT_PATH_PATTERN`).toMatch(REPORT_PATH_PATTERN);
+    }
+  });
+});
+
+describe('RunsArtifactRowSchema (docs/reports-surface.md §3.2)', () => {
+  const validRow = {
+    runId: '2026-07-20',
+    reportPath: 'reports/2026-07-20.md',
+    title: 'Run report — 2026-07-20',
+    date: '2026-07-20',
+    kind: 'run-report' as const,
+  };
+
+  it('accepts a fully-populated row', () => {
+    expect(() => RunsArtifactRowSchema.parse(validRow)).not.toThrow();
+  });
+
+  it('`kind` is optional — a row with no recognised kind omits the key entirely', () => {
+    const { kind: _omit, ...withoutKind } = validRow;
+    const parsed = RunsArtifactRowSchema.parse(withoutKind);
+    expect('kind' in parsed).toBe(false);
+  });
+
+  it('`kind` is a closed enum — no free-text kinds', () => {
+    expect(() => RunsArtifactRowSchema.parse({ ...validRow, kind: 'blog-post' })).toThrow();
+  });
+
+  it('`date` must be YYYY-MM-DD', () => {
+    expect(() => RunsArtifactRowSchema.parse({ ...validRow, date: '07-20-2026' })).toThrow();
+    expect(() => RunsArtifactRowSchema.parse({ ...validRow, date: '2026-7-20' })).toThrow();
+  });
+
+  it('`title` must be non-empty', () => {
+    expect(() => RunsArtifactRowSchema.parse({ ...validRow, title: '' })).toThrow();
+  });
+
+  it('`runId`/`reportPath` share the same regex pins as ProvenanceRecordSchema — same injection guard', () => {
+    expect(() => RunsArtifactRowSchema.parse({ ...validRow, reportPath: '../../etc/passwd' })).toThrow();
+    expect(() => RunsArtifactRowSchema.parse({ ...validRow, reportPath: 'https://evil.example/x.md' })).toThrow();
+    expect(() => RunsArtifactRowSchema.parse({ ...validRow, runId: 'not a valid run id' })).toThrow();
+  });
+
+  it('RUN_KIND_BY_H1_PREFIX only ever maps to values the schema enum actually accepts', () => {
+    for (const kind of Object.values(RUN_KIND_BY_H1_PREFIX)) {
+      expect(() => RunsArtifactRowSchema.parse({ ...validRow, kind })).not.toThrow();
+    }
+  });
+
+  it('has exactly the four kinds the real reports/ corpus uses today, no more, no fewer', () => {
+    expect(Object.keys(RUN_KIND_BY_H1_PREFIX).sort()).toEqual(
+      ['Critical review', 'Hire report', 'Maintenance sweep', 'Run report'].sort(),
+    );
   });
 });

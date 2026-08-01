@@ -1,0 +1,163 @@
+[
+  {
+    "runId": "2026-07-15-design-brief",
+    "reportPath": "reports/2026-07-15-design-brief.md",
+    "title": "Run report — 2026-07-15 (Design brief)",
+    "date": "2026-07-15",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-15-persona-and-build",
+    "reportPath": "reports/2026-07-15-persona-and-build.md",
+    "title": "Run report — 2026-07-15 (Persona bible + Scaffold, concept built)",
+    "date": "2026-07-15",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-15",
+    "reportPath": "reports/2026-07-15.md",
+    "title": "Run report — 2026-07-15",
+    "date": "2026-07-15",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-16",
+    "reportPath": "reports/2026-07-16.md",
+    "title": "Run report — 2026-07-16",
+    "date": "2026-07-16",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-17-auto-merge-infra",
+    "reportPath": "reports/2026-07-17-auto-merge-infra.md",
+    "title": "Run report — 2026-07-17 (auto-merge infrastructure)",
+    "date": "2026-07-17",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-17",
+    "reportPath": "reports/2026-07-17.md",
+    "title": "Run report — 2026-07-17",
+    "date": "2026-07-17",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-18-evening",
+    "reportPath": "reports/2026-07-18-evening.md",
+    "title": "Run report — 2026-07-18 evening (interactive session with Dom)",
+    "date": "2026-07-18",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-18-visual-media-hire",
+    "reportPath": "reports/2026-07-18-visual-media-hire.md",
+    "title": "Hire report — visual-media agent (2026-07-18 evening)",
+    "date": "2026-07-18",
+    "kind": "hire-report"
+  },
+  {
+    "runId": "2026-07-18",
+    "reportPath": "reports/2026-07-18.md",
+    "title": "Run report — 2026-07-18",
+    "date": "2026-07-18",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-19-evening",
+    "reportPath": "reports/2026-07-19-evening.md",
+    "title": "Run report — 2026-07-19, second session (project page v2) — BACKFILLED 2026-07-21",
+    "date": "2026-07-19",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-19",
+    "reportPath": "reports/2026-07-19.md",
+    "title": "Run report — 2026-07-19",
+    "date": "2026-07-19",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-20",
+    "reportPath": "reports/2026-07-20.md",
+    "title": "Run report — 2026-07-20",
+    "date": "2026-07-20",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-21-review",
+    "reportPath": "reports/2026-07-21-review.md",
+    "title": "Critical review — the whole team + the Judge — 2026-07-21",
+    "date": "2026-07-21",
+    "kind": "critical-review"
+  },
+  {
+    "runId": "2026-07-21",
+    "reportPath": "reports/2026-07-21.md",
+    "title": "Run report — 2026-07-21",
+    "date": "2026-07-21",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-23",
+    "reportPath": "reports/2026-07-23.md",
+    "title": "Run report — 2026-07-23",
+    "date": "2026-07-23",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-24",
+    "reportPath": "reports/2026-07-24.md",
+    "title": "Run report — 2026-07-24",
+    "date": "2026-07-24",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-27",
+    "reportPath": "reports/2026-07-27.md",
+    "title": "Run report — 2026-07-27",
+    "date": "2026-07-27",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-28",
+    "reportPath": "reports/2026-07-28.md",
+    "title": "Run report — 2026-07-28 (maintenance run)",
+    "date": "2026-07-28",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-29",
+    "reportPath": "reports/2026-07-29.md",
+    "title": "Run report — 2026-07-29",
+    "date": "2026-07-29",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-30",
+    "reportPath": "reports/2026-07-30.md",
+    "title": "Run report — 2026-07-30",
+    "date": "2026-07-30",
+    "kind": "run-report"
+  },
+  {
+    "runId": "2026-07-31",
+    "reportPath": "reports/2026-07-31.md",
+    "title": "Run report — 2026-07-31",
+    "date": "2026-07-31",
+    "kind": "run-report"
+  },
+  {
+    "runId": "maintenance-2026-07-20",
+    "reportPath": "reports/maintenance-2026-07-20.md",
+    "title": "Maintenance sweep — 2026-07-20",
+    "date": "2026-07-20",
+    "kind": "maintenance-sweep"
+  },
+  {
+    "runId": "maintenance-2026-07-27",
+    "reportPath": "reports/maintenance-2026-07-27.md",
+    "title": "Maintenance sweep — 2026-07-27",
+    "date": "2026-07-27",
+    "kind": "maintenance-sweep"
+  }
+]
