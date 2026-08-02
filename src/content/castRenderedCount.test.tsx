@@ -100,7 +100,11 @@ describe('Cast page — intro count follows cast.ts, not a hardcoded literal', (
     );
 
     expect(
-      screen.getByText(/^4 AI characters and one human ship this site\./),
+      // "Four", not "4" — the Cast intro derives the SPELLED-OUT count (see
+      // Cast.tsx). This assertion is what pins that: a digit here would mean
+      // the sentence had silently regressed to opening with a numeral while
+      // still pairing it with a spelled-out "one human".
+      screen.getByText(/^Four AI characters and one human ship this site\./),
     ).toBeTruthy();
     expect(screen.queryByText(/^10 AI characters/)).toBeNull();
     // 3 mocked specialists + 1 mocked lead = 4 headings total (h2 for both
