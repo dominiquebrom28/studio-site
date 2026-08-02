@@ -1464,6 +1464,24 @@ previous three were items left unchecked after shipping; this one is a report
 asserting a file change that did not happen, which no gate catches because
 nothing compares a report's claims against its own diff.
 
+> **CORRECTION, 2026-08-02 — the mechanism above is wrong, and the recovery
+> was still right.** Found while verifying PR #91's gate against real history
+> rather than against this account. The 2026-07-31 run **did** write these
+> items to `BACKLOG.md`: commit `b16e7bc` (+69 lines) and `755bf7c` (+19).
+> They were destroyed by a third commit — `1e5e5e8`, an in-branch
+> `git merge main` made at 10:17:48, **one minute before the PR merged** —
+> which resolved the `BACKLOG.md` conflict wholesale in `main`'s favour.
+> `BACKLOG.md` measures 1397 lines at the merge-base and 1397 at the branch
+> head, so the file dropped out of `diff(merge-base, head)` entirely, which is
+> why `gh pr view 81 --json files` truthfully reported one file. **The report
+> was accurate when written; the loss happened after it, in a merge.** So this
+> is not "a report asserting a change that did not happen" — it is work
+> silently reverted by a merge, tracked as its own HIGH item below. The
+> recovery performed on 2026-08-01 was correct and is unaffected; only the
+> diagnosis changes. Kept as a dated correction rather than an edit to the
+> paragraph above, because how this file misread its own history is part of
+> the record.
+
 - [ ] **HIGH — Branch protection on `main` was never configured, so the
       auto-merge CI gate does not exist.** `gh api
       repos/dominiquebrom28/studio-site/branches/main/protection` returns
@@ -1528,7 +1546,7 @@ nothing compares a report's claims against its own diff.
 
 ### Added 2026-08-01 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **MEDIUM — `PROJECT-BRIEF.md`'s team headcount is stale, and the site
+- [x] **MEDIUM — `PROJECT-BRIEF.md`'s team headcount is stale, and the site
       contradicts it in public.** The brief — the document every scheduled run
       reads first, and the stated source of truth for goals and voice — says
       "one Project Lead orchestrating **8 specialist subagents**". The roster
@@ -1547,7 +1565,34 @@ nothing compares a report's claims against its own diff.
       named product gap, found 2026-08-01 by the lead while reviewing the
       studio-site portfolio copy; both figures verified against
       `PROJECT-BRIEF.md` and the rendered footer._
-- [ ] **MEDIUM — The provenance format can only record file *creation*, so a
+      _(2026-08-02, team/2026-08-02-headcount-truth, PR #90 — awaiting Dom.
+      **The binding answer already existed and nothing was reading it:**
+      `docs/persona-bible.md` §35 has said "9 specialists plus the Project
+      Lead. Never '10 specialists'" all along, and `cast.ts` agrees
+      (`cast.length === 10`, `specialists.length === 9`, corroborated by
+      exactly 9 files in `~/.claude/agents/`). So this was never an open
+      question about the number — it was two surfaces hardcoding it
+      separately. Brief corrected; all six rendered counts (Footer ×2,
+      CastStrip, Cast, Home ×2) now derive from `cast.length`. **The
+      deliverable is the test, not the copy edit:** `castRenderedCount.test.tsx`
+      mocks the roster down to 4 and asserts every surface renders 4, so a
+      component can't render the right number today while secretly holding a
+      literal. Falsified with a fake 11th member — `cast.test.ts` red
+      (`expected 11 to be 10`) and the footer actually rendered "11 AI
+      characters". **Lead review caught a copy regression in the first cut**:
+      deriving the count had changed the Cast intro from "Ten AI characters and
+      one human" to "10 AI characters and one human" — a sentence opening with
+      a digit while still pairing it with a spelled-out "one human". The other
+      three surfaces were byte-identical because they already used the numeral
+      in a "1 human + 10" arithmetic framing; only that one is prose. Fixed by
+      deriving the WORD (numeral fallback past the table so an oversized roster
+      degrades legibly), plus a new `src/pages/Cast.test.tsx` pinning the real
+      rendered sentence against the real roster — which the mocked suite
+      structurally cannot do, since `vi.mock` is file-scoped. **Net public copy
+      change: none.** `content/posts/**` deliberately untouched: every stale
+      count there was true when written, and the founding post already carries
+      its own addendum about the growth to ten — no retconning.)_
+- [x] **MEDIUM — The provenance format can only record file *creation*, so a
       run whose deliverable is an edit has nothing it can honestly claim.**
       Surfaced 2026-08-01 by the very first application of the new §13 rule,
       on the run that wrote §13. A `yaml provenance` block's `produced` list
@@ -1568,7 +1613,34 @@ nothing compares a report's claims against its own diff.
       convention, or accepting the gap and documenting it in §13 so the next
       run does not re-derive it. _Source: Project Lead, 2026-08-01 — observed
       while applying §13 to this run's own report, not hypothetical._
-- [ ] **MEDIUM — Nothing checks a run report's claims against its own diff.**
+      _(2026-08-02, team/2026-08-02-provenance-modified, PR #89 — awaiting Dom.
+      **DECISION: accept the gap.** `docs/provenance-model.md` §14 + a §13.1
+      cross-reference (§13 is about *timing*; §14 is about *kind*). **Zero
+      code** — no schema, generator, parser, loader or component change, all 15
+      records untouched, drift gate green. The frame that decides it (§14.2):
+      exactly ONE field in a `ProvenanceRecord` is git-derived — `commit`;
+      `authors`/`reviewers`/`judge`/`tokens` are asserted and merely *typed*.
+      So the feature rests on one narrow always-checkable claim, and any option
+      that makes an edit RENDERABLE without a comparably mechanical check
+      inverts it rather than extending it. **Names the real hazard, which
+      nothing in CI can catch:** listing an edited file under `produced:`
+      doesn't error — it silently resolves an EARLIER run's creation commit and
+      ships a green build carrying a false claim, because the duplicate-path
+      guard only fires when another report already claimed that path, and none
+      ever has. The convention is the only guard. Six options rejected in
+      writing; (C) `modified:` anchored to a PR number was the closest call —
+      it genuinely does keep falsifiability, so it lost on cost, not principle,
+      with an explicit §14.8 revisit trigger rather than being nailed shut.
+      Lead independently verified every load-bearing code claim, including two
+      that carry the argument: **4 of the 15 existing records already render
+      nowhere** (`loader.ts` globs only `content/posts` + `content/projects`),
+      and squash-merge really does break date-scoping (`runId:
+      2026-07-19-evening` resolves to a commit dated `2026-07-20T21:39:38`).
+      §14.7's binding convention text lands in this file below rather than in
+      that PR, to avoid a three-way `BACKLOG.md` conflict with PR #87.
+      **Adopted pending Dom's ratification** — it changes the format's binding
+      convention, same posture as §13.)_
+- [x] **MEDIUM — Nothing checks a run report's claims against its own diff.**
       PR #81 was titled "Backlog + 2026-07-31 run report", its report said the
       branch was "`BACKLOG.md` + this report", and it touched only
       `reports/2026-07-31.md`. Four findings existed solely in the Notion
@@ -1586,6 +1658,63 @@ nothing compares a report's claims against its own diff.
       _Source: Project Lead, 2026-08-01 — the fourth
       backlog-misreports-its-own-state incident, and the first that is a false
       claim rather than a stale one._
+      _(2026-08-02, team/2026-08-02-report-claims-gate, PR #91 — awaiting Dom.
+      `scripts/check-report-claims.mjs` + 31 tests, wired into the **required**
+      `build` job. **This item's own premise turned out to be wrong, and the
+      correction is the more valuable half — see the item directly below.**
+      PR #81's branch DID write `BACKLOG.md`, twice (`b16e7bc` +69,
+      `755bf7c` +19); an in-branch `git merge main` (`1e5e5e8`, one minute
+      before the PR merged) resolved the conflict wholesale in main's favour
+      and silently discarded all 88 lines. `BACKLOG.md` is 1397 lines at the
+      merge-base and 1397 at the branch head, so the file vanished from
+      `diff(merge-base, head)` — which is exactly why `gh pr view 81 --json
+      files` showed only the report. **The report was accurate when written.**
+      The gate still fires correctly on the real case (claims `BACKLOG.md`,
+      branch diff is `reports/2026-07-31.md` only → violation); what changes is
+      the diagnosis it points at. **Scope decision:** a path counts as a claim
+      only if its text block also names the branch's OWN name — narrower than
+      keying off an "Item worked on" heading, because the corpus spells that
+      heading five ways or omits it, and because PR #81's false claim was under
+      "For Dom to review", under no such heading. Extension whitelist grounded
+      in the repo's real `git ls-files` set keeps contrast ratios, timings and
+      semver from matching; `yaml provenance` blocks deliberately not
+      re-checked (already gated). Exit code 2 = INCONCLUSIVE and still fails
+      CI, so this can never become another silently-skipping gate like
+      `SMOKE_URL`. Five mechanisms falsified red→green; disabling the
+      branch-self-reference filter alone turns 5 tests red including 3 real-
+      corpus regressions. **Lead swept all 24 reports** through the gate's own
+      exported logic against the real commit that introduced each: 24/24 zero
+      violations. A deliberately harsher variant (test every branch a report
+      mentions, not just its own) flags 3 multi-lane reports — which is exactly
+      the false-positive class the filter prevents, confirming it does real
+      work.)_
+- [ ] **HIGH — An in-branch `git merge main` can silently revert the branch's
+      own edits, and nothing detects it.** The true root cause of the 2026-07-31
+      loss, found 2026-08-02 while verifying the gate above — and misdiagnosed
+      for two days as "a report claimed a change it never made." It was not a
+      false claim: the work existed in two commits and a merge destroyed it.
+      When a long-lived report/backlog branch falls behind `main` and someone
+      merges `main` into it, a conflicted file can be resolved entirely in
+      `main`'s favour, reverting the branch's own additions **to zero net
+      diff** — after which GitHub, CI, and the PR file list all agree the
+      branch never touched the file, because by then it genuinely doesn't.
+      There is no red anything. `BACKLOG.md` is the standing victim because it
+      is edited by nearly every run and is the one file two concurrent
+      scheduled tasks both write. **Checked on the open PR #87** (identical
+      shape: BACKLOG edits + an in-branch merge from main): healthy, 1428 →
+      1668 lines, all four recovered items present at head — so this is not
+      currently burning, but it went undetected once already. Cheap detections
+      worth costing: (a) after any in-branch merge, assert
+      `git diff --name-only <merge-base> HEAD` still contains every file the
+      branch's own commits touched, and fail loudly if one dropped out —
+      catches it at the moment it happens, on the branch, before the PR; (b)
+      rebase rather than merge for report/backlog branches; (c) stop the two
+      scheduled tasks sharing one checkout (existing item), which is what puts
+      these branches far enough behind `main` to conflict in the first place.
+      Note (a) is strictly stronger than PR #91's gate — it needs no report and
+      no prose, and would have caught this the minute it happened. _Source:
+      Project Lead, 2026-08-02 — verified against real git history
+      (`b16e7bc`, `755bf7c`, `1e5e5e8`, merge-base `56e8dfb`), not inferred._
 - [ ] **MEDIUM — 16 posts, one reverse-chronological list, and no way in.**
       The blog is the site's main body of work (PROJECT-BRIEF goal 2) and it
       has exactly one view: everything, newest first. A first-time reader
@@ -1650,6 +1779,35 @@ provenance:generate`, and commit the regenerated
 routine step on any multi-lane run, not a failure state — see
 `reports/2026-07-30.md` ("Provenance blocks — deliberately deferred, and
 why") for a worked example of both halves.
+
+**Creation-only constraint (binding since 2026-08-02 — `docs/provenance-model.md`
+§14):** every report gets a `## Provenance blocks` section, **including when
+there is nothing to claim**. A block is a *creation* record; if a run's
+deliverable was an *edit*, it has no block to write, and that is the format
+working, not a gap to fill.
+
+1. **Never list a file the run edited under `produced:`.** The generator will
+   accept it and resolve an earlier run's creation commit — a green build
+   carrying a false claim. Nothing in CI catches this; the rule is the only
+   guard.
+2. **Record every file the run genuinely created, and nothing else.** Do not
+   hunt for a creatable file so the run has a block, and never claim the
+   report itself (`reports/2026-07-29.md` already refused this — reports are
+   the *source* of provenance, not a subject of it).
+3. **When a run created nothing (or little) a block can carry, say so in prose
+   under `## Provenance blocks`**: what the run's actual deliverable was, which
+   files it *modified*, and the PR number for each — the PR diff is where an
+   edit is verifiable. Head that list "Modified, not claimed — a `produced`
+   list is a creation record (§14)."
+4. **This prose is never parsed and must never become parseable** (§14.5).
+   Making it machine-readable rebuilds a rejected option with extra steps.
+5. A run may hit this **and** the ordering constraint above at once — deferred
+   creations *and* unclaimable edits. Separate paragraphs in the same section;
+   do not merge them.
+
+Worked examples: `reports/2026-07-29.md` ("**None — deliberately**", including
+the two blocks it drafted and removed on inspection) and
+`reports/2026-07-27.md`'s closing line.
 
 ````
 ```yaml provenance
