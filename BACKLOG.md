@@ -1687,7 +1687,36 @@ nothing compares a report's claims against its own diff.
       violations. A deliberately harsher variant (test every branch a report
       mentions, not just its own) flags 3 multi-lane reports — which is exactly
       the false-positive class the filter prevents, confirming it does real
-      work.)_
+      work. **COVERAGE DISCLOSED, because "24/24 clean" would overstate it:**
+      measuring what the gate *examined* rather than what it returned, only
+      **2 of 23 reports contain a single path claim it can see** (upper bound
+      under the most generous branch matching: 7 of 24 reports, 7 claims
+      total), and it extracted **zero** claims from this run's own report. On a
+      typical report it is a no-op that passes green — the same shape as the
+      unset `SMOKE_URL`. Merged-worthy anyway because one of the two it does
+      see is `reports/2026-07-31.md`, the real incident, and because the
+      thinness has a defensible cause: reports name a file OR a branch in a
+      block, rarely both, and loosening the extractor buys coverage with the
+      false positives that kill gates here. **The honest fix is a report-format
+      convention, not a looser regex** — a files-produced column in the "Items
+      worked on" table would make every claim visible. Not done: it changes the
+      report format, which is Dom's to ratify. See the follow-up item below.)_
+- [ ] **MEDIUM — Give the "Items worked on" table a files-produced column, so
+      the report-claims gate can actually see anything.** PR #91's gate is
+      correct and narrow, and on today's corpus it inspects **2 claims across
+      23 reports** — it passed this run's own report having extracted zero.
+      That is not a bug in the gate: a path only counts as a claim when it sits
+      in the same block as the branch's own name, and reports habitually name a
+      branch in the Items table and the files somewhere else entirely. The
+      cheap fix is structural rather than a looser regex (which would buy
+      coverage with false positives, the failure mode this repo has already
+      been burned by twice): add a "Files produced/changed" column to the
+      "Items worked on" table, so every lane states branch and paths adjacently
+      and the gate's existing extractor sees them with no code change at all.
+      **Dom checkpoint** — it changes the run report format, and belongs beside
+      the §13/§14 conventions rather than being slipped in by a CI PR. Sequence
+      after PR #91 merges. _Source: Project Lead, 2026-08-02 — measured, not
+      assumed; both figures reproduced against the real report corpus._
 - [ ] **HIGH — An in-branch `git merge main` can silently revert the branch's
       own edits, and nothing detects it.** The true root cause of the 2026-07-31
       loss, found 2026-08-02 while verifying the gate above — and misdiagnosed
