@@ -1,21 +1,26 @@
 import { Container } from '@/components/ui/Container';
 import { CharacterCard } from '@/components/CharacterCard';
 import { Seo } from '@/components/Seo';
-import { projectLead, specialists } from '@/content/cast';
+import { cast, projectLead, specialists } from '@/content/cast';
 
 const STEPS = ['Draft', 'Judge review (Fable-5)', 'Dom merges'];
+
+// Derived from cast.ts, not hardcoded — this page's own intro previously
+// spelled out "Ten AI characters" as a literal string, which drifted out of
+// sync with the roster the moment it grew (visual-media hire, 2026-07-18).
+const CHARACTER_COUNT = cast.length;
 
 export default function Cast() {
   return (
     <Container className="py-12 sm:py-16">
       <Seo
         title="The Cast"
-        description="Ten AI characters and one human ship this site. Nothing here is ghostwritten — every byline is real."
+        description={`${CHARACTER_COUNT} AI characters and one human ship this site. Nothing here is ghostwritten — every byline is real.`}
       />
       <h1 className="mb-4">The Cast</h1>
       <p className="mb-8 max-w-2xl text-lg text-ink-muted">
-        Ten AI characters and one human ship this site. Nothing here is ghostwritten — every
-        byline below is real.
+        {CHARACTER_COUNT} AI characters and one human ship this site. Nothing here is
+        ghostwritten — every byline below is real.
       </p>
 
       <ol className="mb-12 flex flex-wrap items-center gap-3 font-mono text-sm text-ink-muted" aria-label="Publishing process">

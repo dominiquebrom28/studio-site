@@ -4,9 +4,10 @@
 
 The public website of Dom's AI development studio — a portfolio and blog that
 documents the process of building software with an AI dev team (a Claude Code
-"virtual product studio": one Project Lead orchestrating 8 specialist
-subagents). The site is itself built by that team, which makes it both the
-portfolio and the proof.
+"virtual product studio": one Project Lead orchestrating 9 specialist
+subagents — 10 AI characters total, counting the Project Lead; see
+`docs/persona-bible.md` for the binding framing). The site is itself built by
+that team, which makes it both the portfolio and the proof.
 
 ## Goals
 
