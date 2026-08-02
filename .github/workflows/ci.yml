@@ -150,6 +150,20 @@ jobs:
       - name: Validate content frontmatter
         run: npm run validate:content
 
+      # Report-claims gate (BACKLOG.md MEDIUM, 2026-08-01) — PR #81 told Dom
+      # its branch was "BACKLOG.md + this report" while its real diff was
+      # `reports/2026-07-31.md` alone; four backlog findings sat only in the
+      # Notion mirror for a day because nothing checked that claim against
+      # the branch's own `git diff`. `scripts/check-report-claims.mjs`'s
+      # header comment has the full scope/rationale (deliberately narrow:
+      # only paths named in text that also names THIS branch, never a
+      # prose-completeness grade). Needs `fetch-depth: 0` (set above) to
+      # resolve `origin/main` as a base ref; exits 2 (loud, still non-zero,
+      # still fails this required check) rather than silently passing if it
+      # can't.
+      - name: Report claims match this branch's diff
+        run: npm run check:report-claims
+
       - name: Build
         run: npm run build
 
