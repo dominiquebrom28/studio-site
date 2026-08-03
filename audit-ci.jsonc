@@ -25,23 +25,38 @@
     //      an authenticated/mutating server endpoint. That is the change that
     //      makes this advisory actually exploitable, so it must re-open the
     //      review immediately, NOT wait for a patched release.
-    "GHSA-qwww-vcr4-c8h2",
+    "GHSA-qwww-vcr4-c8h2"
 
-    // GHSA-mh99-v99m-4gvg — brace-expansion DoS. ALREADY FIXED, allowlisted only
-    // to suppress an npm-audit FALSE POSITIVE:
-    //   • The `overrides` in package.json pin every brace-expansion in the tree
-    //     to a PATCHED version — 1.1.16 (fix backported to the 1.x line in
-    //     1.1.12) under eslint's legacy minimatch, and 5.0.8 (patched 5.x) under
-    //     @typescript-eslint. Both are at or above the advisory's patched
-    //     versions, so the vulnerable code is not installed.
-    //   • npm audit still reports it because it flattens this advisory's several
-    //     non-contiguous patched ranges into a single `<=5.0.7` range and cannot
-    //     represent the backported 1.x fix — so it mis-flags 1.1.16.
-    //   • We can't just force the whole tree to 5.0.8: brace-expansion 5.x is
-    //     ESM-first (node 20+) and crashes eslint's legacy minimatch 3.x, which
-    //     is why the 1.x line stays on the backported 1.1.x patch.
-    // REVISIT: remove when the legacy eslint/minimatch chain is gone (letting the
-    // whole tree move to 5.x) or npm audit fixes its multi-range handling.
-    "GHSA-mh99-v99m-4gvg"
+    // GHSA-mh99-v99m-4gvg (brace-expansion DoS) WAS allowlisted here and was
+    // REMOVED 2026-08-03, because the entry had quietly stopped being true.
+    //
+    // What it claimed: that the `overrides` pinned brace-expansion to patched
+    // versions (1.1.16 / 5.0.8) and npm audit was raising a FALSE POSITIVE
+    // because it flattened the advisory's non-contiguous patched ranges into a
+    // single `<=5.0.7` and could not represent the backported 1.x fix.
+    //
+    // That was accurate when written. It stopped being accurate when the
+    // advisory was updated to carry an explicit 1.x range of `<1.1.17`: at that
+    // point 1.1.16 was genuinely vulnerable, npm audit was reporting it
+    // CORRECTLY, and this entry was suppressing a real high-severity finding
+    // rather than a false positive. Nothing failed, which is the problem — the
+    // gate stayed green across that change with no signal that the reasoning
+    // underneath it had expired.
+    //
+    // Fixed properly instead of re-allowlisted: the overrides now pin
+    // `brace-expansion@1` to ^1.1.18 and `brace-expansion@5` to ^5.0.9, which
+    // clears BOTH GHSA-mh99-v99m-4gvg (<1.1.17) and the newer
+    // GHSA-rgw5-rvv9-x895 (<1.1.18 on the 1.x line, >=4.0.0 <5.0.9 on 5.x).
+    // The 1.x/5.x split is still required — brace-expansion 5.x is ESM-first
+    // and crashes eslint's legacy minimatch 3.x — so the two-line override
+    // stays; only the versions moved. `npm run audit` now passes with this
+    // entry absent, and audit-ci itself reports "Consider not allowlisting
+    // advisory: GHSA-mh99-v99m-4gvg".
+    //
+    // STANDING LESSON for anything added above: an allowlist entry justified by
+    // "the installed version is already patched" is only true against the
+    // advisory's range AS IT READS TODAY. Advisory ranges get widened. Such an
+    // entry must be re-checked against the live range, not trusted because it
+    // was reviewed once.
   ]
 }
