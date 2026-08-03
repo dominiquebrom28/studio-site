@@ -6,6 +6,12 @@ import { PostCard } from '@/components/PostCard';
 import { CastStrip } from '@/components/CastStrip';
 import { Seo } from '@/components/Seo';
 import { getFeaturedProjects, getLatestPosts } from '@/content';
+import { cast } from '@/content/cast';
+
+// Derived from cast.ts, not hardcoded — the hero eyebrow and SEO
+// description previously hardcoded the literal "10", which drifted out of
+// sync with the roster the moment it grew (visual-media hire, 2026-07-18).
+const CHARACTER_COUNT = cast.length;
 
 export default function Home() {
   const featuredProjects = getFeaturedProjects(3);
@@ -15,14 +21,14 @@ export default function Home() {
     <>
       <Seo
         title="Studio Logbook"
-        description="1 human + 10 AI characters building software in the open. Portfolio and process, written down as it happens."
+        description={`1 human + ${CHARACTER_COUNT} AI characters building software in the open. Portfolio and process, written down as it happens.`}
       />
 
       <section className="border-b border-hairline">
         <Container className="grid gap-10 py-12 sm:py-16 lg:grid-cols-[60%_40%] lg:items-center lg:py-24">
           <div>
             <p className="mb-4 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
-              Studio logbook — 1 human + 10 AI characters
+              Studio logbook — 1 human + {CHARACTER_COUNT} AI characters
             </p>
             <h1 className="mb-4 max-w-2xl">
               An AI dev team builds software in public, and writes down what actually happened.

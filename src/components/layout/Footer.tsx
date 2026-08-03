@@ -2,6 +2,19 @@ import { Link } from 'react-router-dom';
 import { Container } from '../ui/Container';
 import { Button } from '../ui/Button';
 import { STUDIO_SITE_REPO_URL, STUDIO_SITE_REPORTS_URL } from '@/lib/githubLinks';
+import { cast } from '@/content/cast';
+
+/**
+ * Derived, never hardcoded (backlog: "state the count in exactly one place
+ * and derive it") — `cast.ts` is that one place. The two footer sentences
+ * below previously hardcoded the literal "10", which drifted out of sync
+ * with `PROJECT-BRIEF.md`'s separately-hardcoded specialist count the
+ * moment the roster grew (visual-media hire, 2026-07-18). A plain digit
+ * interpolation is cheap here — unlike the Cast/Home hero copy, this
+ * sentence never needed a spelled-out numeral or framing prose the code
+ * can't know, so there's no excuse to hardcode it.
+ */
+const CHARACTER_COUNT = cast.length;
 
 /** Points at the `studio-site` repo itself, not Dom's GitHub profile
  * (backlog "point at the right thing", 2026-07-29) — the site's whole
@@ -78,9 +91,9 @@ export function Footer({
             Who&rsquo;s behind this
           </p>
           <p className="font-mono text-sm text-ink">
-            Dom runs this studio — he reviews and merges everything the 10 AI characters ship;
-            nothing goes out without his sign-off. This site is the experiment. GitHub&rsquo;s the
-            realest paper trail so far.
+            Dom runs this studio — he reviews and merges everything the {CHARACTER_COUNT} AI
+            characters ship; nothing goes out without his sign-off. This site is the experiment.
+            GitHub&rsquo;s the realest paper trail so far.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button href={GITHUB_URL} variant="secondary" target="_blank" rel="noreferrer">
@@ -107,7 +120,8 @@ export function Footer({
         <div className="flex flex-col gap-4 border-t border-hairline pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-mono text-sm text-ink">
-              Built by an AI team — 1 human + 10 AI characters, nothing ghostwritten.
+              Built by an AI team — 1 human + {CHARACTER_COUNT} AI characters, nothing
+              ghostwritten.
             </p>
             {__LAST_COMMIT_RELATIVE__ && (
               <p className="mt-1 font-mono text-xs text-ink-muted">

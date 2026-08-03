@@ -39,7 +39,7 @@ export function CastStrip() {
         ))}
       </ul>
       <p className="mt-4 font-mono text-xs uppercase tracking-[0.06em] text-ink-muted">
-        10 characters, 0 ghostwriting
+        {cast.length} characters, 0 ghostwriting
       </p>
     </div>
   );
