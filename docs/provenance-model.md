@@ -380,7 +380,7 @@ A `yaml provenance` block's `produced` list is a **creation record**: `generate.
 
 On a multi-lane run (several agents in parallel worktrees, each on its own branch, each with its own PR), the **report is a separate deliverable from the lanes it describes** — it is written by the lead, synthesizing across lanes only once their outcomes are known, and it is opened as its own PR on its own branch. At the moment that report PR's CI runs, the files the lanes created live on *their* unmerged branches, not on the report branch or on `main`. The claim "this run produced `X`" is therefore not yet true when the report is written, even though it will become true the moment the lane PRs merge. The generator correctly rejects it — this is §5.2's fail-loud property doing its job, not a defect to route around.
 
-This is **structural, not incidental**: it recurs on every run that (a) ships more than one lane in parallel and (b) writes one synthesized report for all of them, which is the run shape this repo's whole pipeline (`architect → designer → dev agents in parallel → qa-tester → security-auditor → lead`) is built around. Expect it every time a run has more than one lane.
+This is **structural, not incidental**: it recurs on every run that (a) ships more than one lane in parallel and (b) writes one synthesized report for all of them, which is the run shape this repo's whole pipeline (`architect → designer → dev agents in parallel → qa-tester → security-auditor → lead`) is built around. Expect it every time a run has more than one lane. (§13 is about *timing* — the creation record is true, just not yet. For a run whose deliverable is a **modification**, there is no true creation record to make at all; see §14.)
 
 ### 13.2 The options, evaluated
 
@@ -411,3 +411,160 @@ Option 4 is a reasonable-sounding idea that, on inspection of `parse.mjs`, `Prov
 This keeps the generator's guarantee exactly as strong as it is today (a produced path is only ever a record of a real file on `main`), adds no network dependency, and costs one extra, well-defined commit per multi-lane run — smaller than the cost either rejected alternative would have imposed.
 
 **This changes the format's binding convention** (`BACKLOG.md`'s "Provenance blocks" section) by adding a named step to it. Per this document's own status line, that is Dom's call to ratify, the same as any other change to the format's contract — flagging it here rather than treating the workflow addition as self-ratifying.
+
+## 14. The format records creation only — a run whose deliverable is an edit has no record to make
+
+**Status:** recommendation written 2026-08-02; adopted as the standing rule pending Dom's ratification (§14.7 changes the format's binding convention, which is his call — same posture as §13 and every other decision in this document). **Source:** surfaced 2026-08-01 by the Project Lead on the very first application of §13, on the run that wrote §13. **Backlog item:** MEDIUM — "The provenance format can only record file *creation*, so a run whose deliverable is an edit has nothing it can honestly claim."
+
+§13 is about **timing**: the record is true, just not yet. This section is about **kind**: for an edit, there is no true record to make at all. A run can hit both at once.
+
+### 14.1 The gap, in terms of what the generator actually does
+
+`scripts/provenance/generate.mjs` resolves a `produced` path to exactly one commit, with exactly one query (`generate.mjs:104`):
+
+```js
+const output = runGit(gitRunner, repoRoot, ['log', '--diff-filter=A', '--format=%H%x00%cI', '--', relPath], `resolving commit for "${relPath}"`);
+```
+
+`--diff-filter=A` selects only commits that **added** the path, and when several exist (added, deleted, re-added) the resolver deliberately takes the *oldest* — its own comment, `generate.mjs:99-102`: "Multiple `--diff-filter=A` hits (added, deleted, re-added) resolve to the OLDEST — the file's original creation — since `git log`'s default order is newest-first, that's the last line", implemented at `generate.mjs:108-110`. The schema says the same thing in the type layer: `produced` "lists repo-relative paths this run CREATED (never edited)" (`src/content/provenance-schema.ts:88-96`) and must be non-empty (`provenance-schema.ts:101`). `BACKLOG.md`'s binding convention says it a third time: "a path may appear in at most one report, ever — this is a creation record, not an edit log".
+
+So a run whose main artifact is a **modification** has, today, exactly three honest moves: omit the block (a real run showing "no run record"), record only the files it incidentally created (true, but it under-describes the run), or say something in prose that the site never renders.
+
+The 2026-08-01 run is the worked example: three of its four lanes shipped edits — §13 into an existing `docs/provenance-model.md`, the `runId`/`reportPath` regex pinning in `src/content/provenance-schema.ts:44-48`, and the `src/content/*.generated.json` allowlist line in `.github/workflows/auto-merge.yml:53`. None of those files was created by that run.
+
+**Two failure modes follow, and the second is the dangerous one.**
+
+1. **Misattribution.** Listing `docs/provenance-model.md` under `produced:` in an 2026-08-01 report would resolve — successfully, silently, with a green build — to the commit that *created* that file weeks earlier, and the strip would then render "run of 2026-08-01" beside a commit link from another run. That is the same error PR #72's archaeology refused when it left three project pages showing "no run record" (`reports/2026-07-29.md`: "3 of 6 project pages show real provenance; 3 honestly show 'no run record.' That is the correct outcome").
+
+2. **Nothing in the code can catch it.** The duplicate-path guard (`generate.mjs:220-241`) only fires when *another report* has already claimed the same path. No report has ever claimed `docs/provenance-model.md`, `src/content/provenance-schema.ts` or any workflow file — verified against all 15 keys in `src/content/provenance.generated.json` and against a grep of `reports/`. The existence check (`generate.mjs:244-248`) passes, the directory check (`generate.mjs:255-258`) passes, `git log` returns a real commit, and the record is written. **The only guard against this class of error is the convention.** That is why it is written down here and made binding in `BACKLOG.md` rather than left to judgement.
+
+### 14.2 What the format actually claims — the frame that decides everything below
+
+Precisely one field in a `ProvenanceRecord` is derived from git: `commit`. `authors`, `reviewers`, `judge` and `tokens` are all *asserted* in the report block and merely **typed** by `ProvenanceBlockSchema`. The falsifiability property §2.1/§4.3 argues for is therefore narrower and sharper than "everything on the strip is derived":
+
+- the one mechanically checkable claim — **this run created this file** — is checked against real bytes on disk and real history, and a false one fails the build;
+- every other claim lives in the artifact Dom actually reads, one click away behind the run chip (`ProvenanceStrip.tsx:165-178`), which is the verification path §6 names.
+
+The anchor is the creation check. Remove it and what remains is typed prose promoted onto a public page — which is exactly the machine §2.3 rejected hand-authored frontmatter for building. **Any option that makes an edit *renderable* without a comparably mechanical check does not extend this feature; it inverts it.** That single test disposes of most of §14.3.
+
+### 14.3 The options, costed, each accepted or rejected in writing
+
+#### (A) Loosen `--diff-filter=A` — rejected, and it would not even work
+
+Forbidden by the backlog item, and the item is right, but the mechanical reason is worth recording so nobody re-derives it as clever. `--diff-filter=AM` changes **nothing**: the resolver takes the last line of newest-first output, i.e. the oldest hit, which is still the creation commit (`generate.mjs:108-110`). To make the "loosened" filter do what its proposer wants, you must also flip the line selection to the *newest* hit — at which point every one of the 15 existing records re-points from its creation commit to the file's most recent touch by anyone. `docs/reports-surface.md`'s record (created by the run of 2026-07-30) would silently start crediting the 2026-07-30 run with a commit made by whichever later run edited that doc. The loosening does not add edit records; it converts 15 true creation records into 15 undated "most recent toucher" records. **Rejected on its own merits, independent of the item's instruction.**
+
+#### (B) A `modified:` list in the block, resolved by `--diff-filter=M` — rejected
+
+What it would take: `provenance-schema.ts` gains `modified: string[]` and must relax `produced`'s `.min(1)` (line 101) so a modification-only block is representable; `generate.mjs` gains a second resolver and a second record shape; `ProvenanceArtifactSchema` (line 142) is `z.record(path, record)` — one record per path — so modification records **collide by construction** with creation records for the same path and need either a second artifact or a `path -> record[]` shape change, which then changes `loader.ts:193` and `ProvenanceStrip`'s props.
+
+It fails before any of that, on the resolution itself. **Git cannot answer "which commit did this run make to file Y."** `--diff-filter=M` newest-hit answers "who touched it last," which is a moving target:
+
+- The artifact is committed and drift-gated (`ci.yml:181-182`: `git diff --exit-code src/content/provenance.generated.json`). So the *next* run that edits `docs/provenance-model.md` regenerates the artifact, changes an **older** run's record, and the drift gate forces that changed claim into that PR.
+- `docs/**` PRs are `safe-auto` eligible and `src/content/*.generated.json` is on the allowlist (`auto-merge.yml:38-53`). So a rendered provenance claim about run N could change and merge automatically inside run N+5's routine docs PR, with no human ever reading the diff. This is the reverse of the property §5.2's drift design exists to guarantee.
+- Date-scoping (`--after`/`--before` around the run date) does not rescue it. Squash-merge lands the commit on the merge date, not the run date — verified in the artifact itself: `content/posts/2026-07-19-three-tries-at-the-same-overlap.md` has `runId: 2026-07-19-evening` and commit date `2026-07-20T21:39:38`. And the corpus has multiple same-day reports (three on 2026-07-15, three on 2026-07-18), so a date is not an identity anyway.
+
+**Rejected.** It produces a rendered claim with no stable referent, and it makes old public claims mutable by unrelated, auto-merged PRs.
+
+#### (C) `modified:` anchored to a PR number — the strongest alternative, rejected on cost
+
+The only variant that keeps falsifiability, so it deserves a fair hearing. Add a required `pr:` integer to any block claiming modifications; the generator resolves the squash commit whose subject ends `(#NN)`, then verifies the claimed path appears in that commit's own diff, and hard-fails otherwise. The claim "PR #NN modified path X" is then content-asserted but **git-checked** — a false claim goes red, which is the bar §14.2 sets. This cannot be rejected on falsifiability. It is rejected on four costs, in descending weight:
+
+1. **It re-introduces prose parsing one layer down.** The anchor is a regex over a *commit message*. `auto-merge.yml:108` proves the automated path squashes (`gh pr merge --auto --squash`), but the Dom-checkpoint PRs — the ones that ship the interesting work — are merged by hand, where both the squash subject and the merge strategy are editable at merge time. Whether the repo *enforces* squash at the settings level is **[not determinable from the repo]**. And `(#72)` legitimately appears in unrelated subjects ("revert #72", "follow-up to #72"), which is precisely §2.2's trap — the regex loose enough to catch the real case also catches the impostor and attributes someone else's commit to your run. Every one of those needs its own fail-loud row.
+2. **It contradicts a decision this document already made.** §9: "**No edit history.** Provenance is a *creation* record. A file edited across five runs shows the run that made it. Building a per-file changelog UI duplicates git for no reader benefit." (C) is that changelog, with a schema.
+3. **The payoff is currently zero rendered pixels.** `loader.ts:21-31` globs only `/content/projects/*.md` and `/content/posts/*.md`, and joins at `loader.ts:193` by that path — so 4 of the 15 existing records (`docs/cls-fallback-decision.md`, `docs/reports-surface.md`, `scripts/generate-seo-files.d.mts`, `scripts/generate-seo-files.test.ts`) already render nowhere on the site. Every file the 2026-08-01 run *modified* is in that same non-rendering space. The only surface that could ever use edit records is the `/reports` index, which is spec-only (`docs/reports-surface.md` §6 PR 2-4 unbuilt: there is no `src/content/runs.ts`).
+4. **Size.** Schema + second artifact + generator resolver + a new failure matrix + drift gate + tests + spec — a multi-PR feature for a bookkeeping edge case with no reader. That fails this document's own §9 rule.
+
+**Rejected — but not permanently.** §14.8 states the conditions under which it becomes the right answer, so a future run can reopen it on evidence rather than on taste.
+
+#### (D) Record only the files the run incidentally created — **partially accepted**
+
+This is what the item calls "under-describes the work," and that is a fair criticism of it as a *complete* answer. It is not a criticism of it as a *rule*: every genuinely created file should still be recorded, exactly as today. What is rejected is **padding** — hunting for a creatable file so the run has a block. A block exists to record a creation, not to give a run a trophy.
+
+One specific padding move is rejected by name, because it is the one a future run will reinvent: **claiming the run's own report file as `produced`.** `reports/2026-07-29.md` already refused it ("reports are the *source* of provenance, not a subject of it"). It would also make "this run has a provenance record" trivially true for every run that ever writes a report, destroying the signal that today distinguishes a run that shipped content from one that did not — and the record would key on `reports/…md`, which `loader.ts` never joins, so it renders nothing anyway. **Rejected.**
+
+#### (E) A ceremonial block: `produced: []` plus a free-text description of the edits — rejected
+
+Requires relaxing `provenance-schema.ts:101`, and then emits **zero** artifact records (a block with no produced paths contributes nothing; `generate.mjs:195-198` already short-circuits the zero-produced-paths case entirely). The output is therefore identical to writing a paragraph, at the cost of a schema change and a fenced block that looks machine-read but is not. Pure ceremony, and actively misleading to the next reader of the format. **Rejected.**
+
+#### (F) A run-scoped record on the runs artifact (`runs.generated.json`) — rejected here, deferred there
+
+Tempting because the honest unit for "this run's deliverable was an edit" is the *run*, not the file, and a runs artifact already exists. But every field it would carry (authors, reviewers, judge, tokens) is asserted, not derived, and it would be rendered — §14.2's test, failed. It also belongs to a different spec: `docs/reports-surface.md` §3 is explicit that the runs surface adds "**No new frontmatter, and no new report-format requirement**" and derives every field mechanically. **Rejected as a provenance-model change.** If run-level authorship is ever wanted, it is an amendment to `docs/reports-surface.md`, argued there, on that spec's own terms.
+
+#### (G) Accept the gap, state it as a property, and formalise the prose convention — **accepted**
+
+Cost: one section here, ~15 lines in `BACKLOG.md`, zero code. Effect on falsifiability: **none** — the creation check is untouched, and nothing unverifiable is promoted onto a page. Effect on the 15 existing records: **none**, so the drift gate stays green. How it can go wrong: the prose is written carelessly, or a future run tries to make it machine-readable (§14.5 forbids the latter explicitly).
+
+### 14.4 Recommendation
+
+**Accept the gap. It is a property of a creation record, not a defect in it — and the honest substitute for a machine record of an edit is prose in the report plus the PR diff, which is where an edit is actually verifiable.**
+
+The reasoning that decides it, in order:
+
+1. **The site's claim is deliberately narrow: "this run created this file."** It is narrow because it is always mechanically checkable. Widening it to "this run improved that file" buys coverage by giving up the property that makes any of it worth displaying (§14.2). A narrow claim that is always checkable beats a broad one that is sometimes not — on a device whose entire justification is falsifiability, that is not a close call.
+2. **An edit already has a better verification path than the strip could give it: the PR diff.** A reader who wants to know what a run changed in `docs/provenance-model.md` is served by the PR link, which shows the actual bytes. A chip saying "edited by architect, run of 2026-08-01" shows less and asserts more.
+3. **"No run record" is already the site's honest word for this, and it is already correct.** `ProvenanceStrip` renders it deliberately and visibly (§6), and `docs/reports-surface.md` fixes the run-level vocabulary as "**no recorded output** for this run … never 'produced nothing': the absence of a `yaml provenance` block is not evidence a run shipped nothing." The vocabulary for this exact case was already designed. What was missing is not a data structure — it is the *sentence in the report* that says which of the two it is.
+4. **The house has already done this twice, well, unprompted.** `reports/2026-07-27.md` ("This run created no new `content/` posts or projects … so per §4.1 it ships no `yaml provenance` block of its own") and `reports/2026-07-29.md` ("**None — deliberately** … Two blocks were drafted and removed on inspection, which is worth recording because both were wrong in ways the format is designed to catch"). Both are better artifacts than any schema field would have produced. The work here is to make the best existing practice binding, not to invent a mechanism.
+
+### 14.5 The non-goal, stated so it is not re-derived
+
+**The generator must never learn to read the prose written under §14.7.** No regex over "Modified, not claimed"; no derived fields; no soft parse "just for the reports index." Report prose is never parsed (§2.2, and `parse.mjs:29-32`'s deliberately narrow `yaml provenance` fence is the only thing in a report the code ever reads). The value of this convention is precisely that it lives *outside* the machine-read surface: it can say true things too nuanced to type, without any of them becoming a rendered claim. A future run that "improves" this by making it parseable would be rebuilding option (B) with extra steps.
+
+### 14.6 What changes, and what does not
+
+| Artifact | Change |
+|---|---|
+| `scripts/provenance/generate.mjs` | **None.** |
+| `scripts/provenance/parse.mjs` | **None.** |
+| `src/content/provenance-schema.ts` | **None.** |
+| `src/components/ProvenanceStrip.tsx` | **None.** |
+| `src/content/provenance.generated.json` | **None** — all 15 records stand; the drift gate stays green. |
+| `docs/provenance-model.md` | This section; one cross-reference from §13.1. |
+| `BACKLOG.md` | The convention in §14.7 appended to the "Provenance blocks" section. |
+
+**This recommendation is spec-and-convention only. It implies no implementation PR.** The whole change touches `docs/**`, root `*.md` and `reports/**`, so it is `safe-auto` eligible (`auto-merge.yml:38-40`) and needs no dev agent.
+
+### 14.7 The binding convention — effective immediately
+
+Appended to `BACKLOG.md`'s "Provenance blocks" section (§ Run report format), in that section's existing register:
+
+> **Every report gets a `## Provenance blocks` section — including when there is nothing to claim.**
+> A `yaml provenance` block is a **creation record**. If a run's deliverable was an *edit*, it has no block to write, and that is the format working, not a gap to fill.
+>
+> 1. **Never list a file the run edited under `produced:`.** The generator will accept it and resolve an earlier run's creation commit — a green build carrying a false claim. Nothing in CI catches this; the rule is the only guard.
+> 2. **Record every file the run genuinely created, and nothing else.** Do not hunt for a creatable file, and never claim the report itself.
+> 3. **When a run created nothing (or little) that a block can carry, say so in prose under `## Provenance blocks`**, in one short paragraph: what the run's actual deliverable was, which files it *modified*, and the PR number for each — the PR diff is where an edit is verifiable. Head that list "Modified, not claimed — a `produced` list is a creation record (§14)."
+> 4. **This prose is never parsed and must never become parseable.** It is for Dom and for the next run, not for the generator (§14.5).
+> 5. A run may hit this **and** §13's ordering constraint at once — deferred creations *and* unclaimable edits. They are separate paragraphs in the same section; do not merge them.
+>
+> Worked examples: `reports/2026-07-29.md` ("Provenance blocks — **None — deliberately**", including the two drafted blocks it removed and why) and `reports/2026-07-27.md`'s closing line.
+
+**Template for the empty case, copy-paste:**
+
+````markdown
+## Provenance blocks
+
+**None — deliberately.** This run's deliverable was [X]. It created no file that a block can
+carry, and a `produced` list is a creation record, not an edit log (`docs/provenance-model.md`
+§14), so listing what it changed would attribute an earlier run's creation commit to this one.
+
+**Modified, not claimed** — verifiable in the PR diffs, not on the site:
+
+- `path/to/file` — what changed (PR #NN)
+- `path/to/other` — what changed (PR #NN)
+````
+
+### 14.8 When to reopen this — the trigger, so the door is not nailed shut
+
+Option (C) becomes worth its cost when **all three** hold, and not before:
+
+1. `/reports` has actually shipped (`docs/reports-surface.md` §6 PR 4), so an edit record would have a reader;
+2. edit-only runs are the **majority** of runs over a sustained period, so the index's honest "no recorded output" rows stop describing an exception and start describing the studio; and
+3. squash-merge with a `(#NN)` subject is **enforced**, not merely customary, so the PR anchor is a guarantee rather than a habit.
+
+Until then, a run that feels the pull to build it should write the paragraph instead. If a future run reopens this, it should argue against §14.2's test explicitly — that is the claim to beat.
+
+### 14.9 Risks of the accepted option
+
+- **The prose section decays into boilerplate.** Same risk §11 names for the block itself, and the same self-correction does *not* apply — a missing paragraph is invisible on the site. Mitigation: the section is required in every report, so its absence is visible in the report PR diff, which Dom reads.
+- **Someone reads "no run record" as "this run did nothing."** Real, and partly mitigated already by `docs/reports-surface.md`'s fixed vocabulary ("no *recorded output*") and by the logbook, which is where edit-shaped work becomes publicly visible. If the misreading ever shows up in practice, the cheap fix is one sentence of page copy on `/reports`, not a schema.
+- **The trap in §14.1(2) recurs anyway.** A future run lists an edited file under `produced:`, CI goes green, and a false commit link ships. There is no mechanical guard, by design — the check that would catch it (does this path's creation commit belong to this run?) needs exactly the run→commit identity option (C) failed to establish cheaply. The mitigation is review: **when a report PR adds a `produced` path, the reviewer's job is to ask whether that run created it.**
