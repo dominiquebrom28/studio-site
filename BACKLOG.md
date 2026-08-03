@@ -1381,6 +1381,34 @@ site whose provenance device is still decorative.
       nested `src/content/sub/foo.generated.json` — no such file exists, and
       every pre-existing pattern in that guard (`docs/*`, `content/*`) has the
       same property.)_
+- [ ] **HIGH — Writing the report last structurally guarantees a stale
+      `runs.generated.json`, and only CI ever says so.** PR #87 sat red for two
+      days on exactly this and nothing else: it added `reports/2026-08-01.md`
+      without the regenerated `src/content/runs.generated.json`, so the `build`
+      job's `git diff --exit-code src/content/runs.generated.json` step failed
+      and blocked the merge. **This is a sequencing trap, not carelessness.**
+      `predev`/`prebuild`/`pretest` all run `scripts/provenance/generate.mjs`,
+      so any local `npm run build|test|dev` regenerates the file — but the run
+      report *describes the run*, so it is always written and committed **after**
+      the last gate invocation. The generated artifact is therefore stale by
+      construction on every report-bearing branch, and the first thing that ever
+      notices is a red check on a pushed PR. Verified by reproduction: on #87's
+      branch a bare `node scripts/provenance/generate.mjs` produced exactly the
+      7-line 2026-08-01 row CI had been complaining about, and re-running the
+      full gate afterwards produced no further drift. Fix options, cheapest
+      first: (a) a committed `pre-commit` hook that regenerates and stages
+      `src/content/*.generated.json` whenever `reports/*.md` is staged —
+      `.githooks/` + `core.hooksPath` already exist from PR #86 and already
+      propagate to worktrees, so this is a third script in a proven lane;
+      (b) a run-playbook step "regenerate + `git status` after committing the
+      report", which is the same instruction that has now been missed at least
+      once; (c) accept it and let CI catch it, but then the red check must
+      actually be surfaced — which is the *other* open item about nobody reading
+      red checks, and this incident is its second confirmed instance. Prefer
+      (a): it fires at the moment of damage rather than two days downstream.
+      _Source: concrete product gap hit and fixed by the lead this run
+      (2026-08-03); not covered by the auto-merge-allowlist item above, which is
+      about `safe-auto` labelling, not freshness._
 - [ ] **MEDIUM — Nothing measures whether anyone reads this site.**
       PROJECT-BRIEF goal 2 wants readers; there is no analytics of any kind, so
       every prioritisation decision about content is made blind — the
@@ -1418,7 +1446,6 @@ site whose provenance device is still decorative.
       creation-record guarantee); or move the block into the branch that creates
       the files rather than the report. _Source: Project Lead, 2026-07-30 —
       observed, not hypothetical._
-- [x] **LOW — The "QA pass" item at the top of this file is stale and should be
       _(2026-08-01, team/2026-08-01-provenance-ordering — **(a) done:** PRs #76,
       #77 and #78 all merged 2026-07-31, so the three preserved blocks were
       appended to `reports/2026-07-30.md` and the generator accepts all three
@@ -1434,7 +1461,7 @@ site whose provenance device is still decorative.
       adopted: Option 1**, formalized as a standing step in this file's
       "Provenance blocks" convention below — pending Dom's ratification, since
       it changes the format's binding convention.)_
-- [ ] **LOW — The "QA pass" item at the top of this file is stale and should be
+- [x] **LOW — The "QA pass" item at the top of this file is stale and should be
       re-scoped or closed with evidence.** It has been open and unchanged since
       day one, reading "all states, responsive, accessibility; fix findings" —
       but since it was written the studio has shipped the route smoke suite
@@ -1447,6 +1474,23 @@ site whose provenance device is still decorative.
       means that no existing gate covers, and either rewrite it as that specific
       list or check it off citing the gates that closed it. _Source: lead
       backlog-health review, 2026-07-30._
+      _(2026-08-03, team/2026-08-03-backlog-and-report — closed on PR #87's
+      evidence, plus a structural repair. **The close:** #87 did exactly what
+      this item specified — the "QA pass" item at the top of this file is now
+      `[x]` with a per-clause enumeration of the gates covering it. **The
+      repair:** this item existed **twice** on `main` after #87 merged — once
+      `[ ]` here, and once as a phantom `[x]` duplicate heading ~30 lines up
+      whose entire body was the *provenance-ordering* item's closure note. A
+      merge had inserted a copy of this heading between that item and its own
+      `_(…)_` note, which both orphaned the note and manufactured a checked
+      duplicate. The stray heading is deleted, so the note reattaches to the
+      HIGH provenance-ordering item it belongs to; nothing else was touched and
+      no prose was rewritten. **This is the fourth "backlog lies about its own
+      state" incident, and it landed inside the item that counts them** — the
+      count in the paragraph above is left at three deliberately, since it was
+      true when written. DOM: revert this checkbox if you read #87's enumeration
+      as re-scoping rather than closing; the structural repair stands either
+      way.)_
 
 ### Added 2026-07-31 — RECOVERED 2026-08-01 (see note)
 
