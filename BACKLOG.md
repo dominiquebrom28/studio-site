@@ -1810,6 +1810,60 @@ nothing compares a report's claims against its own diff.
       named product gap, found 2026-08-01; tag counts measured across
       `content/posts/*.md`._
 
+### Added 2026-08-04 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — A run that stops on the review throttle pushes a branch and
+      opens no PR, and nothing tracks that the work exists.** On 2026-08-03
+      the daily run did the right thing — seven PRs were open against a stated
+      throttle of four to six, so it declined to open an eighth announcing that
+      the queue was too long — and then pushed
+      `team/2026-08-03-backlog-and-report` and stopped. That branch held a
+      415-line run report, a HIGH backlog item (the stale-`runs.generated.json`
+      trap above), and a real structural repair to this file. **For a day the
+      only record that any of it existed was a branch name.** It was recovered
+      on 2026-08-04 only because the lead diffed `git branch -a` against
+      `reports/` on a hunch while investigating a missing report — no gate, no
+      playbook step, and no report pointed at it. This is the **second distinct
+      stranding class** in this repo: the other, `team/2026-07-19-project-page-v2`'s
+      unmerged `buildMode` tail, is still open two weeks later. Note the
+      throttle behaviour itself was correct and should not be "fixed" by
+      relaxing it. Options, cheapest first: (a) the throttled run opens a
+      **draft** PR — visible in the PR list, excluded from the review-capacity
+      count by construction, and it makes the work reviewable the moment
+      capacity frees up; (b) a run-start step that lists `team/*` branches with
+      no associated PR and reports them; (c) both. Prefer (a) — it removes the
+      stranding at the moment it would otherwise happen, rather than adding
+      another thing a future run must remember to check. _Source: Project Lead,
+      2026-08-04 — observed and recovered this run, not hypothetical._
+- [ ] **LOW — `loader.ts`'s `provenanceArtifact` comment says the artifact is
+      "gitignored on purpose"; it has been committed since 2026-07-27.** The
+      comment block above `provenanceArtifact` in `src/content/loader.ts`
+      contradicts `.gitignore`, which records the 2026-07-27 commit-the-artifact
+      reversal. Found by frontend-dev while making that binding an export for
+      PR #98 and **deliberately left unfixed** to keep that PR's scope to the
+      one-line export — flagged rather than silently swept in. Same doc-drift
+      class PR #66 cleaned up, and the same class as the two stale references
+      PR #71 annotated. _Source: frontend-dev, 2026-08-04, during PR #98._
+- [ ] **LOW — Bookkeeping PRs now stack three deep, and the stacking is
+      load-bearing but undocumented.** Today's chain is #87 → #92 → the
+      recovered 2026-08-03 branch → #99, because every backlog-and-report PR
+      appends to the same region of `BACKLOG.md` and a second branch cut from
+      `main` conflicts with the first. The pattern works — #92 used it
+      deliberately and said so — but it has real consequences nobody has
+      written down: merging the tip merges the whole chain, so Dom cannot
+      merge today's report without also merging 08-02's and 08-03's, and
+      reviewing the tip in isolation is impossible. Observed cost this run:
+      `BACKLOG.md` merged clean through the chain, but
+      `src/content/runs.generated.json` conflicted and had to be resolved by
+      regenerating rather than hand-merging — **a third confirmed instance of
+      the stale-generated-artifact trap logged as HIGH above**, this time
+      surfacing as a merge conflict instead of a red check. Worth either
+      documenting the stacking convention in the run playbook (when to stack,
+      how to say so in the PR body, that generated artifacts are resolved by
+      regeneration and never by hand) or removing the need for it — e.g. one
+      append-only `BACKLOG-INBOX.md` per run that a later pass folds in.
+      _Source: Project Lead, 2026-08-04 — measured on this run's own branch._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
