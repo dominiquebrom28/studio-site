@@ -135,6 +135,55 @@ describe('readImageDimensions — JPEG', () => {
     const filePath = writeTempFile('truncated-sof.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08]));
     expect(() => readImageDimensions(filePath)).toThrow(/malformed JPEG/);
   });
+
+  // QA regression (2026-08-04 adversarial review): the SOF-truncation bounds
+  // check was off by one — `offset + 6 > buffer.length` let a buffer that
+  // ends EXACTLY at the second byte of the width field through, so
+  // `readUInt16BE(offset + 5)` (which needs that byte) threw a raw, opaque
+  // Node `RangeError` instead of this file's own "malformed JPEG" message.
+  // Still a throw either way (no hang, no silent wrong answer) but the wrong
+  // ERROR — this pins the exact boundary and the friendly message.
+  it('throws this file\'s own "malformed JPEG" error (not a raw Node RangeError) when the buffer ends exactly at the last width byte', () => {
+    const soi = [0xff, 0xd8];
+    const sof0 = [0xff, 0xc0];
+    // length(2) + precision(1) + height(2) + width byte0(1) — one byte short
+    // of a complete width field. Total buffer length = 2 + 2 + 6 = 10, i.e.
+    // exactly `offset + 6` where `offset` (4) is where the length field
+    // starts — the exact boundary the off-by-one let through.
+    const segment = [0x00, 0x07, 0x08, 0x00, 0x64, 0x00];
+    const filePath = writeTempFile('boundary-sof.jpg', Buffer.from([...soi, ...sof0, ...segment]));
+    expect(() => readImageDimensions(filePath)).toThrow(/malformed JPEG — SOF segment truncated/);
+  });
+
+  it('throws (does not loop or read backwards) when a segment declares length 0', () => {
+    // FF C0 (SOF0) followed by a length field of 0x0000 — smaller than the
+    // 2-byte length field itself.
+    const filePath = writeTempFile('zero-length-segment.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x00, 0xff, 0xd9]));
+    expect(() => readImageDimensions(filePath)).toThrow(/segment length 0/);
+  });
+
+  it('throws (does not loop or read backwards) when a segment declares length 1', () => {
+    const filePath = writeTempFile('length-one-segment.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x01, 0xff, 0xd9]));
+    expect(() => readImageDimensions(filePath)).toThrow(/segment length 1/);
+  });
+
+  it('skips 0xFF fill/padding bytes between a marker prefix and the marker code itself', () => {
+    // The JPEG spec allows any number of extra 0xFF bytes before a marker
+    // code. FF D8 (SOI) FF FF FF C0 (SOF0, padded) <segment>.
+    const soi = [0xff, 0xd8];
+    const paddedMarker = [0xff, 0xff, 0xff, 0xc0];
+    const segment = [0x00, 0x0b, 0x08, 0x00, 0x64, 0x00, 0xc8, 0x03, 0x01, 0x11, 0x00]; // height 100, width 200
+    const filePath = writeTempFile('fill-bytes.jpg', Buffer.from([...soi, ...paddedMarker, ...segment]));
+    expect(readImageDimensions(filePath)).toEqual({ width: 200, height: 100 });
+  });
+
+  it('reads dimensions from a progressive JPEG (SOF2, 0xC2) — not just baseline SOF0', () => {
+    const soi = [0xff, 0xd8];
+    const sof2 = [0xff, 0xc2];
+    const segment = [0x00, 0x0b, 0x08, 0x00, 0x64, 0x00, 0xc8, 0x03, 0x01, 0x11, 0x00]; // height 100, width 200
+    const filePath = writeTempFile('progressive.jpg', Buffer.from([...soi, ...sof2, ...segment]));
+    expect(readImageDimensions(filePath)).toEqual({ width: 200, height: 100 });
+  });
 });
 
 describe('readImageDimensions — unsupported/unknown formats', () => {

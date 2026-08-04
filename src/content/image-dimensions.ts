@@ -135,8 +135,17 @@ function readJpegDimensions(buffer: Buffer, absolutePath: string): ImageDimensio
 
     if (JPEG_SOF_MARKERS.has(marker)) {
       // Payload: precision (1) + height (2) + width (2) + ... — payload
-      // starts right after the 2 length bytes, i.e. at `offset + 2`.
-      if (offset + 6 > buffer.length) {
+      // starts right after the 2 length bytes, i.e. at `offset + 2`. The
+      // last byte actually read is `offset + 6` (the second byte of the
+      // width field, via `readUInt16BE(offset + 5)`), which requires
+      // `buffer.length >= offset + 7` — off-by-one from the more obvious
+      // `offset + 6 > buffer.length`, which lets `offset + 6 === buffer.length`
+      // through and made `readUInt16BE(offset + 5)` throw a raw, unhelpful
+      // Node `RangeError` ("Attempt to access memory outside buffer bounds")
+      // instead of this file's own clean "malformed JPEG" message. Caught by
+      // an adversarial SOF-buffer-ends-exactly-at-the-width-field test in
+      // image-dimensions.test.ts.
+      if (offset + 7 > buffer.length) {
         throw new Error(`${absolutePath}: malformed JPEG — SOF segment truncated at byte ${offset}`);
       }
       const height = buffer.readUInt16BE(offset + 3);
