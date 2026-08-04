@@ -29,7 +29,8 @@
   },
   "overrides": {
     "brace-expansion@1": "^1.1.18",
-    "brace-expansion@5": "^5.0.9"
+    "brace-expansion@5": "^5.0.9",
+    "undici": "^7.29.0"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.2.9",

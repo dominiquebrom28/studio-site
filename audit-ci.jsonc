@@ -12,14 +12,27 @@
     // NOT EXPLOITABLE HERE: this is a client-only Vite SPA that does not use
     // React Router's RSC/server mode (no createStaticHandler, no server data
     // routers) — the vulnerable code path is never mounted.
-    // NO FIX AVAILABLE: as of 2026-07-25 the advisory's vulnerable range is
-    // react-router 7.12.0–8.2.0 and 7.18.1 (our version) is the latest published
-    // release, so the only audit-clean bump is a downgrade to 7.11.0. We are NOT
-    // downgrading the router for a non-applicable advisory.
+    // FIX NOW AVAILABLE — trigger 1 below HAS FIRED. This entry is retained
+    // deliberately, not for lack of an alternative. Corrected 2026-08-04; the
+    // previous text read "NO FIX AVAILABLE: as of 2026-07-25 ... 7.18.1 (our
+    // version) is the latest published release", which stopped being true when
+    // react-router 8.3.0 shipped. Verified 2026-08-04: `npm view react-router
+    // version` = 8.3.0, above the vulnerable `>=7.12.0 <8.3.0` range. The 7.x
+    // line's latest (7.18.2) is still INSIDE that range, so no patch release
+    // clears this on 7.x — only the 8.x major does.
+    // WHY IT STAYS FOR NOW: still not exploitable here (see above — no RSC/server
+    // mode is mounted), and the upgrade is a major-version migration measured at
+    // ~28 files by the 2026-08-03 maintenance sweep. That is reviewed work with
+    // its own backlog item, not something to slip into an unrelated PR. This
+    // comment records that the exception is now a DEFERRAL WITH A KNOWN COST
+    // rather than an absence of options — which is exactly what the STANDING
+    // LESSON at the bottom of this file demands, and what this entry had already
+    // quietly stopped doing.
     // REVISIT — remove this entry (and re-evaluate as a real risk) on EITHER
     // trigger, whichever comes first:
-    //   1. react-router ships a patched release above the vulnerable range —
-    //      then bump react-router-dom to it and drop this entry.
+    //   1. FIRED 2026-08-04 — react-router 8.3.0 is published and clears the
+    //      range. Drop this entry as PART OF the 8.x migration; dropping it
+    //      before the migration lands just turns CI red with no fix staged.
     //   2. this app stops being a static client-only SPA — i.e. it adds React
     //      Router RSC/server mode, ANY route `action`/`loader` that mutates, or
     //      an authenticated/mutating server endpoint. That is the change that
