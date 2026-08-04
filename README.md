@@ -47,9 +47,13 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
 job, `ci.yml`) naming which job failed and the exact `gh run download`
 command, and edits that same comment in place on every re-run instead of
 piling up new ones. It does not fire for a `workflow_dispatch` run (no PR to
-comment on), and on a fork PR it will itself go red (read-only token on a
-`pull_request` run from a fork) — no comment gets posted, and nothing else
-in this repo compensates for that today.
+comment on), and it **skips cleanly (shows as `skipped`, not `failure`) on a
+fork PR** — a `pull_request` run from a fork gets a read-only `GITHUB_TOKEN`
+that this job couldn't use to comment anyway, so it doesn't try, rather than
+leaving a permanently-red check that has nothing to do with the code under
+review. No comment gets posted on a fork PR either way; the `gh run
+download` step below still works there manually — only the auto-comment is
+skipped, not the artifact.
 
 **Download the artifact BEFORE you re-run a red check.** A re-run's logs and
 artifacts overwrite/expire independently of the failed run — re-running
