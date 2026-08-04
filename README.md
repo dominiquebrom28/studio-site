@@ -38,6 +38,36 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
   by hand, or set the `SMOKE_URL` repo variable / pass `deployed_url` on a
   manual workflow run to wire it up. See the job's comment in `ci.yml` for
   the full one-time setup.
+- **`e2e`** (runs on every PR, **not required** — deliberately, see the
+  job's own header comment in `ci.yml`): Playwright against `dist/` at
+  375/768/1280. On failure, uploads the `playwright-report` artifact
+  (HTML report + trace).
+
+**A red check posts a PR comment automatically** (the `notify-on-failure`
+job, `ci.yml`) naming which job failed and the exact `gh run download`
+command, and edits that same comment in place on every re-run instead of
+piling up new ones. It does not fire for a `workflow_dispatch` run (no PR to
+comment on), and on a fork PR it will itself go red (read-only token on a
+`pull_request` run from a fork) — no comment gets posted, and nothing else
+in this repo compensates for that today.
+
+**Download the artifact BEFORE you re-run a red check.** A re-run's logs and
+artifacts overwrite/expire independently of the failed run — re-running
+first is how PR #69's `e2e` failure sat undiagnosed for two days in
+2026-07-29–31 even though the evidence (`playwright-report`, 2MB, a full
+Playwright trace) was sitting there the whole time; it only got root-caused
+once someone ran `gh run download` against the original failed run instead
+of re-running it blind. Same idea applies to `smoke-test-results` (the
+`build` job's smoke-test artifact, uploaded only when that specific step
+fails). Concretely, before clicking "Re-run jobs":
+
+```
+gh run download <run-id> --repo <owner>/<repo>          # every artifact on that run
+gh run download <run-id> --repo <owner>/<repo> -n <name> # just one, e.g. -n playwright-report
+```
+
+`<run-id>` is in the failing check's URL, in `gh pr checks <pr-number>`
+output, or in the auto-posted PR comment above.
 
 ## Local dev preflight: `node_modules` drift from `package.json`
 
