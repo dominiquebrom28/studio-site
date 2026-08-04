@@ -332,3 +332,110 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # BACKLOG MEDIUM (2026-07-31 run) "Nothing surfaces a red CI check, and
+  # nobody reads the artifacts" — PR #69's `e2e` failed 2026-07-29 and sat
+  # red and unexamined for two days behind six queued green PRs, even though
+  # the `playwright-report` artifact that root-caused it (07-31) had been
+  # sitting there the whole time. This job closes gap (a): it does NOT make
+  # `e2e` required or touch branch protection (see that job's own header
+  # comment for why it stays advisory) — it only makes a red check visible
+  # where a human reviewing this PR is already looking, with the exact
+  # command to pull the evidence BEFORE anyone re-runs the job and destroys
+  # it (gap (b) is the matching README step, not code).
+  #
+  # No checkout, no third-party action — `gh`, built into the runner, using
+  # the workflow's own `GITHUB_TOKEN`. Idempotent: finds its own previous
+  # comment via an HTML-comment marker and edits it in place on every
+  # re-run, instead of piling up a new comment per attempt.
+  #
+  # Least privilege: only `pull-requests: write` is granted (job-level
+  # `permissions:` REPLACES the workflow default for this job, it does not
+  # add to it — see https://docs.github.com/actions/security-guide -
+  # `contents` and everything else this job doesn't list is implicitly
+  # `none`). This job never merges, labels, or edits anything but its own
+  # comment.
+  #
+  # `pull_request` only (not `workflow_dispatch`, which has no PR to comment
+  # on) — enforced by the `github.event_name` check below, on top of the
+  # fact that `needs: [build, e2e]` already means this only runs for events
+  # where both of those jobs ran.
+  #
+  # FORK PRs: SKIPPED, deliberately, not attempted-and-failed. A
+  # `pull_request` (not `pull_request_target`) run from a fork gets a
+  # READ-ONLY `GITHUB_TOKEN` regardless of the `permissions:` block below —
+  # a GitHub platform rule this workflow does not opt out of (this repo runs
+  # no `pull_request_target` anywhere, the safer default for a repo that may
+  # take external PRs). Without the `head.repo.fork == false` guard, this
+  # job would 403 and go red on EVERY fork PR for a reason that has nothing
+  # to do with the code under review — manufacturing a permanently-red,
+  # unrelated check is exactly the "red and unread" failure mode this item
+  # exists to fix, so it skips cleanly instead: the job shows as `skipped`
+  # in the checks list (not `failure`), and this comment is the legible
+  # reason why (visible via "View workflow file" on that job). The
+  # `gh run download` step in README's CI gates section still applies
+  # manually on a fork PR — only the auto-comment is skipped, not the
+  # artifact. Revisit (e.g. a maintainer re-run via `workflow_dispatch` with
+  # a PR-comment step, or a trusted `pull_request_target` companion workflow
+  # with its own tight scope) if/when this repo starts taking fork PRs for
+  # real.
+  notify-on-failure:
+    needs: [build, e2e]
+    if: >-
+      always() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.fork == false &&
+      (needs.build.result == 'failure' || needs.e2e.result == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment which check failed + exact artifact download command (edit in place on re-run)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          COMMENT_FILE: ${{ runner.temp }}/ci-failure-comment.md
+        run: |
+          set -euo pipefail
+
+          MARKER="<!-- ci-red-surfacing -->"
+
+          {
+            echo "$MARKER"
+            echo "### CI failed on this PR (run #$RUN_ID)"
+            echo
+            if [ "$BUILD_RESULT" = "failure" ]; then
+              echo "- **\`build\` (required — blocks merge)** failed. If the failing step was \"Smoke test\", its results are attached as the \`smoke-test-results\` artifact; otherwise check the \`build\` job log for which step failed — most other steps in that job don't upload an artifact."
+            fi
+            if [ "$E2E_RESULT" = "failure" ]; then
+              echo "- **\`e2e\` (advisory — does NOT block merge, deliberately non-required)** failed. Its Playwright HTML report + trace is attached as the \`playwright-report\` artifact."
+            fi
+            echo
+            echo "**Download the artifact(s) before re-running this workflow** — a re-run overwrites the run these artifacts came from, and the artifact is usually the cheapest evidence available (see README's CI gates section)."
+            echo
+            echo '```'
+            echo "gh run download $RUN_ID --repo $REPO"
+            echo '```'
+            echo
+            echo "(Downloads every artifact attached to this run; add \`-n <name>\` to fetch just one, e.g. \`-n playwright-report\`.) Or: Actions tab -> this run -> Summary -> Artifacts."
+            echo
+            echo "_This comment is edited in place on re-runs, not reposted — see \`notify-on-failure\` in \`.github/workflows/ci.yml\`._"
+          } > "$COMMENT_FILE"
+
+          # `gh api --jq` takes a single jq expression with no separate
+          # `--arg` flag, so the marker is inlined directly rather than
+          # passed as a jq variable — safe here since it's a fixed constant
+          # (must match the "$MARKER" written into the comment body above).
+          existing_id="$(gh api -X GET "repos/$REPO/issues/$PR_NUMBER/comments" -f per_page=100 \
+            --jq '[.[] | select(.body | startswith("<!-- ci-red-surfacing -->"))] | last.id // empty')"
+
+          if [ -n "$existing_id" ]; then
+            echo "Updating existing CI-failure comment #$existing_id in place."
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing_id" -F body=@"$COMMENT_FILE"
+          else
+            echo "No existing CI-failure comment found; posting a new one."
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$COMMENT_FILE"
+          fi
