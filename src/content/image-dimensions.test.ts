@@ -1,0 +1,213 @@
+import { describe, it, expect, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { readImageDimensions } from './image-dimensions';
+
+/**
+ * Unit tests for the dependency-free image-header parser, against hand-built
+ * minimal buffers (not real committed assets — that's what
+ * `validate-content.test.ts`'s dimension gate checks, against real content).
+ * These pin the parser's own correctness and its failure modes in isolation,
+ * one format at a time, including formats/corruptions no real committed
+ * asset happens to exercise.
+ */
+
+const tmpFiles: string[] = [];
+
+function writeTempFile(name: string, bytes: number[] | Buffer): string {
+  const filePath = path.join(os.tmpdir(), `image-dimensions-test-${Date.now()}-${Math.random().toString(36).slice(2)}-${name}`);
+  fs.writeFileSync(filePath, Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes));
+  tmpFiles.push(filePath);
+  return filePath;
+}
+
+afterEach(() => {
+  while (tmpFiles.length > 0) {
+    const f = tmpFiles.pop();
+    if (f) fs.rmSync(f, { force: true });
+  }
+});
+
+function pngWithDimensions(width: number, height: number): Buffer {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(13, 0);
+  const chunkType = Buffer.from('IHDR', 'ascii');
+  const dims = Buffer.alloc(8);
+  dims.writeUInt32BE(width, 0);
+  dims.writeUInt32BE(height, 4);
+  // 5 remaining IHDR bytes (bit depth, color type, compression, filter,
+  // interlace) — not needed for dimensions, padded with zeros.
+  const rest = Buffer.alloc(5);
+  return Buffer.concat([signature, length, chunkType, dims, rest]);
+}
+
+function gifWithDimensions(width: number, height: number): Buffer {
+  const signature = Buffer.from('GIF89a', 'ascii');
+  const dims = Buffer.alloc(4);
+  dims.writeUInt16LE(width, 0);
+  dims.writeUInt16LE(height, 2);
+  return Buffer.concat([signature, dims]);
+}
+
+function jpegWithDimensions(width: number, height: number): Buffer {
+  const soi = Buffer.from([0xff, 0xd8]);
+  const sof0Marker = Buffer.from([0xff, 0xc0]);
+  // length(2) + precision(1) + height(2) + width(2) + numComponents(1) +
+  // 3 bytes per component (id, sampling, quant table) for 3 components.
+  const numComponents = 3;
+  const length = 2 + 1 + 2 + 2 + 1 + numComponents * 3;
+  const segment = Buffer.alloc(length);
+  segment.writeUInt16BE(length, 0);
+  segment.writeUInt8(8, 2); // precision
+  segment.writeUInt16BE(height, 3);
+  segment.writeUInt16BE(width, 5);
+  segment.writeUInt8(numComponents, 7);
+  const eoi = Buffer.from([0xff, 0xd9]);
+  return Buffer.concat([soi, sof0Marker, segment, eoi]);
+}
+
+describe('readImageDimensions — PNG', () => {
+  it('reads width/height from a valid IHDR chunk', () => {
+    const filePath = writeTempFile('valid.png', pngWithDimensions(1280, 800));
+    expect(readImageDimensions(filePath)).toEqual({ width: 1280, height: 800 });
+  });
+
+  it('throws (does not silently pass) on a truncated PNG', () => {
+    const filePath = writeTempFile('truncated.png', pngWithDimensions(1280, 800).subarray(0, 16));
+    expect(() => readImageDimensions(filePath)).toThrow(/too short/);
+  });
+
+  it('throws when the first chunk is not IHDR', () => {
+    const valid = pngWithDimensions(100, 100);
+    const corrupted = Buffer.from(valid);
+    corrupted.write('IDAT', 12, 'ascii'); // overwrite the chunk-type bytes
+    const filePath = writeTempFile('wrong-chunk.png', corrupted);
+    expect(() => readImageDimensions(filePath)).toThrow(/expected "IHDR"/);
+  });
+});
+
+describe('readImageDimensions — GIF', () => {
+  it('reads width/height from the Logical Screen Descriptor', () => {
+    const filePath = writeTempFile('valid.gif', gifWithDimensions(375, 812));
+    expect(readImageDimensions(filePath)).toEqual({ width: 375, height: 812 });
+  });
+
+  it('accepts the GIF87a signature too, not just GIF89a', () => {
+    const buffer = gifWithDimensions(10, 20);
+    buffer.write('GIF87a', 0, 'ascii');
+    const filePath = writeTempFile('gif87a.gif', buffer);
+    expect(readImageDimensions(filePath)).toEqual({ width: 10, height: 20 });
+  });
+
+  it('throws on a truncated GIF (no Logical Screen Descriptor)', () => {
+    const filePath = writeTempFile('truncated.gif', Buffer.from('GIF89a', 'ascii'));
+    expect(() => readImageDimensions(filePath)).toThrow(/too short/);
+  });
+});
+
+describe('readImageDimensions — JPEG', () => {
+  it('reads width/height from an SOF0 segment', () => {
+    const filePath = writeTempFile('valid.jpg', jpegWithDimensions(1000, 625));
+    expect(readImageDimensions(filePath)).toEqual({ width: 1000, height: 625 });
+  });
+
+  it('skips non-SOF segments (e.g. an APP0/JFIF marker) before finding SOF', () => {
+    const soi = Buffer.from([0xff, 0xd8]);
+    // APP0 "JFIF" segment: FF E0, length 16, then 14 bytes of payload.
+    const app0 = Buffer.concat([
+      Buffer.from([0xff, 0xe0, 0x00, 0x10]),
+      Buffer.from('JFIF\0', 'ascii'),
+      Buffer.alloc(9),
+    ]);
+    const rest = jpegWithDimensions(1280, 800).subarray(2); // drop the SOI, reuse SOF0+EOI
+    const filePath = writeTempFile('with-app0.jpg', Buffer.concat([soi, app0, rest]));
+    expect(readImageDimensions(filePath)).toEqual({ width: 1280, height: 800 });
+  });
+
+  it('throws when no SOF marker exists before EOF', () => {
+    const filePath = writeTempFile('no-sof.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+    expect(() => readImageDimensions(filePath)).toThrow(/no SOF/);
+  });
+
+  it('throws on a truncated SOF segment', () => {
+    const filePath = writeTempFile('truncated-sof.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08]));
+    expect(() => readImageDimensions(filePath)).toThrow(/malformed JPEG/);
+  });
+
+  // QA regression (2026-08-04 adversarial review): the SOF-truncation bounds
+  // check was off by one — `offset + 6 > buffer.length` let a buffer that
+  // ends EXACTLY at the second byte of the width field through, so
+  // `readUInt16BE(offset + 5)` (which needs that byte) threw a raw, opaque
+  // Node `RangeError` instead of this file's own "malformed JPEG" message.
+  // Still a throw either way (no hang, no silent wrong answer) but the wrong
+  // ERROR — this pins the exact boundary and the friendly message.
+  it('throws this file\'s own "malformed JPEG" error (not a raw Node RangeError) when the buffer ends exactly at the last width byte', () => {
+    const soi = [0xff, 0xd8];
+    const sof0 = [0xff, 0xc0];
+    // length(2) + precision(1) + height(2) + width byte0(1) — one byte short
+    // of a complete width field. Total buffer length = 2 + 2 + 6 = 10, i.e.
+    // exactly `offset + 6` where `offset` (4) is where the length field
+    // starts — the exact boundary the off-by-one let through.
+    const segment = [0x00, 0x07, 0x08, 0x00, 0x64, 0x00];
+    const filePath = writeTempFile('boundary-sof.jpg', Buffer.from([...soi, ...sof0, ...segment]));
+    expect(() => readImageDimensions(filePath)).toThrow(/malformed JPEG — SOF segment truncated/);
+  });
+
+  it('throws (does not loop or read backwards) when a segment declares length 0', () => {
+    // FF C0 (SOF0) followed by a length field of 0x0000 — smaller than the
+    // 2-byte length field itself.
+    const filePath = writeTempFile('zero-length-segment.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x00, 0xff, 0xd9]));
+    expect(() => readImageDimensions(filePath)).toThrow(/segment length 0/);
+  });
+
+  it('throws (does not loop or read backwards) when a segment declares length 1', () => {
+    const filePath = writeTempFile('length-one-segment.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x01, 0xff, 0xd9]));
+    expect(() => readImageDimensions(filePath)).toThrow(/segment length 1/);
+  });
+
+  it('skips 0xFF fill/padding bytes between a marker prefix and the marker code itself', () => {
+    // The JPEG spec allows any number of extra 0xFF bytes before a marker
+    // code. FF D8 (SOI) FF FF FF C0 (SOF0, padded) <segment>.
+    const soi = [0xff, 0xd8];
+    const paddedMarker = [0xff, 0xff, 0xff, 0xc0];
+    const segment = [0x00, 0x0b, 0x08, 0x00, 0x64, 0x00, 0xc8, 0x03, 0x01, 0x11, 0x00]; // height 100, width 200
+    const filePath = writeTempFile('fill-bytes.jpg', Buffer.from([...soi, ...paddedMarker, ...segment]));
+    expect(readImageDimensions(filePath)).toEqual({ width: 200, height: 100 });
+  });
+
+  it('reads dimensions from a progressive JPEG (SOF2, 0xC2) — not just baseline SOF0', () => {
+    const soi = [0xff, 0xd8];
+    const sof2 = [0xff, 0xc2];
+    const segment = [0x00, 0x0b, 0x08, 0x00, 0x64, 0x00, 0xc8, 0x03, 0x01, 0x11, 0x00]; // height 100, width 200
+    const filePath = writeTempFile('progressive.jpg', Buffer.from([...soi, ...sof2, ...segment]));
+    expect(readImageDimensions(filePath)).toEqual({ width: 200, height: 100 });
+  });
+});
+
+describe('readImageDimensions — unsupported/unknown formats', () => {
+  it('throws loudly on a WebP file rather than silently passing', () => {
+    const riff = Buffer.concat([
+      Buffer.from('RIFF', 'ascii'),
+      Buffer.alloc(4),
+      Buffer.from('WEBP', 'ascii'),
+    ]);
+    const filePath = writeTempFile('image.webp', riff);
+    expect(() => readImageDimensions(filePath)).toThrow(/unrecognized image format/);
+  });
+
+  it('throws loudly on an SVG (text-based, no binary signature this parser reads)', () => {
+    const filePath = writeTempFile('icon.svg', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>', 'utf8'));
+    expect(() => readImageDimensions(filePath)).toThrow(/unrecognized image format/);
+  });
+
+  it('throws on an empty file rather than returning a default/zero size', () => {
+    const filePath = writeTempFile('empty', Buffer.alloc(0));
+    expect(() => readImageDimensions(filePath)).toThrow(/unrecognized image format/);
+  });
+
+  it('throws (propagates fs error) on a file that does not exist', () => {
+    expect(() => readImageDimensions('/definitely/does/not/exist.png')).toThrow();
+  });
+});

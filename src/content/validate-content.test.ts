@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseFrontmatter } from './frontmatter';
 import { cast } from './cast';
+import { readImageDimensions } from './image-dimensions';
 
 /**
  * Content-validation gate (BACKLOG "Content-validation gate in CI",
@@ -452,6 +453,86 @@ describe('content validation — asset paths resolve to real files on disk', () 
         ? `these image files under public/images/projects/ are referenced by no content file's cover/media[].src/media[].poster:\n${orphans.join('\n')}`
         : undefined,
     ).toEqual([]);
+  });
+
+  /**
+   * Dimension gate (BACKLOG LOW, 2026-07-29 qa-tester finding, named as the
+   * natural next gap by the asset-path gate above): the path gate above
+   * proves `media[].src` resolves to a real file; NOTHING previously checked
+   * that the file's REAL intrinsic pixel size actually matches the
+   * `width`/`height` the schema requires (`ProjectMediaItemSchema`,
+   * schemas.ts) — fields that exist specifically so the gallery can reserve
+   * layout space up front and never shift (design-brief §9 CLS gate, see
+   * that schema's doc comment). A typo'd or stale dimension pair reintroduces
+   * exactly that layout shift while every existing gate — schema validation,
+   * the path-existence gate above, `npm test`, `npm run build` — stays
+   * green, because none of them ever opens the file's bytes.
+   *
+   * Deliberately narrow to `media[].src` (not `cover`, not `poster`): those
+   * two fields have no declared `width`/`height` anywhere in the schema to
+   * check against — see `ProjectMediaItemSchema`'s doc comment ("`width`/
+   * `height` are the real intrinsic pixel dimensions of `src`"). Checking
+   * them would mean inventing a comparison the schema doesn't ask for; out
+   * of scope for this item.
+   *
+   * Reuses `resolveCaseSensitive` from the path gate above (same case-
+   * sensitive walk, same `PUBLIC_ROOT`) rather than a second path-resolution
+   * mechanism, and skips a `src` this test can't even locate — that failure
+   * is already reported, once, precisely, by the path gate; this test's job
+   * is strictly "given a file that exists, does its real size match the
+   * declared one," never a second copy of "does it exist."
+   *
+   * `readImageDimensions` (image-dimensions.ts) is a dependency-free PNG/
+   * JPEG/GIF header parser — the three formats actually committed under
+   * `public/images/projects/` today (confirmed via `find`, see that file's
+   * doc comment). Any format it can't parse THROWS rather than being
+   * skipped, and that throw is caught here and turned into a hard failure —
+   * "could not read the real dimensions" must never read as "dimensions
+   * match," the same three-state (clean/drift/inconclusive) discipline
+   * `scripts/check-deps-drift.mjs` applies to a missing input.
+   */
+  it("every project media[].src's declared width/height matches the file's real intrinsic dimensions", () => {
+    const problems: string[] = [];
+
+    for (const project of projects) {
+      const media = Array.isArray(project.data.media) ? project.data.media : [];
+      media.forEach((item, index) => {
+        const record = typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {};
+        const src = record.src;
+        const fieldLabel = `media[${index}].src`;
+
+        if (typeof src !== 'string' || src.length === 0) return; // schema's job, not this gate's
+        if (/^https?:\/\//.test(src)) return; // externally hosted; nothing local to open
+        if (!src.startsWith('/')) return; // already reported by the path-existence gate above
+
+        const relPath = src.slice(1);
+        const resolved = resolveCaseSensitive(relPath);
+        if (!resolved.exists) return; // already reported by the path-existence gate above — don't double-report
+
+        const declaredWidth = record.width;
+        const declaredHeight = record.height;
+        if (typeof declaredWidth !== 'number' || typeof declaredHeight !== 'number') return; // schema's job
+
+        const absolutePath = path.join(PUBLIC_ROOT, relPath);
+        let actual: { width: number; height: number };
+        try {
+          actual = readImageDimensions(absolutePath);
+        } catch (error) {
+          problems.push(
+            `"${project.filename}": ${fieldLabel} "${src}" — could not determine its real dimensions (${(error as Error).message}). A gate that can't read a file must fail loudly, never pass silently.`,
+          );
+          return;
+        }
+
+        if (actual.width !== declaredWidth || actual.height !== declaredHeight) {
+          problems.push(
+            `"${project.filename}": ${fieldLabel} "${src}" declares ${declaredWidth}x${declaredHeight} but the real file is ${actual.width}x${actual.height} — a wrong declared ratio reintroduces exactly the layout shift these fields exist to prevent.`,
+          );
+        }
+      });
+    }
+
+    expect(problems, problems.length > 0 ? problems.join('\n') : undefined).toEqual([]);
   });
 });
 
