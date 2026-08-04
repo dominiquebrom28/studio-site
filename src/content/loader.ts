@@ -115,7 +115,12 @@ export function resolveProvenanceArtifact(rawArtifact: unknown): ProvenanceArtif
   return result.data;
 }
 
-const provenanceArtifact = resolveProvenanceArtifact(provenanceArtifactModules[PROVENANCE_ARTIFACT_PATH]);
+// Exported (docs/reports-surface.md §3.2/§6 PR 2) so `src/content/runs.ts`
+// can build the reports-index reverse join — "which run produced this
+// post/project" — from the SAME resolved artifact `buildCollection` below
+// already joins forward ("which report produced this post/project"), rather
+// than adding a second glob and a second failure path onto this one.
+export const provenanceArtifact = resolveProvenanceArtifact(provenanceArtifactModules[PROVENANCE_ARTIFACT_PATH]);
 
 /**
  * Joins a content file's `import.meta.glob` key (root-absolute, WITH a
