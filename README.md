@@ -106,3 +106,46 @@ loudly, never silently — whether they agree:
 - If it can't determine an answer (no `node_modules` at all, unreadable
   `package.json`) it exits **inconclusive**, distinct from a clean pass —
   it never reports green when it didn't actually check anything.
+
+## Local dev preflight: a stale generated artifact from a freshly-added report
+
+A run report describing a branch's work is structurally always the LAST
+thing written on that branch — but `predev`/`prebuild`/`pretest` (which
+regenerate `src/content/provenance.generated.json` and `src/content/
+runs.generated.json` via `scripts/provenance/generate.mjs`) only ever run
+*before* that point. So the committed artifact is stale by construction the
+moment a report is added, and the first thing that used to notice was a red
+`git diff --exit-code` check on a pushed PR (PR #87, red for two days on
+exactly this) — or, confirmed a second way (2026-08-04), a merge *conflict*
+in the artifact when two report-bearing branches land on the same
+bookkeeping branch.
+
+`scripts/stage-report-artifacts.mjs` (Node built-ins only, no new
+dependency) closes this at the moment of authorship instead of two days
+downstream:
+
+- Wired as `.githooks/pre-commit`, active under the same `core.hooksPath
+  .githooks` wiring described above (`npm install`/`npm ci` sets it up;
+  propagates to every worktree automatically).
+- **Fires only when a `reports/*.md` file is staged.** A cheap shell-level
+  `git diff --cached` check in `.githooks/pre-commit` itself keeps every
+  other commit (the overwhelming majority) a fast no-op that never even
+  starts node.
+- Regenerates via the repo's real generator (`node scripts/provenance/
+  generate.mjs` — never by hand-editing JSON) and `git add`s
+  `src/content/provenance.generated.json` / `src/content/runs.generated
+  .json` **only if their content actually changed**, printing exactly
+  which artifact(s) it refreshed. A hook that silently mutates a commit
+  would be worse than the trap it fixes.
+- **Blocks the commit if the generator itself fails** — deliberately
+  different from the non-blocking drift hooks above (those can't block;
+  `post-checkout`/`post-merge` exit codes don't abort an already-completed
+  git action). `pre-commit` runs before the commit exists, so this hook can
+  refuse rather than silently commit a stale or unreliable artifact. Not a
+  dead end: `git commit --no-verify` bypasses it as usual, and CI's drift
+  gate is the unconditional backstop either way.
+- Runs (and regenerates) for a merge commit too — a `pre-commit` hook only
+  ever fires for a merge after every conflict is already resolved and
+  staged, so by then the tree is final and regenerating against it is
+  exactly the fix for the 2026-08-04 merge-conflict incident above.
+- Run it by hand any time: `npm run stage-report-artifacts`.

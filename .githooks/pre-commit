@@ -1,0 +1,23 @@
+#!/bin/sh
+# Fires before every `git commit` — see scripts/stage-report-artifacts.mjs's
+# header comment for the full incident this exists for (BACKLOG.md HIGH,
+# 2026-08-05: "Writing the report last structurally guarantees a stale
+# runs.generated.json, and only CI ever says so").
+#
+# Cheap short-circuit BEFORE ever starting node: this task's own constraint
+# is explicit that this hook must be a no-op AND FAST on every other commit,
+# including the hundreds of ordinary code commits that never touch
+# reports/. `git diff --cached --name-only -z` + `grep` costs a fraction of
+# a node process start, so an ordinary commit never pays for node at all —
+# same shape as post-checkout's own shell-level `$3` flag check before it
+# invokes node (see that file).
+#
+# `--diff-filter=ACMR` matches what the node script re-derives on its own
+# (Added/Copied/Modified/Renamed) — a report being AMENDED in a later commit
+# on the same branch must still trigger regeneration, not just its first
+# `git add`.
+if ! git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' | grep -qE '^reports/[^/]+\.md$'; then
+  exit 0
+fi
+
+exec node "$(git rev-parse --show-toplevel)/scripts/stage-report-artifacts.mjs"

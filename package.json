@@ -7,6 +7,7 @@
     "prepare": "node scripts/setup-git-hooks.mjs",
     "check:deps": "node scripts/check-deps-drift.mjs",
     "check:report-claims": "node scripts/check-report-claims.mjs",
+    "stage-report-artifacts": "node scripts/stage-report-artifacts.mjs",
     "predev": "node scripts/provenance/generate.mjs",
     "dev": "vite",
     "prebuild": "node scripts/provenance/generate.mjs",
