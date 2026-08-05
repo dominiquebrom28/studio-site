@@ -1,0 +1,33 @@
+#!/bin/sh
+# Fires before every `git commit` — see scripts/stage-report-artifacts.mjs's
+# header comment for the full incident this exists for (BACKLOG.md HIGH,
+# 2026-08-05: "Writing the report last structurally guarantees a stale
+# runs.generated.json, and only CI ever says so").
+#
+# Cheap short-circuit BEFORE ever starting node: this task's own constraint
+# is explicit that this hook must be a no-op AND FAST on every other commit,
+# including the hundreds of ordinary code commits that never touch
+# reports/. `git diff --cached --name-only -z` + `grep` costs a fraction of
+# a node process start, so an ordinary commit never pays for node at all —
+# same shape as post-checkout's own shell-level `$3` flag check before it
+# invokes node (see that file).
+#
+# `--diff-filter=ACMRD` matches what the node script re-derives on its own
+# (Added/Copied/Modified/Renamed/DELETED) — a report being AMENDED in a
+# later commit on the same branch must still trigger regeneration, not just
+# its first `git add` (A/C/M/R). `D` is load-bearing, not defensive
+# padding: `runs.generated.json` is one row per file CURRENTLY in
+# `reports/` (scripts/provenance/runs.mjs's `buildRunsRows` iterates
+# whatever `readReportFiles` finds on disk right now) — deleting a report
+# removes its row exactly as surely as adding one adds a row, and without
+# `D` here that direction of drift would sail straight through this hook
+# uncaught. Verified by reproduction: deleting an existing, provenance-
+# block-free report and committing with this filter set to ACMR (no `D`)
+# left `runs.generated.json` stale and `git diff --exit-code
+# src/content/runs.generated.json` (the real CI step) red on the missing
+# row — see this change's PR body for the transcript.
+if ! git diff --cached --name-only --diff-filter=ACMRD -z | tr '\0' '\n' | grep -qE '^reports/[^/]+\.md$'; then
+  exit 0
+fi
+
+exec node "$(git rev-parse --show-toplevel)/scripts/stage-report-artifacts.mjs"

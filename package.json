@@ -8,6 +8,8 @@
     "check:deps": "node scripts/check-deps-drift.mjs",
     "check:report-claims": "node scripts/check-report-claims.mjs",
     "check:stranded-branches": "node scripts/check-stranded-branches.mjs",
+    "stage-report-artifacts": "node scripts/stage-report-artifacts.mjs",
+    "check:merge-revert": "node scripts/check-merge-revert.mjs",
     "predev": "node scripts/provenance/generate.mjs",
     "dev": "vite",
     "prebuild": "node scripts/provenance/generate.mjs",
