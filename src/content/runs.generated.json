@@ -175,6 +175,13 @@
     "kind": "run-report"
   },
   {
+    "runId": "2026-08-05",
+    "reportPath": "reports/2026-08-05.md",
+    "title": "Run report — 2026-08-05",
+    "date": "2026-08-05",
+    "kind": "run-report"
+  },
+  {
     "runId": "maintenance-2026-07-20",
     "reportPath": "reports/maintenance-2026-07-20.md",
     "title": "Maintenance sweep — 2026-07-20",

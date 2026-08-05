@@ -623,7 +623,7 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
 
 ### Added 2026-07-21 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — Unmerged feature tail stranded on `team/2026-07-19-project-page-v2`
+- [x] **HIGH — Unmerged feature tail stranded on `team/2026-07-19-project-page-v2`
       (`buildMode` / "team rebuild model").** Found by the 2026-07-21 backfill
       doing git archaeology (`main...<branchtip>`), not visible from the PR list.
       PR #25 was a **true merge at commit `47ef724`** (2026-07-19 14:05 CEST);
@@ -639,6 +639,25 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       the branch (its leftover worktree still sits at `26c0d1c`). Either way the
       branch should not keep silently holding tested, documented, unmerged
       feature work. _Source: reports/2026-07-19-evening.md, 2026-07-21 run._
+      _(2026-08-05, team/2026-08-05-buildmode-tail, PR #105 — awaiting Dom.
+      **Closed as "assessed", not as "decided":** the item's only next step was
+      "Dom's call" and there was nothing to decide from, which is why it sat
+      open two weeks. architect read all 11 files at the tip against `main` and
+      wrote `docs/buildmode-tail-assessment.md`; the branch is also now pinned
+      by a local tag `archive/2026-07-19-buildmode-tail`, so the commits can
+      never be gc'd. **Recommendation is (c), split three ways**, not the
+      item's (a) or (b): recover the layout fix only; drop `buildMode` as
+      superseded by `soloBuild` (shipped 2026-07-24, load-bearing across 24
+      files — every one of the five file conflicts is a copy/product decision,
+      not a merge conflict, and there are still zero team-built projects to
+      justify the feature); keep `docs/team-rebuild-model.md` as reference-only
+      for its §3 evidence-asymmetry and §4 no-scoreboard reasoning.
+      **The archaeology found something bigger than the item** — a live,
+      measured caption-overlap bug and a published post describing its
+      never-merged fix; logged as its own HIGH item below. Honest note: `[not
+      reconstructable]` why the tail was abandoned — no report, no PR, no
+      message. Three named decisions are Dom's in the PR: take the split or
+      overrule it, push the archive tag, delete the branch after the port.)_
 - [ ] **LOW — Worktree isolation is wired to the wrong repo for studio-site
       runs.** Two frontend-dev agents this run were launched with
       `isolation: worktree` into a worktree of the **SoulForge game repo**
@@ -1252,13 +1271,35 @@ site whose provenance device is still decorative.
       ("thirteen posts" → 14, 0 drafts). **Remaining: designer pass (§6 PR 3, a
       hard Dom checkpoint) then implementation PRs 0–4.** Two spin-off items
       below.)_
-- [ ] **LOW — `media[].width`/`height` are never checked against the real
+      _(**§6 PR 2 shipped 2026-08-04**, team/2026-08-04-runs-api, merged as
+      PR #98 — item still open. `getAllRuns()` plus the reverse join from run
+      reports to the posts/projects they produced; no route, no component, and
+      the sitemap staying at 30 URLs is the check that proves it. The join keys
+      on the same object reference `buildCollection` already attaches as
+      `post.provenance`, **not** on a slug derived from the report filename,
+      which would silently join nothing because every content file sets an
+      explicit `slug:` differing from its filename stem; reference identity also
+      keeps the 2026-07-16 batch's three byte-identical-but-distinct provenance
+      records from collapsing into one. **Next is §6 PR 3, the designer pass —
+      a hard Dom checkpoint that gates every public surface here.**)_
+- [x] **LOW — `media[].width`/`height` are never checked against the real
       image.** The schema requires them (they exist to prevent layout shift) and
       the new asset-path gate proves the file exists, but nothing verifies the
       declared dimensions match the file's intrinsic size. A wrong ratio
       reintroduces exactly the CLS the fields were added to prevent, with every
       gate green. _Source: qa-tester, 2026-07-29 asset-path-gate pass — named as
       the natural next gap by the gate that closed the path half._
+      _(2026-08-04, team/2026-08-04-media-dimensions, **merged as PR #99**.
+      backend-dev wrote a dependency-free PNG/JPEG/GIF header reader wired into
+      the existing asset-path gate rather than a parallel one; falsified
+      red→green on real content, and all 23 existing media entries already
+      matched their files, so nothing was edited to make it pass. qa-tester's
+      mutation pass found **three surviving mutations** the original 14 tests
+      missed — progressive-JPEG `0xC2` removed from the SOF marker set, the
+      `segmentLength < 2` guard loosened, the `0xFF` fill-byte skip removed —
+      plus a real off-by-one in the SOF truncation bound. The code was correct;
+      the tests weren't pinning it. **This checkbox lagged the merge by a day**
+      — see the 2026-08-05 reconciliation note below.)_
 - [ ] **LOW — Worktree isolation: a shared `node_modules` also shares
       `.vite`, and parallel dev servers corrupt each other.** Extends the
       existing worktree item. The proven workaround (hand-made worktrees +
@@ -1381,7 +1422,7 @@ site whose provenance device is still decorative.
       nested `src/content/sub/foo.generated.json` — no such file exists, and
       every pre-existing pattern in that guard (`docs/*`, `content/*`) has the
       same property.)_
-- [ ] **HIGH — Writing the report last structurally guarantees a stale
+- [x] **HIGH — Writing the report last structurally guarantees a stale
       `runs.generated.json`, and only CI ever says so.** PR #87 sat red for two
       days on exactly this and nothing else: it added `reports/2026-08-01.md`
       without the regenerated `src/content/runs.generated.json`, so the `build`
@@ -1409,6 +1450,28 @@ site whose provenance device is still decorative.
       _Source: concrete product gap hit and fixed by the lead this run
       (2026-08-03); not covered by the auto-merge-allowlist item above, which is
       about `safe-auto` labelling, not freshness._
+      _(2026-08-05, team/2026-08-05-artifact-freshness, PR #104 — awaiting Dom.
+      Option (a): `.githooks/pre-commit` + `scripts/stage-report-artifacts.mjs`
+      regenerate and re-stage `src/content/{provenance,runs}.generated.json`
+      whenever a `reports/*.md` is staged, always printing which artifact was
+      refreshed. A shell short-circuit runs before node starts, so an ordinary
+      code commit is a silent ~30ms no-op. **Block-vs-amend was the real
+      decision:** amend on success (the generator is provably correct — it is
+      the exact one CI trusts), **block on generator failure**, which diverges
+      from PR #86's non-blocking drift hooks deliberately — those are
+      non-blocking by git *mechanics* (a `post-*` exit code cannot abort a
+      completed action), not by choice, and `pre-commit` gets a real decision.
+      **Lead review caught a gap:** the first cut filtered `--diff-filter=ACMR`,
+      excluding deletions — but `runs.generated.json` is one row per file
+      *currently* in `reports/`, so a `git rm` staleness the artifact exactly as
+      much as an addition. Reproduced red, then fixed to `ACMRD` with both the
+      shell and the node re-derivation reading one exported constant so they
+      cannot drift, pinned by a test that fails if a future edit narrows it back.
+      Lead independently falsified all three states: addition-with-hook green,
+      addition-with-`--no-verify` red on the exact PR #87 shape, deletion green.
+      **Note for Dom:** this makes `git commit` run node on report-bearing
+      commits — opt-out per commit via `--no-verify`, but a conscious call, same
+      class as PR #86's repo-local git config note.)_
 - [ ] **MEDIUM — Nothing measures whether anyone reads this site.**
       PROJECT-BRIEF goal 2 wants readers; there is no analytics of any kind, so
       every prioritisation decision about content is made blind — the
@@ -1554,7 +1617,7 @@ nothing compares a report's claims against its own diff.
       rather than leave it open forever; ask before building the habit.
       Sequence AFTER branch protection. _Source: 2026-07-31 run; re-verified
       2026-08-01._
-- [ ] **MEDIUM — Nothing surfaces a red CI check, and nobody reads the
+- [x] **MEDIUM — Nothing surfaces a red CI check, and nobody reads the
       artifacts.** PR #69's `e2e` failed 2026-07-29 and sat red and unexamined
       for two days while six green PRs queued behind it — the only red check
       in the queue. It was diagnosable the whole time: an unexpired 2MB
@@ -1568,6 +1631,14 @@ nothing compares a report's claims against its own diff.
       next failure should be diagnosable — it was right, and the artifact that
       solved it was one Playwright had been writing all along. **Capturable is
       not the same as read.** _Source: 2026-07-31 run._
+      _(2026-08-04, team/2026-08-04-ci-red-surfacing, **merged as PR #97**.
+      devops added a `notify-on-failure` job that comments on the PR naming
+      which check went red and the exact `gh run download` command, editing its
+      comment in place on re-runs rather than stacking duplicates — plus the
+      matching "download the artifact **before** you re-run" step in `README.md`,
+      which is the half the item cared about: a re-run destroys the cheapest
+      evidence available. **This checkbox lagged the merge by a day** — see the
+      2026-08-05 reconciliation note below.)_
 - [ ] **LOW — Nine stale worktrees, 764MB — and the blocker is now cleared.**
       `git worktree list` holds nine leftovers no run ever removed: five under
       `.claude/worktrees/` (764MB total; `dom4-capture` alone is 197MB of
@@ -1761,7 +1832,7 @@ nothing compares a report's claims against its own diff.
       the §13/§14 conventions rather than being slipped in by a CI PR. Sequence
       after PR #91 merges. _Source: Project Lead, 2026-08-02 — measured, not
       assumed; both figures reproduced against the real report corpus._
-- [ ] **HIGH — An in-branch `git merge main` can silently revert the branch's
+- [x] **HIGH — An in-branch `git merge main` can silently revert the branch's
       own edits, and nothing detects it.** The true root cause of the 2026-07-31
       loss, found 2026-08-02 while verifying the gate above — and misdiagnosed
       for two days as "a report claimed a change it never made." It was not a
@@ -1788,6 +1859,31 @@ nothing compares a report's claims against its own diff.
       no prose, and would have caught this the minute it happened. _Source:
       Project Lead, 2026-08-02 — verified against real git history
       (`b16e7bc`, `755bf7c`, `1e5e5e8`, merge-base `56e8dfb`), not inferred._
+      _(2026-08-05, team/2026-08-05-merge-revert, PR #103 — awaiting Dom.
+      Detection (a), as `scripts/check-merge-revert.mjs` in the **required**
+      `build` job. Walks the branch's own first-parent chain since its
+      merge-base, unions what its non-merge commits touched, and attributes any
+      path missing from the net diff to whichever commit touched it **last** —
+      a merge means violation, the branch's own later commit means self-caused
+      (add-then-delete, deliberate revert) and is never flagged. That last-touch
+      rule is what makes it usable rather than noisy. **The false-positive
+      analysis is the deliverable:** a non-conflicting auto-merge converging on
+      identical content is argued structurally impossible to false-positive; a
+      conflict resolved in main's favour is ruled a TRUE violation even if the
+      content coincidentally matched, because the branch's edit is gone either
+      way; renames normalise and surface as a note. **It found a CI trap the
+      item did not know about:** on `pull_request` events `actions/checkout`'s
+      HEAD is GitHub's synthetic test-merge commit, whose **first parent is
+      `main`, not the PR branch** — walking from a bare HEAD would have checked
+      main's own history and reported clean on every PR forever. Fixed by
+      passing `github.event.pull_request.head.sha`, with the script REFUSING to
+      fall back (INCONCLUSIVE, exit 2) rather than guess. Lead independently
+      re-ran everything: the real incident fires with the exact commits named
+      (exit 1), the guard exits 2, self-check exits 0, and the permanent corpus
+      sweep is **97 merge commits → 96 clean, 1 violation (PR #81), 0 false
+      positives**, including PRs #87 and #92 which share the identical shape.
+      Option (b), the rebase habit, is NOT done here — detection only; the
+      violation message recommends it.)_
 - [ ] **MEDIUM — 16 posts, one reverse-chronological list, and no way in.**
       The blog is the site's main body of work (PROJECT-BRIEF goal 2) and it
       has exactly one view: everything, newest first. A first-time reader
@@ -1812,7 +1908,7 @@ nothing compares a report's claims against its own diff.
 
 ### Added 2026-08-04 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — A run that stops on the review throttle pushes a branch and
+- [x] **HIGH — A run that stops on the review throttle pushes a branch and
       opens no PR, and nothing tracks that the work exists.** On 2026-08-03
       the daily run did the right thing — seven PRs were open against a stated
       throttle of four to six, so it declined to open an eighth announcing that
@@ -1835,6 +1931,29 @@ nothing compares a report's claims against its own diff.
       stranding at the moment it would otherwise happen, rather than adding
       another thing a future run must remember to check. _Source: Project Lead,
       2026-08-04 — observed and recovered this run, not hypothetical._
+      _(2026-08-05, team/2026-08-05-stranded-branches, PR #106 — awaiting Dom.
+      Built **(c)**, both halves, because (a) alone cannot surface the
+      strandings that already exist. `scripts/check-stranded-branches.mjs`
+      reports `team/*`/`claude/*` branches neither merged into `main` nor
+      covered by a PR, with the same three exit codes as its siblings
+      (INCONCLUSIVE still fails, so a missing `gh` can never read as a clean
+      bill of health). **Two stranding shapes, and the second is what earns it:**
+      `strandedNoPr` (the literal 08-03 incident) and `strandedStalePr` — a PR
+      exists but none accounts for the branch's *current tip*, which is how
+      `team/2026-07-19-project-page-v2` is caught (merged PR #25, then six
+      never-re-PR'd commits). A CLOSED unmerged PR deliberately never counts as
+      coverage. **Not** wired into the required `build` job — several `team/*`
+      branches mid-review is this repo's normal state, and failing every PR over
+      an unrelated sibling is the false-blocking mode the other gates avoid.
+      Half 2 records the draft-PR convention in `README.md`. **Lead triage of
+      the 9 it found, since "9 stranded" is not "9 losses":** 3 hold content
+      genuinely absent from `main` — the `buildMode` tail, a 23-line
+      `## Notion backlog mirror` section for `CLAUDE.md` (`grep -ci notion
+      CLAUDE.md` on main returns **0**), and a ~9-line addendum to
+      `reports/2026-07-20.md` recording a post-merge 241/241 gate check,
+      verified line-by-line as missing after 15 days. The other 5 are
+      redundant, their files confirmed present on `main`. The two small losses
+      are tracked as their own item below.)_
 - [ ] **LOW — `loader.ts`'s `provenanceArtifact` comment says the artifact is
       "gitignored on purpose"; it has been committed since 2026-07-27.** The
       comment block above `provenanceArtifact` in `src/content/loader.ts`
@@ -1863,6 +1982,94 @@ nothing compares a report's claims against its own diff.
       regeneration and never by hand) or removing the need for it — e.g. one
       append-only `BACKLOG-INBOX.md` per run that a later pass folds in.
       _Source: Project Lead, 2026-08-04 — measured on this run's own branch._
+
+### Added 2026-08-05 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Desktop `BuildTimeline` phase captions overlap on
+      `/projects/mensapp` and `/projects/studio-site`, and a published post says
+      this was fixed.** `content/posts/2026-07-19-three-tries-at-the-same-overlap.md`
+      is live (`draft: false`) and describes the captions leaving absolute
+      positioning for an ordered list *"where overlap is structurally impossible
+      rather than merely tested against."* **That rewrite is not on `main`** — it
+      exists only in the stranded tail's commit `ba799f8`, now preserved at tag
+      `archive/2026-07-19-buildmode-tail`. **Measured** in a real browser at
+      1280px against the built `dist/`, not computed: mensapp overlaps by
+      **196.3px** (above row) and **182.5px** (below row); studio-site by
+      **76.7px** and **60.4px**. The text is genuinely unreadable — italic
+      caption text interleaved character-for-character, screenshot-confirmed,
+      not a transparent-padding artifact. Scope is exactly the two projects with
+      5 phases clustered early in a long date domain; pizzaparty, lovediary,
+      soulforge and portfolio (2–3 well-spaced phases) are clean, and
+      chart-token-playground renders no process section. **One of the two
+      broken pages is the site's own portfolio entry** (shipped in PR #84), on
+      the site whose positioning is honest provenance. Fix per
+      `docs/buildmode-tail-assessment.md` §5a: a **manual port** of ~150 lines
+      (the layout code is interleaved with handoff code that must be stripped —
+      not a cherry-pick), plus the `docs/project-page-v2.md` §2.2 amendment the
+      tail's own comments falsely claim was already made, plus a real-browser
+      before/after. **Skip the tail's `CommitLog` commit** — that bug measured as
+      already absent on `main` (~404px clearance). Worth adding a Playwright
+      assertion in the existing `e2e/` lane pinning no-same-row-overlap: this
+      class has escaped a green suite four times. _Source: 2026-08-05 run —
+      found by architect during the tail assessment, then measured by
+      visual-media rather than trusted._
+- [ ] **MEDIUM — Nothing checks that a run's shipped lanes get checked off in
+      `BACKLOG.md`, and it just failed for the fifth time.** PR #100
+      (2026-08-04) added five new backlog items and closed one, but **never
+      checked off the three lanes that run shipped** — PRs #97, #98 and #99 all
+      merged, and `BACKLOG.md` on `main` contained **zero** references to any
+      `team/2026-08-04-*` branch until this run healed it. Two items therefore
+      read `[ ]` for a day after their work was merged. This is a **different
+      mechanism from the other four incidents**: not stale-after-shipping
+      (DOM-1/DOM-5), not a merge dropping work (PR #81), not a phantom duplicate
+      heading (PR #87) — the check-offs were simply never written, while new
+      items in the same commit were. Every other artifact here is gated; the
+      one asserting what is done is not. A cheap structural check now exists to
+      build on: a run report's "Items worked on" table already names each branch
+      and PR, so a gate could assert that every branch named in a **merged**
+      report appears in `BACKLOG.md` alongside a `[x]`. Related to, but not the
+      same as, the files-produced-column item — that one widens PR #91's claims
+      gate; this one is about the backlog's own accuracy. _Source: Project Lead,
+      2026-08-05 run-start reconciliation — measured against `main`, not
+      inferred._
+- [ ] **LOW — Two small pieces of genuinely stranded work, found by the new
+      stranded-branch check.** Both verified absent from `main`, both needing a
+      one-line Dom decision rather than work: (a) `claude/first-backlog-item-agvn1h`
+      holds a 23-line `## Notion backlog mirror` section for `CLAUDE.md` —
+      `grep -ci notion CLAUDE.md` on `main` returns **0**, so it never landed;
+      it may be genuinely redundant now that the rule lives in the scheduled
+      task's own instructions, but that is a call, not a fact. (b)
+      `team/2026-07-20-backlog-and-report` holds a ~9-line addendum to
+      `reports/2026-07-20.md` recording the post-merge full-gate check
+      (241/241) run after Dom merged #26–#29 mid-run — exactly the class of
+      record the PROJECT-BRIEF's "every run ends with a report" rule exists to
+      protect, missing for 15 days. Land either, both, or neither, then the five
+      confirmed-redundant refs can be swept. _Source: 2026-08-05 run, lead
+      triage of the nine branches PR #106's check surfaced._
+- [ ] **LOW — The Notion mirror has no completeness check: an item can exist in
+      `BACKLOG.md` with no row at all.** The 2026-08-05 reconciliation found the
+      HIGH stale-`runs.generated.json` item had been added to `BACKLOG.md` by
+      PR #100 and **never mirrored** — it had no Notion row for a day, so the
+      mirror was silently missing a HIGH item rather than showing it with a
+      wrong status. Every sync so far reconciles *status* for rows that exist;
+      nothing compares the two **sets**. This is the inverse of the 2026-07-31
+      incident, where four findings existed only in Notion and not in
+      `BACKLOG.md` — so the gap has now been demonstrated in both directions.
+      Cheap fix: the sync step diffs item titles both ways and reports
+      orphans on each side, rather than iterating `BACKLOG.md` alone. _Source:
+      Project Lead, 2026-08-05 Notion reconciliation — observed, not
+      hypothetical._
+- [ ] **LOW — `buildMode` / the team-rebuild model is parked as superseded.**
+      Not abandoned: superseded by `soloBuild` (shipped 2026-07-24), which
+      solves the same reader-facing problem for the projects that exist today.
+      `buildMode`'s phase-level derivation is the better model *when a project
+      genuinely starts solo and the team joins partway* — which no current
+      project does. **Revisit trigger: the first team-built project.** The
+      reference implementation is complete and tested at tag
+      `archive/2026-07-19-buildmode-tail`; the reasoning is in
+      `docs/team-rebuild-model.md` §3–§4 and the trade-off table in
+      `docs/buildmode-tail-assessment.md` §4. Do not re-derive either.
+      _Source: 2026-08-05 tail assessment (PR #105) §5b._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
