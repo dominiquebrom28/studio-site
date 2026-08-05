@@ -381,6 +381,41 @@ describe('checkMergeRevert — real-history verification (this repo\'s actual gi
     });
   }
 
+  /**
+   * Resolves this checkout's actual `main` ref for the ONE real `git`
+   * invocation in this block that needs a branch name rather than an
+   * explicit SHA (`git log --merges ... <mainRef>` in the corpus sweep
+   * below) — using the SAME candidate list and resolution order as the
+   * script itself (`defaultBaseRefCandidates` + `resolveBaseRef`), not a
+   * second, ad-hoc candidate list. A local checkout has a local `main`
+   * branch; a CI `pull_request` checkout (`fetch-depth: 0`) fetches the
+   * objects and the remote-tracking `origin/main`, but never creates a
+   * local `main` branch — hardcoding either name breaks the other
+   * environment (this is exactly what broke PR #103's CI run: hardcoded
+   * `'main'`, which only ever existed locally).
+   *
+   * Throws — failing this test loudly — rather than returning a fallback
+   * or letting the corpus sweep silently run over zero commits if NO
+   * candidate resolves. A corpus sweep that quietly covers nothing while
+   * printing green is exactly the `SMOKE_URL` shape
+   * `scripts/check-merge-revert.mjs`'s own header comment (and this
+   * script's PR body) argues against; a real, named failure here is the
+   * only acceptable outcome if this checkout's `main` is ever
+   * unresolvable.
+   */
+  function resolveRealMainRef(): string {
+    const ref = resolveBaseRef(realGitRunner, REPO_ROOT, defaultBaseRefCandidates(process.env));
+    if (!ref) {
+      throw new Error(
+        'resolveRealMainRef: could not resolve a `main` ref in this checkout via any of the standard candidates ' +
+          '(CHECK_MERGE_REVERT_BASE_REF, origin/$GITHUB_BASE_REF, $GITHUB_BASE_REF, origin/main, main). The real-history ' +
+          'corpus sweep below cannot run without one — this is a test-environment problem (missing fetch, missing ref, ' +
+          'or a checkout with neither a local `main` nor a remote-tracking `origin/main`), not something to silently skip past.',
+      );
+    }
+    return ref;
+  }
+
   it('THE REAL INCIDENT — PR #81 (team/2026-07-31-backlog-and-report): fires, naming BACKLOG.md, the exact merge commit, and both own commits', () => {
     const result = replayBranch(
       '56e8dfbeb4c2b4c8d911b3c8a5f741f7044d8798', // main tip immediately before PR #81's merge
@@ -426,7 +461,8 @@ describe('checkMergeRevert — real-history verification (this repo\'s actual gi
   it(
     'THE FULL CORPUS — every "Merge pull request #N" commit on main with a two-parent shape: exactly one violation (PR #81), zero false positives',
     () => {
-    const mergeLog = execFileSync('git', ['log', '--merges', '--format=%H|%P|%s', 'main'], { cwd: REPO_ROOT, encoding: 'utf8' });
+    const mainRef = resolveRealMainRef();
+    const mergeLog = execFileSync('git', ['log', '--merges', '--format=%H|%P|%s', mainRef], { cwd: REPO_ROOT, encoding: 'utf8' });
     const merges = mergeLog
       .split('\n')
       .filter(Boolean)
