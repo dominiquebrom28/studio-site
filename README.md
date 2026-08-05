@@ -106,3 +106,25 @@ loudly, never silently — whether they agree:
 - If it can't determine an answer (no `node_modules` at all, unreadable
   `package.json`) it exits **inconclusive**, distinct from a clean pass —
   it never reports green when it didn't actually check anything.
+
+## Review throttle: draft PRs, plus a backstop for branches that predate it
+
+When a run hits the review-queue throttle (BACKLOG.md's stated 4-6 open PRs)
+it still pushes its branch, but now **also opens that branch as a draft
+PR**, not a bare push. A draft PR shows up in `gh pr list` / the PR tab
+immediately and is excluded from review-capacity counts by construction — so
+the work stays trackable and becomes one click from mergeable the moment
+capacity frees up, instead of surviving only as a branch name until someone
+notices (real incident: `team/2026-08-03-backlog-and-report`, BACKLOG.md
+HIGH, recovered a day later only by diffing `git branch -a` against
+`reports/` on a hunch).
+
+For everything that strands anyway — work that predates this convention, or
+a run that dies before reaching this step — `npm run
+check:stranded-branches` (`scripts/check-stranded-branches.mjs`) is the
+backstop: run it at the start of a session to list every `team/*`/`claude/*`
+branch that is neither merged into `main` nor accounted for by any pull
+request (including a branch whose only PR is stale — merged or closed
+before the branch's current tip existed). It's a reporting tool, not a merge
+gate, and is deliberately not wired into CI — see the script's own header
+comment for why.
