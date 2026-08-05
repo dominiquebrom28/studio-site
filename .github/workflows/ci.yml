@@ -164,6 +164,33 @@ jobs:
       - name: Report claims match this branch's diff
         run: npm run check:report-claims
 
+      # Merge-revert gate (BACKLOG.md HIGH, 2026-08-02) — the true root cause
+      # of the 2026-07-31 loss: an in-branch `git merge main` on
+      # `team/2026-07-31-backlog-and-report` resolved a `BACKLOG.md` conflict
+      # entirely in `main`'s favour, reverting the branch's own two commits'
+      # worth of additions to exact zero net diff (`56e8dfb`..`1e5e5e8`).
+      # `scripts/check-merge-revert.mjs`'s header comment has the full
+      # algorithm and false-positive analysis (strictly stronger than the
+      # report-claims gate above: needs no report, no prose, and catches it
+      # the moment the merge happens, not after someone writes about it).
+      #
+      # `MERGE_REVERT_HEAD_SHA` is REQUIRED here, not optional — on a
+      # `pull_request` event, `actions/checkout`'s default `HEAD` is GitHub's
+      # synthetic test-merge commit (`refs/pull/<N>/merge`), whose first
+      # parent is `main`, not this branch. Without this override the check
+      # would walk `main`'s own history under a misleading "HEAD" name and
+      # silently pass every PR — the script refuses to do that (exits 2,
+      # INCONCLUSIVE) if this env var is ever missing on a pull_request run;
+      # see the script's `resolveHeadRef` for the guard. Needs the same
+      # `fetch-depth: 0` set on this job's Checkout step above (the script
+      # also independently checks `git rev-parse --is-shallow-repository`
+      # and refuses to run against a shallow clone rather than risk a
+      # merge-base silently resolved against truncated history).
+      - name: Branch's own edits survived any in-branch merge (no silent revert)
+        env:
+          MERGE_REVERT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npm run check:merge-revert
+
       - name: Build
         run: npm run build
 
