@@ -12,11 +12,21 @@
 # same shape as post-checkout's own shell-level `$3` flag check before it
 # invokes node (see that file).
 #
-# `--diff-filter=ACMR` matches what the node script re-derives on its own
-# (Added/Copied/Modified/Renamed) — a report being AMENDED in a later commit
-# on the same branch must still trigger regeneration, not just its first
-# `git add`.
-if ! git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' | grep -qE '^reports/[^/]+\.md$'; then
+# `--diff-filter=ACMRD` matches what the node script re-derives on its own
+# (Added/Copied/Modified/Renamed/DELETED) — a report being AMENDED in a
+# later commit on the same branch must still trigger regeneration, not just
+# its first `git add` (A/C/M/R). `D` is load-bearing, not defensive
+# padding: `runs.generated.json` is one row per file CURRENTLY in
+# `reports/` (scripts/provenance/runs.mjs's `buildRunsRows` iterates
+# whatever `readReportFiles` finds on disk right now) — deleting a report
+# removes its row exactly as surely as adding one adds a row, and without
+# `D` here that direction of drift would sail straight through this hook
+# uncaught. Verified by reproduction: deleting an existing, provenance-
+# block-free report and committing with this filter set to ACMR (no `D`)
+# left `runs.generated.json` stale and `git diff --exit-code
+# src/content/runs.generated.json` (the real CI step) red on the missing
+# row — see this change's PR body for the transcript.
+if ! git diff --cached --name-only --diff-filter=ACMRD -z | tr '\0' '\n' | grep -qE '^reports/[^/]+\.md$'; then
   exit 0
 fi
 

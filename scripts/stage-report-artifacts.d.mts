@@ -16,6 +16,7 @@ export type StagePath = (args: StagePathArgs) => void;
 export type ReadArtifactContent = (absolutePath: string) => string | null;
 
 export const GENERATED_ARTIFACT_PATHS: string[];
+export const STAGED_PATHS_DIFF_ARGS: string[];
 
 export function parseNulSeparatedPaths(output: string): string[];
 export function hasStagedReportMarkdown(stagedPaths: string[]): boolean;

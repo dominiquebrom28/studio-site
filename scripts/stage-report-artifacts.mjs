@@ -27,6 +27,18 @@
  * correct and meaningful when run directly (`npm run
  * stage-report-artifacts`) or under test, not only via the hook.
  *
+ * DELETIONS COUNT AS STAGED TOO — both this script's own `getStagedPaths`
+ * wiring below and `.githooks/pre-commit`'s shell-level short-circuit use
+ * `--diff-filter=ACMRD`, not the more obvious-looking `ACMR`. Confirmed by
+ * reproduction, not assumed: `runs.generated.json` is one row per file
+ * CURRENTLY in `reports/` (`scripts/provenance/runs.mjs`'s `buildRunsRows`
+ * iterates whatever `readReportFiles` finds on disk, nothing more), so
+ * deleting a report is exactly as artifact-changing as adding one — a
+ * commit that only `git rm`s a report is the same trap approached from the
+ * other direction, and `ACMR` alone let it straight through uncaught (see
+ * `.githooks/pre-commit`'s comment for the falsification transcript
+ * reference in this change's PR body).
+ *
  * BLOCK VS AMEND — the two outcomes are handled differently on purpose,
  * unlike `post-checkout`/`post-merge` (`check-deps-drift.mjs`), which are
  * non-blocking by GIT MECHANICS, not by choice (their exit code cannot
@@ -113,6 +125,22 @@ const DEFAULT_GENERATOR_PATH = path.join(SCRIPT_DIR, 'provenance', 'generate.mjs
  * pass here too. */
 export const GENERATED_ARTIFACT_PATHS = ['src/content/provenance.generated.json', 'src/content/runs.generated.json'];
 
+/** `git diff --cached` args used to discover staged paths for the real CLI
+ * run. Exported (not inlined into the `isMain` block below) specifically so
+ * `scripts/stage-report-artifacts.test.ts` can pin `--diff-filter=ACMRD`
+ * (in particular, the `D`) as an assertion against ACCIDENTAL removal in a
+ * future edit, rather than that guarantee living only in a comment. `D` —
+ * Deleted — is load-bearing, not defensive padding: confirmed by
+ * reproduction that a commit which only `git rm`s a `reports/*.md` file
+ * changes `runs.generated.json` (one row per file CURRENTLY in `reports/`
+ * — `scripts/provenance/runs.mjs`) exactly as surely as adding one does;
+ * without `D` this hook would silently miss that direction of the same
+ * trap it exists to close (see this file's header, "DELETIONS COUNT AS
+ * STAGED TOO", and `.githooks/pre-commit`'s matching comment — that file's
+ * own filter MUST stay identical to this one, since its shell-level check
+ * decides whether this script even runs). */
+export const STAGED_PATHS_DIFF_ARGS = ['diff', '--cached', '--name-only', '--diff-filter=ACMRD', '-z'];
+
 const REPORT_FILE_RE = /^reports\/[^/]+\.md$/;
 
 /** Parses NUL-separated `git diff --cached ... -z` output into a plain path
@@ -129,9 +157,16 @@ export function parseNulSeparatedPaths(output) {
  * `check-report-claims.mjs`'s `REPORT_FILE_RE`: that check asks "is this a
  * NEW file added on this branch's diff against main" (drives a completely
  * different git comparison, `baseRef...headRef`); this asks "is this file
- * staged for the NEXT commit, added OR merely edited" — which must also
+ * staged for the NEXT commit, added, edited, OR deleted" — which must also
  * fire when a report is only being amended in a later commit on the same
- * branch, not just on its first commit. */
+ * branch (not just its first commit), and when a report is being REMOVED
+ * (see the file header's "DELETIONS COUNT AS STAGED TOO" for why a
+ * deletion is just as artifact-changing as an addition). This function
+ * itself stays status-agnostic — it only asks "is a path shaped like
+ * reports/*.md present in the staged-paths list at all" — because the
+ * status filtering (which statuses even make it into that list) already
+ * happened one layer up, in the `--diff-filter=ACMRD` git invocation that
+ * produced it. */
 export function hasStagedReportMarkdown(stagedPaths) {
   return stagedPaths.some((p) => REPORT_FILE_RE.test(p));
 }
@@ -288,8 +323,11 @@ function detectMergeCommit(gitRunner, repoRoot) {
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (isMain) {
   const repoRoot = DEFAULT_REPO_ROOT;
-  const getStagedPaths = () =>
-    parseNulSeparatedPaths(defaultGitRunner({ cwd: repoRoot, args: ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'] }));
+  // See `STAGED_PATHS_DIFF_ARGS`'s own header comment for why `D` is in
+  // this filter and why it MUST match `.githooks/pre-commit`'s filter
+  // exactly (that file's shell-level short-circuit decides whether this
+  // script even runs).
+  const getStagedPaths = () => parseNulSeparatedPaths(defaultGitRunner({ cwd: repoRoot, args: STAGED_PATHS_DIFF_ARGS }));
   const isMergeCommit = detectMergeCommit(defaultGitRunner, repoRoot);
 
   const result = stageReportArtifacts({ repoRoot, isMergeCommit, getStagedPaths });

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GENERATED_ARTIFACT_PATHS, hasStagedReportMarkdown, parseNulSeparatedPaths, stageReportArtifacts } from './stage-report-artifacts.mjs';
+import {
+  GENERATED_ARTIFACT_PATHS,
+  STAGED_PATHS_DIFF_ARGS,
+  hasStagedReportMarkdown,
+  parseNulSeparatedPaths,
+  stageReportArtifacts,
+} from './stage-report-artifacts.mjs';
 
 /**
  * Every side effect (staged-paths lookup, the generator, artifact reads,
@@ -37,9 +43,41 @@ describe('parseNulSeparatedPaths', () => {
   });
 });
 
+describe('STAGED_PATHS_DIFF_ARGS — deletions must stay included', () => {
+  it('includes "D" (Deleted) in the --diff-filter, pinned against a future accidental narrowing', () => {
+    // The exact failure mode this pins against: `runs.generated.json` is
+    // one row per file CURRENTLY in `reports/` (scripts/provenance/
+    // runs.mjs), so a commit that only `git rm`s a report is exactly as
+    // artifact-changing as one that adds a report — confirmed by
+    // reproduction (see .githooks/pre-commit's comment / this change's PR
+    // body for the transcript: with `--diff-filter=ACMR` (no `D`), deleting
+    // an existing report and committing left `runs.generated.json` stale
+    // and CI's `git diff --exit-code` red on the missing row). If a future
+    // edit narrows this filter back to ACMR, this assertion fails loudly
+    // instead of silently reopening that half of the trap.
+    const filterArg = STAGED_PATHS_DIFF_ARGS.find((arg) => arg.startsWith('--diff-filter='));
+    expect(filterArg).toBeDefined();
+    expect(filterArg).toContain('D');
+    expect(filterArg).toContain('A');
+    expect(filterArg).toContain('M');
+  });
+
+  it('uses -z (NUL-separated) output, matching parseNulSeparatedPaths', () => {
+    expect(STAGED_PATHS_DIFF_ARGS).toContain('-z');
+  });
+});
+
 describe('hasStagedReportMarkdown', () => {
   it('is true for a top-level reports/*.md path', () => {
     expect(hasStagedReportMarkdown(['reports/2026-08-05.md'])).toBe(true);
+  });
+
+  it('is true for a report path staged as a DELETION — the function is status-agnostic by design (status filtering already happened in STAGED_PATHS_DIFF_ARGS)', () => {
+    // Simulates what `git diff --cached --name-only --diff-filter=ACMRD -z`
+    // returns for a `git rm`'d report: the path is still listed (git diff
+    // --name-only lists the path regardless of status), the file just no
+    // longer exists on disk. This function must still say "yes, regenerate".
+    expect(hasStagedReportMarkdown(['reports/2026-08-04.md'])).toBe(true);
   });
 
   it('is true when the report is only one of several staged paths', () => {
@@ -139,6 +177,44 @@ describe('stageReportArtifacts — the PR #87 shape: a report staged, artifact s
       expect(result.refreshed.sort()).toEqual([...GENERATED_ARTIFACT_PATHS].sort());
     }
     expect(stagePath).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('stageReportArtifacts — the deletion shape: a report REMOVED, not added, still drifts and gets fixed', () => {
+  it('regenerates and stages runs.generated.json when a staged deletion changes it, exactly like an addition would', () => {
+    // Mirrors the real failure reproduced against a scratch clone: `git rm
+    // reports/2026-08-04.md` + commit (filter without `D`) left
+    // runs.generated.json stale; regenerating removes that report's row.
+    const runsRowStillPresent = '{\n  "rows": [{ "runId": "2026-08-04" }]\n}\n';
+    const runsRowRemoved = '{\n  "rows": []\n}\n';
+    const contentByPath: Record<string, string> = {
+      '/repo/src/content/provenance.generated.json': '{}\n',
+      '/repo/src/content/runs.generated.json': runsRowStillPresent,
+    };
+    const stagePath = vi.fn();
+
+    const result = stageReportArtifacts({
+      repoRoot: REPO_ROOT,
+      // What `--diff-filter=ACMRD` (STAGED_PATHS_DIFF_ARGS) returns for a
+      // `git rm`'d report: the path is still listed by `git diff
+      // --name-only` even though the file no longer exists on disk.
+      getStagedPaths: () => ['reports/2026-08-04.md'],
+      runGenerator: () => {
+        // The report is gone from disk, so regenerating drops its row —
+        // the same effect a real `node scripts/provenance/generate.mjs` run
+        // has once the file has actually been `git rm`'d.
+        contentByPath['/repo/src/content/runs.generated.json'] = runsRowRemoved;
+        return makeGeneratorResult();
+      },
+      readArtifactContent: (absolutePath) => contentByPath[absolutePath] ?? null,
+      stagePath,
+    });
+
+    expect(result.status).toBe('staged');
+    if (result.status === 'staged') {
+      expect(result.refreshed).toEqual(['src/content/runs.generated.json']);
+    }
+    expect(stagePath).toHaveBeenCalledWith({ repoRoot: REPO_ROOT, relPath: 'src/content/runs.generated.json' });
   });
 });
 
