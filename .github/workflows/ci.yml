@@ -72,6 +72,19 @@ jobs:
 
       - name: Test
         run: npm test
+        env:
+          # `scripts/check-backlog-checkoffs.test.ts` has three real-corpus
+          # tests that shell out to the REAL `gh` — deliberately, because the
+          # gate's ground truth is "does GitHub actually consider this PR
+          # merged", and a test that mocks that away would prove nothing
+          # about the thing most likely to break. `gh` refuses to run inside
+          # Actions without a token, so without this the suite fails here
+          # while passing on any developer machine with a keyring login
+          # (which is exactly how it first shipped red — 2026-08-06).
+          # Those tests SKIP when gh is unavailable locally, but hard-fail if
+          # they ever skip while CI=true, so this variable going missing can
+          # never quietly downgrade them to no-ops.
+          GH_TOKEN: ${{ github.token }}
 
       # Human-readable provenance table (file -> author -> reviewer -> judge
       # -> commit -> tokens), run so it lands in this check's log — the

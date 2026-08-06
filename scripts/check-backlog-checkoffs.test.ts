@@ -26,6 +26,57 @@ function realGh(args: string[]): string {
   return execFileSync('gh', args, { cwd: REPO_ROOT, encoding: 'utf8' });
 }
 
+/**
+ * Is a working, authenticated `gh` reachable from this environment?
+ *
+ * Probed once, because the three real-corpus tests below are the only ones
+ * in this file that touch the network, and they must behave differently in
+ * the two environments this suite genuinely runs in:
+ *
+ *   - a developer machine WITHOUT a `gh` login — skip, loudly. `npm test`
+ *     is this repo's default gate and must not require a GitHub session to
+ *     pass; the other ~30 tests in this file use a fake `ghRunner` and cover
+ *     the logic completely on their own.
+ *   - CI — must really run. `gh` refuses to work inside GitHub Actions
+ *     without `GH_TOKEN`, so the first CI run of this file failed here while
+ *     passing on every dev machine (2026-08-06, PR #110). `ci.yml` now sets
+ *     that token on the `Test` step.
+ *
+ * The trap this guards is the second environment silently becoming the
+ * first. A plain `it.skipIf` would turn a missing `GH_TOKEN` into three
+ * quietly-skipped tests and a green check — precisely the
+ * "green-but-covering-nothing" pattern this repo has now logged three times
+ * (`deployed-smoke` skipping for weeks with no URL; a claims gate reading 2
+ * claims across 23 reports; an artifact upload firing on unrelated
+ * failures). So: skipping is allowed ONLY when `CI` is unset. Under CI an
+ * unreachable `gh` is a hard failure with the fix in the message.
+ */
+const GH_PROBE: { ok: boolean; reason: string } = (() => {
+  try {
+    realGh(['auth', 'status']);
+    return { ok: true, reason: '' };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+  }
+})();
+
+if (!GH_PROBE.ok) {
+  if (process.env.CI) {
+    throw new Error(
+      'check-backlog-checkoffs real-corpus tests cannot reach `gh`, and CI is set — refusing to skip them ' +
+        'into a false green. Set `GH_TOKEN: ${{ github.token }}` on the workflow step that runs `npm test`. ' +
+        `Underlying error: ${GH_PROBE.reason}`,
+    );
+  }
+  console.warn(
+    '[check-backlog-checkoffs.test] SKIPPING 3 real-corpus tests — no authenticated `gh` in this environment. ' +
+      'The fake-ghRunner tests still cover all logic. Run `gh auth login` to exercise the real-corpus path.',
+  );
+}
+
+/** Skips only outside CI — see `GH_PROBE`, which throws rather than skip under CI. */
+const itRealCorpus = GH_PROBE.ok ? it : it.skip;
+
 const tempDirs: string[] = [];
 afterEach(() => {
   while (tempDirs.length > 0) {
@@ -393,7 +444,7 @@ describe('checkBacklogCheckoffs — end to end, fake ghRunner + fixture files', 
  * from this fix), so this fix is not what's "protecting" that coverage.
  */
 describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BACKLOG.md + real `gh pr list`)', () => {
-  it('is CLEAN as of this branch\'s own BACKLOG.md fix, with one referencedButOpen note for the real `team/2026-08-04-runs-api` multi-PR epic (PR #98)', () => {
+  itRealCorpus('is CLEAN as of this branch\'s own BACKLOG.md fix, with one referencedButOpen note for the real `team/2026-08-04-runs-api` multi-PR epic (PR #98)', () => {
     const result = checkBacklogCheckoffs({ repoRoot: REPO_ROOT });
 
     if (result.status === 'inconclusive') {
@@ -407,14 +458,14 @@ describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BAC
     expect(result.referencedButOpen[0]).toMatchObject({ report: 'reports/2026-08-04.md', branch: 'team/2026-08-04-runs-api' });
   });
 
-  it('control: a genuinely closed lane from the real corpus (`team/2026-08-05-stranded-branches`, PR #106) is neither unreferenced nor referencedButOpen', () => {
+  itRealCorpus('control: a genuinely closed lane from the real corpus (`team/2026-08-05-stranded-branches`, PR #106) is neither unreferenced nor referencedButOpen', () => {
     const result = checkBacklogCheckoffs({ repoRoot: REPO_ROOT });
     if (result.status === 'inconclusive') return; // covered by the test above
     const branches = [...result.unreferenced, ...result.referencedButOpen].map((f) => f.branch);
     expect(branches).not.toContain('team/2026-08-05-stranded-branches');
   });
 
-  it('sanity: `gh pr list` really does see PR #101 as MERGED (the ground truth this whole gate depends on, not assumed)', () => {
+  itRealCorpus('sanity: `gh pr list` really does see PR #101 as MERGED (the ground truth this whole gate depends on, not assumed)', () => {
     let raw: string;
     try {
       raw = realGh(['pr', 'view', '101', '--json', 'state,headRefName']);
