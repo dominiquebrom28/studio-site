@@ -1,7 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 import {
   checkStrandedBranches,
   classifyBranch,
@@ -17,24 +14,14 @@ import {
   resolveBaseRef,
 } from './check-stranded-branches.mjs';
 
-const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(DIRNAME, '..');
-
-/**
- * Real `git`/`gh` calls against THIS repo's actual remote state — used only
- * by the "real corpus" describe block at the bottom, which is the
- * falsification evidence the task requires (does this script actually flag
- * `team/2026-07-19-project-page-v2`, verified against `gh pr list --state
- * all`, not assumed). Everything else in this file uses fake runners — no
- * real git repo or `gh` auth needed — same split as
- * `check-report-claims.test.ts`.
- */
-function realGit(args: string[]): string {
-  return execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' });
-}
-function realGh(args: string[]): string {
-  return execFileSync('gh', args, { cwd: REPO_ROOT, encoding: 'utf8' });
-}
+// NOTE: the real-corpus, network-and-`gh`-dependent falsification block that
+// USED to live at the bottom of this file now lives in
+// `check-stranded-branches.real-corpus.test.ts`, run via `npm run
+// test:real-corpus` rather than the default `npm test` sweep — see that
+// file's header comment for the full rationale (BACKLOG.md MEDIUM,
+// 2026-08-07, "make the real-`gh` split uniform across both scripts that
+// have one"). Every test in THIS file uses fake `git`/`gh` runners — no
+// network, no `gh` session — so `npm test` stays hermetic.
 
 type Call = { cwd: string; args: string[] };
 
@@ -438,94 +425,5 @@ describe('checkStrandedBranches — end to end, fake gitRunner + ghRunner', () =
 
     expect(result.status).toBe('inconclusive');
     expect(result.reason).toMatch(/base ref/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-
-/**
- * Real corpus falsification — REAL `git` + REAL `gh` (default runners)
- * against this repo's actual remote state as of 2026-08-05, per the task's
- * explicit falsification requirement: prove the script detects
- * `team/2026-07-19-project-page-v2` as stranded, VERIFIED against `gh pr
- * list --state all`, not assumed; and stays quiet on a genuine positive
- * control (a merged branch) and negative control (a branch with a covering
- * PR).
- *
- * Skips (does not fail) in any environment without a working, authenticated
- * `gh` and network access to the real `origin` remote — this describe block
- * is evidence for the PR body, not a CI-required regression suite (no fake
- * runner can prove "the real repo's real branches produce this real
- * result"; that is the whole point of including it).
- *
- * The real scan (~100 branches, each a `git merge-base` spawn, plus one
- * `gh pr list` call) runs ONCE in `beforeAll` and every `it` below asserts
- * against the same shared `result` — running it fresh per-`it` (the first
- * draft of this file did exactly that) multiplied the cost by the number of
- * assertions for no benefit and was the direct cause of an intermittent
- * `Test timed out in 5000ms` under load; a single run also matches how the
- * real `npm run check:stranded-branches` invocation actually executes.
- */
-describe("checkStrandedBranches — real corpus falsification (this repo's actual git + gh state)", () => {
-  let ghAvailable = true;
-  try {
-    realGh(['auth', 'status']);
-  } catch {
-    ghAvailable = false;
-  }
-
-  let result: ReturnType<typeof checkStrandedBranches>;
-  beforeAll(() => {
-    if (!ghAvailable) return;
-    result = checkStrandedBranches({ repoRoot: REPO_ROOT });
-  }, 30_000);
-
-  const maybeIt = ghAvailable ? it : it.skip;
-
-  maybeIt('flags team/2026-07-19-project-page-v2 as strandedStalePr — its merged PR #25 does not cover the buildMode tail pushed after it merged', () => {
-    expect(result.status).not.toBe('inconclusive');
-    const names = [...result.strandedNoPr, ...result.strandedStalePr].map((f) => f.branch);
-    expect(names).toContain('team/2026-07-19-project-page-v2');
-
-    const finding = result.strandedStalePr.find((f) => f.branch === 'team/2026-07-19-project-page-v2');
-    expect(finding).toBeDefined();
-    expect(finding?.pullRequests.some((p) => p.number === 25 && p.state === 'MERGED')).toBe(true);
-    expect(finding?.filesTouched).toContain('src/content/buildMode.ts');
-  });
-
-  maybeIt('CONTROL: does not flag a genuinely merged branch (team/2026-08-04-logbook, ancestor of main) as stranded', () => {
-    expect(result.status).not.toBe('inconclusive');
-    const names = [...result.strandedNoPr, ...result.strandedStalePr].map((f) => f.branch);
-    expect(names).not.toContain('team/2026-08-04-logbook');
-  });
-
-  maybeIt('CONTROL: `main` itself never appears in the branch list (not a team/* or claude/* ref)', () => {
-    expect(result.status).not.toBe('inconclusive');
-    const names = [...result.strandedNoPr, ...result.strandedStalePr].map((f) => f.branch);
-    expect(names).not.toContain('main');
-  });
-
-  /**
-   * Independently cross-checks the `project-page-v2` finding above using
-   * REAL `git` directly (not through `checkStrandedBranches` at all) —
-   * proof that the finding is a fact about this repo's actual object graph,
-   * not an artifact of this script's own logic. This is exactly the
-   * `merge-base --is-ancestor <currentTip> <PR's mergeCommit>` call
-   * `prCoversTip` makes internally; running it here by hand, against a
-   * merge commit oid fetched live via `gh`, is the falsification the task
-   * asked for ("verify against `gh pr list --state all` rather than
-   * assuming").
-   */
-  maybeIt('independently verifies via raw `git merge-base --is-ancestor` that PR #25 does not cover the current tip', () => {
-    const mergeCommitOid = realGh(['pr', 'view', '25', '--json', 'mergeCommit', '-q', '.mergeCommit.oid']).trim();
-    expect(mergeCommitOid).toMatch(/^[0-9a-f]{40}$/);
-    expect(() => realGit(['merge-base', '--is-ancestor', 'origin/team/2026-07-19-project-page-v2', mergeCommitOid])).toThrow();
-  });
-
-  maybeIt('also flags team/2026-07-20-backlog-and-report (PR #30 merged, then a post-merge report-update commit was pushed and never re-PR\'d)', () => {
-    expect(result.status).not.toBe('inconclusive');
-    const finding = result.strandedStalePr.find((f) => f.branch === 'team/2026-07-20-backlog-and-report');
-    expect(finding).toBeDefined();
-    expect(finding?.pullRequests.some((p) => p.number === 30 && p.state === 'MERGED')).toBe(true);
   });
 });

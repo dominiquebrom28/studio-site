@@ -22,11 +22,53 @@ Repo → **Settings → Branches** → add (or edit) a branch protection rule fo
   `CI / build` once the CI workflow has run at least once on a PR — GitHub
   only lists checks it has seen before, so open one throwaway PR first if the
   search box is empty).
+- **Also select `backlog-checkoffs`** (shows up as `CI / backlog-checkoffs`).
+  See "A consequence of the 2026-08-07 real-corpus test move" below for why
+  this is no longer optional the way the rest of this doc's "promote once
+  proven" advice for that job used to suggest.
 - Optionally also check **Require a pull request before merging**.
 
 This is the actual deploy/merge gate. It lives in GitHub, not in any script —
 even a PR with `safe-auto` enabled cannot merge until this required check is
 green.
+
+### A consequence of the 2026-08-07 real-corpus test move — read before requiring only `build`
+
+As of 2026-08-07 (BACKLOG.md MEDIUM), `npm test` (the `build` job's default
+suite) no longer contains the real-`gh` corpus tests for
+`check-backlog-checkoffs.mjs` and `check-stranded-branches.mjs` — they moved
+to `npm run test:real-corpus`, which runs as its own step inside the
+**`backlog-checkoffs`** job, not `build` (see `.github/workflows/ci.yml`'s
+comment on that job, and `vitest.real-corpus.config.ts`'s header). That move
+was free the day it happened, because **branch protection on `main` is not
+currently configured at all** (`gh api repos/.../branches/main/protection`
+returns 404 as of this writing — a separate open HIGH backlog item) — with
+nothing required, moving work between jobs costs nothing.
+
+**The moment branch protection is configured by following step 2 above, that
+stops being true.** If only `build` is made required (the letter of this
+doc's ORIGINAL step 2, before this note was added), the real-corpus
+assertion for both scripts sits OUTSIDE the required check entirely — a PR
+could merge with a red `backlog-checkoffs` job and nobody would be blocked.
+This is why step 2 above now says to select **both** `build` AND
+`backlog-checkoffs`. Do both at the same time, in the same branch-protection
+rule, the first time this is set up — don't require `build` alone now and
+add `backlog-checkoffs` "later," since "later" is exactly how a gate quietly
+stops gating (this repo's own `SMOKE_URL`/non-required-content-gate lesson).
+
+One honest tradeoff this creates, worth Dom's eyes rather than silently
+accepted: requiring the whole `backlog-checkoffs` JOB also requires its
+FIRST step (`check:backlog-checkoffs` itself, the "does BACKLOG.md cite
+every merged branch" reporting check) — which `ci.yml`'s own comment on that
+job still calls "deliberately not required... promote it once it's run
+clean across real PR traffic for a while," unchanged by this note. If that
+script isn't proven out yet, requiring the job makes it a merge blocker
+alongside the real-corpus tests, not just those tests alone. The clean fix,
+if that script turns out not to be ready to gate merges when this is set up,
+is to split the job in two (one required job for the real-corpus tests
+only, one still-advisory job for the backlog-checkoff report) rather than
+leaving the real-corpus assertion unrequired to avoid promoting the report
+too early.
 
 ## 3. Create the `safe-auto` label
 

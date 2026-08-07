@@ -20,17 +20,29 @@ import { checkBacklogCheckoffs } from './check-backlog-checkoffs.mjs';
  * That needs a real call.
  *
  * But `gh` refuses to run inside GitHub Actions without `GH_TOKEN`, and the
- * first time these tests shipped bundled into `check-backlog-checkoffs
- * .test.ts` (2026-08-06, PR #110), that difference bit immediately: CI's
- * `build` job failed on `npm test` while the identical command passed on
- * every developer machine with a keyring `gh` login — because CI has no
- * such login by default. That PR fixed the immediate red two ways (a
- * `GH_TOKEN` on the step; skip-only-outside-CI, hard-fail-under-CI so a
- * missing token could never quietly downgrade the tests to no-ops) but left
- * the actual DESIGN question open: should `npm test` — this repo's default,
- * hermetic-by-convention gate, the one every other test in this suite never
- * touches the network for — depend on a GitHub session and a live network
- * call AT ALL?
+ * first time THESE PARTICULAR tests shipped bundled into
+ * `check-backlog-checkoffs.test.ts` (2026-08-06, PR #110), that difference
+ * bit immediately: CI's `build` job failed on `npm test` while the identical
+ * command passed on every developer machine with a keyring `gh` login —
+ * because CI has no such login by default. That PR fixed the immediate red
+ * two ways (a `GH_TOKEN` on the step; skip-only-outside-CI, hard-fail-
+ * under-CI so a missing token could never quietly downgrade the tests to
+ * no-ops) but left the actual DESIGN question open: should `npm test` —
+ * this repo's default, hermetic-by-convention gate — depend on a GitHub
+ * session and a live network call AT ALL?
+ *
+ * CORRECTION, NOT INHERITED: the framing this design question originally
+ * shipped under called PR #110 "the first time this repo's default gate
+ * depends on the network and on a GitHub session." Checked against this
+ * repo's actual history and found FALSE — `check-stranded-branches.test.ts`
+ * shipped an identical real-`gh` corpus block inside `npm test` ONE DAY
+ * EARLIER (2026-08-05, PR #106; that PR's own header even says "same split
+ * as `check-report-claims.test.ts`," i.e. it already knew it wasn't the
+ * first). Corrected here rather than repeated, and fixed in the same pass:
+ * `check-stranded-branches.real-corpus.test.ts` now exists too, moved out of
+ * `npm test` for the identical reason and wired into the identical CI step —
+ * see that file's header for the full correction and why leaving one moved
+ * and one not would have been worse than either uniform answer.
  *
  * THE DECISION (2026-08-07): no. These three tests move OUT of `npm test`
  * into this file, run via its own `npm run test:real-corpus`

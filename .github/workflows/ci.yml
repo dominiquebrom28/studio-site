@@ -71,20 +71,27 @@ jobs:
         run: npm run typecheck
 
       # `npm test` is hermetic by design (node-environment, fake `git`/`gh`
-      # runners everywhere, no network) — it used to also carry three
-      # real-`gh`, real-network tests (`check-backlog-checkoffs.test.ts`'s
-      # "real corpus" block, PR #110, 2026-08-06), which needed a `GH_TOKEN`
-      # here purely because `gh` refuses to run inside Actions without one.
-      # That PR fixed the immediate red but flagged the underlying design
-      # smell: should this repo's default, every-contributor gate depend on
-      # a GitHub session at all? Decided NO (BACKLOG.md MEDIUM, 2026-08-07):
-      # those three tests moved to `check-backlog-checkoffs.real-corpus
-      # .test.ts`, run via `npm run test:real-corpus` in the
-      # `backlog-checkoffs` job below instead — the one job that already
+      # runners everywhere, no network) — it used to also carry TWO
+      # real-`gh`, real-network corpus blocks: `check-stranded-branches
+      # .test.ts`'s (PR #106, 2026-08-05) and `check-backlog-checkoffs
+      # .test.ts`'s (PR #110, 2026-08-06, one day later — NOT the first
+      # instance of this pattern despite how that PR's own design note
+      # originally framed it; corrected, not repeated, in
+      # `check-backlog-checkoffs.real-corpus.test.ts`'s header). PR #110
+      # needed a `GH_TOKEN` here purely because `gh` refuses to run inside
+      # Actions without one, which flagged the underlying design smell:
+      # should this repo's default, every-contributor gate depend on a
+      # GitHub session at all? Decided NO (BACKLOG.md MEDIUM, 2026-08-07),
+      # applied to BOTH corpus blocks for uniformity (a future run reading
+      # this file's `exclude` list needs it to be a complete, trustworthy map
+      # of what touches the network — leaving one moved and one not would
+      # have been worse than either uniform answer): both moved to their own
+      # `*.real-corpus.test.ts` files, run via `npm run test:real-corpus` in
+      # the `backlog-checkoffs` job below instead — the one job that already
       # carries `GH_TOKEN` and an existing `gh`-dependent step for the
       # identical reason, so the network/session dependency stays contained
       # to a single advisory lane instead of spreading into this required
-      # job. See that test file's header for the full rationale.
+      # job. See either test file's header for the full rationale.
       - name: Test
         run: npm test
 
@@ -311,14 +318,32 @@ jobs:
   # traffic for a while — the same path `validate:content` took (shipped
   # advisory, promoted once proven, 2026-07-21).
   #
-  # NO `fetch-depth: 0` NEEDED — unlike the report-claims/merge-revert steps
-  # in `build`, this script does no `git log`/`git diff` at all: it reads
-  # `reports/*.md` + `BACKLOG.md` as plain files from whatever is checked
-  # out (a shallow clone's working tree is complete; only its history is
-  # truncated) and asks GitHub, not local git history, which branches
-  # merged — see the script's own header, "FETCH-DEPTH — DELIBERATELY NOT
-  # NEEDED", for the by-inspection verification that it makes zero git
-  # calls. Default `actions/checkout@v4` is enough.
+  # `check:backlog-checkoffs` ITSELF needs no `fetch-depth: 0` — unlike the
+  # report-claims/merge-revert steps in `build`, that script does no `git
+  # log`/`git diff` at all: it reads `reports/*.md` + `BACKLOG.md` as plain
+  # files from whatever is checked out (a shallow clone's working tree is
+  # complete; only its history is truncated) and asks GitHub, not local git
+  # history, which branches merged — see the script's own header,
+  # "FETCH-DEPTH — DELIBERATELY NOT NEEDED", for the by-inspection
+  # verification that it makes zero git calls.
+  #
+  # BUT `fetch-depth: 0` IS REQUIRED HERE ANYWAY, as of the real-corpus test
+  # step below (BACKLOG.md MEDIUM, 2026-08-07): `check-stranded-branches
+  # .real-corpus.test.ts` calls `checkStrandedBranches` with REAL local
+  # `git`, which runs `git for-each-ref refs/remotes/origin/team refs/
+  # remotes/origin/claude` — actions/checkout's DEFAULT checkout is a
+  # single-branch, depth-1 fetch that populates exactly ONE remote-tracking
+  # ref (the branch under test), not the ~120 `team/*`/`claude/*` branches
+  # this scan needs to see anything at all. Verified empirically before
+  # relying on it: a single-branch local clone of this repo shows 1 matching
+  # remote ref via that exact `for-each-ref` invocation; a full clone shows
+  # 119. `fetch-depth: 0` switches `actions/checkout` to an unrestricted
+  # `+refs/heads/*:refs/remotes/origin/*` fetch (the same mechanism the
+  # `build` job's identical setting already relies on for this exact test
+  # today), which is what makes the branch list non-empty here. Without this,
+  # the real-corpus test would have gone red in THIS job for a reason that
+  # has nothing to do with what it tests — exactly the "born failing" trap
+  # this repo's standing rule warns about.
   #
   # `pull-requests: read` is the only permission this job needs (`gh pr
   # list` against this repo, nothing else) — job-level `permissions:`
@@ -332,6 +357,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -352,19 +379,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-backlog-checkoffs.mjs
 
-      # BACKLOG.md MEDIUM (2026-08-06/07) — the three real-`gh`, real-network
-      # tests that assert THIS SCRIPT's behavior against this repo's actual
-      # PR history used to live inside `npm test` (the required `build`
-      # job's default, hermetic sweep); they moved here instead, alongside
-      # the script run immediately above that already needs the identical
-      # `GH_TOKEN` + network dependency. This is the step that proves the
-      # split didn't quietly stop checking anything: it runs on EVERY PR
-      # (this job has no path/branch filter beyond the workflow's own
-      # `pull_request` trigger), and `check-backlog-checkoffs.real-corpus
-      # .test.ts`'s own `GH_PROBE` hard-`throw`s (not skips) if `GH_TOKEN`
-      # is ever missing while `CI` is set — see that file's header for the
-      # full "must never silently check nothing" guard.
-      - name: Real-corpus test — check-backlog-checkoffs.mjs against this repo's actual gh pr history
+      # BACKLOG.md MEDIUM (2026-08-06/07) — the real-`gh`, real-network test
+      # blocks for BOTH `check-backlog-checkoffs.mjs` and
+      # `check-stranded-branches.mjs` used to live inside `npm test` (the
+      # required `build` job's default, hermetic sweep); both moved here
+      # instead, alongside the script run immediately above that already
+      # needs the identical `GH_TOKEN` + network dependency — see
+      # `vitest.real-corpus.config.ts`'s header for why both, not just one,
+      # and `.github/AUTO-MERGE-SETUP.md` for the consequence of this move
+      # once branch protection is configured (this job is not currently a
+      # required check — see that doc). This step is what proves the split
+      # didn't quietly stop checking anything: `npm run test:real-corpus`
+      # runs BOTH `*.real-corpus.test.ts` files (`vitest.real-corpus
+      # .config.ts`'s `include` list), on EVERY PR (this job has no
+      # path/branch filter beyond the workflow's own `pull_request`
+      # trigger), and each file's own `GH_PROBE` hard-`throw`s (not skips)
+      # if `GH_TOKEN` is ever missing while `CI` is set — see either file's
+      # header for the full "must never silently check nothing" guard.
+      - name: Real-corpus tests — check-backlog-checkoffs.mjs + check-stranded-branches.mjs against this repo's actual gh/git state
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run test:real-corpus
