@@ -318,6 +318,24 @@ describe('sortProjects', () => {
     expect(projects).toEqual(original);
   });
 
+  it('sorts `order: 0` FIRST, ahead of positive-order items — 0 must not be swallowed by a truthiness check', () => {
+    // Pre-launch review fix 4: `content/projects/studio-site.md` was set to
+    // `order: 0` specifically to sort first. `sortProjects` computes
+    // `a.order ?? Number.POSITIVE_INFINITY` (nullish coalescing), which is
+    // correct — but a `someCondition ? a.order : fallback` or `a.order ||
+    // Number.POSITIVE_INFINITY` rewrite would silently treat `0` as falsy
+    // and misfile it as "no order" (sorts last). This test pins the
+    // observable behavior so that regression would be caught here, not on
+    // the live homepage.
+    const projects = [
+      { slug: 'has-order-1', order: 1, date: '2020-01-01' },
+      { slug: 'has-order-zero', order: 0, date: '2020-01-01' },
+      { slug: 'no-order', date: '2030-01-01' },
+    ] as unknown as Project[];
+    const sorted = sortProjects(projects);
+    expect(sorted.map((p) => p.slug)).toEqual(['has-order-zero', 'has-order-1', 'no-order']);
+  });
+
   it('breaks a full order+date tie deterministically by slug, never glob order', () => {
     // Two projects sharing BOTH `order` and `date` must not fall back to
     // input (import.meta.glob / filename) order. Passing them in reverse slug

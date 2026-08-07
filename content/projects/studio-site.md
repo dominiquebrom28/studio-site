@@ -6,7 +6,8 @@ stack: ["React", "Vite", "TypeScript", "Tailwind CSS", "Zod", "Vitest", "Playwri
 status: "in-progress"
 repo: "https://github.com/dominiquebrom28/studio-site"
 liveUrl: "https://doms-ai-studio.vercel.app"
-featured: false
+featured: true
+order: 0
 date: "2026-07-14"
 soloBuild: false
 goal:
