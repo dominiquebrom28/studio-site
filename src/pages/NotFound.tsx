@@ -5,7 +5,11 @@ import { Seo } from '@/components/Seo';
 export default function NotFound() {
   return (
     <Container className="flex min-h-[60vh] flex-col items-center justify-center py-16 text-center">
-      <Seo title="404 — Studio Logbook" description="No entry at this address in the logbook." />
+      <Seo
+        title="404 — Studio Logbook"
+        description="No entry at this address in the logbook."
+        noindex
+      />
       <p
         className="mb-4 -rotate-[4deg] font-mono text-6xl font-bold text-error"
         aria-hidden="true"
