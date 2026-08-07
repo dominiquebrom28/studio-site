@@ -1,4 +1,4 @@
-import type { CommitBurst, Project } from '@/content/schemas';
+import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
 
 /**
  * Pure `BuildTimeline` position math (docs/project-page-v2.md §2.2), kept
@@ -132,4 +132,82 @@ export function positionForDate(dateIso: string, scaffold: Pick<TimelineScaffold
   const endMs = Date.parse(scaffold.domainEnd);
   const span = Math.max(endMs - startMs, 1);
   return Math.min(1, Math.max(0, (Date.parse(dateIso) - startMs) / span));
+}
+
+/**
+ * A phase's anchor position on the [0,1] rule — the midpoint of `from`/`to`
+ * when both are set, `from` alone otherwise. Shared by `BuildTimeline`
+ * (mobile's inline flow ordering) and `numberPhasesChronologically` below,
+ * so every consumer reads the exact same anchor for a given phase.
+ */
+export function phaseAnchorPosition(
+  phase: Pick<ProcessPhase, 'from' | 'to'>,
+  scaffold: Pick<TimelineScaffold, 'domainStart' | 'domainEnd'>,
+): number {
+  const fromPos = positionForDate(phase.from, scaffold);
+  if (!phase.to) return fromPos;
+  const toPos = positionForDate(phase.to, scaffold);
+  return (fromPos + toPos) / 2;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase numbering (2026-08-06, ported from the abandoned                   */
+/* team/2026-07-19-project-page-v2 tail — see                               */
+/* docs/buildmode-tail-assessment.md §5a for the port scope. See the doc    */
+/* comment on `numberPhasesChronologically` below for why the earlier       */
+/* absolute-position/lane-packing approach was abandoned rather than        */
+/* iterated on again.)                                                       */
+/* ------------------------------------------------------------------------ */
+
+export interface NumberedPhase {
+  phase: ProcessPhase;
+  /** 1-based, chronological order (real elapsed-time position — never
+   * array/content-authored order). Ties (two phases anchored at the exact
+   * same position) break by original array index for a deterministic,
+   * stable number. This is the ONE number a phase carries everywhere it
+   * appears — the rule's small marker and its matching list item both read
+   * it from here, so they can never disagree. */
+  number: number;
+  /** 0-1 rule position — same anchor definition `phaseAnchorPosition` has
+   * always used (midpoint of `from`/`to`). */
+  position: number;
+}
+
+/**
+ * Orders every phase chronologically and numbers it 1..N — the entire
+ * "layout" a phase needs on the desktop rule now. Pure, DOM-free, and
+ * intentionally the simplest possible function: no side, no lane, no
+ * height, no clearance.
+ *
+ * HISTORY, for whoever's tempted to re-add positioning math here: MensApp's
+ * five phases cluster in the first ~7% of a 78-day domain (honest
+ * elapsed-time positioning does this on purpose whenever a project has a
+ * burst-then-silence shape — the norm, not the exception, across today's
+ * six projects). Four of those phases' 224px-wide caption boxes sat within
+ * 51px of each other horizontally, an unconditional ~190px of overlap that
+ * could only be resolved by stacking captions into vertical lanes — and
+ * lane-packing (estimated heights, then real `ResizeObserver`-measured
+ * ones) still produced real overlaps in a real browser (measured, see
+ * `docs/buildmode-tail-assessment.md`), because the geometry itself — N
+ * absolutely-positioned, fixed-width boxes anchored to N arbitrarily close
+ * points on one rule — has no correct general solution. So the fix is not
+ * a better packing algorithm: phase narratives no longer live in
+ * absolutely-positioned boxes around the rule at all. They're an ordered
+ * list in normal document flow below it (`DesktopTimeline` in
+ * BuildTimeline.tsx), which cannot overlap, structurally, at any phase
+ * count or clustering — and this function is the only thing connecting a
+ * list item back to its point on the rule.
+ *
+ * This is a deliberate deviation from docs/project-page-v2.md §2.2's
+ * original "desktop alternating captions + `MarginNote` connectors"
+ * composition; §2.2 has been amended to describe the ordered-list layout.
+ */
+export function numberPhasesChronologically(
+  phases: readonly ProcessPhase[],
+  scaffold: Pick<TimelineScaffold, 'domainStart' | 'domainEnd'>,
+): NumberedPhase[] {
+  return phases
+    .map((phase, index) => ({ phase, index, position: phaseAnchorPosition(phase, scaffold) }))
+    .sort((a, b) => a.position - b.position || a.index - b.index)
+    .map(({ phase, position }, i) => ({ phase, position, number: i + 1 }));
 }
