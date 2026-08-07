@@ -95,6 +95,27 @@ describe('extractPathCandidatesFromText — the extension-whitelist filter', () 
     expect(extractPathCandidatesFromText('the gate (`.github/workflows/ci.yml:52`) started failing')).toEqual(['.github/workflows/ci.yml']);
   });
 
+  it('matches compound-extension paths (`.test.ts`, `.d.mts`, `.generated.json`) — regression for the 2026-08-06 name-part-dot fix', () => {
+    expect(extractPathCandidatesFromText('touched `scripts/check-report-claims.test.ts` today')).toEqual(['scripts/check-report-claims.test.ts']);
+    expect(extractPathCandidatesFromText('touched `scripts/check-report-claims.d.mts` today')).toEqual(['scripts/check-report-claims.d.mts']);
+    expect(extractPathCandidatesFromText('touched `src/content/provenance.generated.json` today')).toEqual(['src/content/provenance.generated.json']);
+    expect(extractPathCandidatesFromText('touched `e2e/mobile-drawer.spec.ts` today')).toEqual(['e2e/mobile-drawer.spec.ts']);
+  });
+
+  it('never matches a BARE extension fragment used in prose to mean "files of this shape" — regression for the 2026-08-06 review catch', () => {
+    // These appear throughout reports/ and BACKLOG.md (11 occurrences when
+    // this test was written) as shorthand, never as paths. Widening the name
+    // part for compound extensions above made them match until the first
+    // character was anchored to a non-dot. They are in no diff, so a single
+    // one landing in a branch-adjacent block would have failed this gate on
+    // a report that had done nothing wrong.
+    expect(extractPathCandidatesFromText('every sibling ships a `.test.ts` and a `.d.mts`')).toEqual([]);
+    expect(extractPathCandidatesFromText('a `.spec.ts` in the e2e lane')).toEqual([]);
+    expect(extractPathCandidatesFromText('the `.generated.json` drift gate')).toEqual([]);
+    // ...while the same extensions on a real name still resolve.
+    expect(extractPathCandidatesFromText('but `loader.test.ts` is a real file')).toEqual(['loader.test.ts']);
+  });
+
   it('never matches decimals, timings, semver-ish numbers, or CSS custom properties (the false-positive class this gate must avoid)', () => {
     expect(extractPathCandidatesFromText('AA contrast went 4.45 -> 4.77:1')).toEqual([]);
     expect(extractPathCandidatesFromText('dispatched at t=8580.3ms and returned at t=8581.7ms')).toEqual([]);
@@ -197,6 +218,23 @@ describe('extractClaims — the claim-vs-citation boundary (the whole point of t
 
     const claims = extractClaims(report, BRANCH);
     expect([...claims.keys()]).toEqual(['BACKLOG.md']);
+  });
+
+  it('THE FILES-PRODUCED-COLUMN EMPIRICAL CHECK (BACKLOG.md MEDIUM): a `| Item | Branch | Files produced/changed | PR |` row extracts every path in the new column, with zero change to the extraction logic itself', () => {
+    const report = [
+      '| Item | Branch | Files produced/changed | PR |',
+      '|---|---|---|---|',
+      `| Files-produced column | \`${BRANCH}\` | \`scripts/check-backlog-checkoffs.mjs\`, \`scripts/check-backlog-checkoffs.test.ts\`, \`scripts/check-backlog-checkoffs.d.mts\`, \`BACKLOG.md\` | [#111](https://x/111) |`,
+      '',
+    ].join('\n');
+
+    const claims = extractClaims(report, BRANCH);
+    expect([...claims.keys()]).toEqual([
+      'scripts/check-backlog-checkoffs.mjs',
+      'scripts/check-backlog-checkoffs.test.ts',
+      'scripts/check-backlog-checkoffs.d.mts',
+      'BACKLOG.md',
+    ]);
   });
 
   it('a path inside a fenced code block is stripped before scanning, even when the SAME line inside the fence also names this branch (yaml provenance `produced:` is gated elsewhere)', () => {

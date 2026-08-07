@@ -1,32 +1,60 @@
 import { useRef } from 'react';
 import { m, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import type { CommitBurst, ProcessPhase, Project } from '@/content/schemas';
-import { buildTimelineScaffold, positionForDate, type TimelineScaffold, type TimelineTick } from '@/lib/timeline';
+import {
+  buildTimelineScaffold,
+  numberPhasesChronologically,
+  phaseAnchorPosition,
+  type NumberedPhase,
+  type TimelineScaffold,
+  type TimelineTick,
+} from '@/lib/timeline';
 
 /**
  * `BuildTimeline` (docs/project-page-v2.md §2.2) — the process
  * visualization centrepiece. The scaffold (commit dates/counts/gaps) is
- * always recorded (roman, `aria-hidden` graphic); phase captions riding on
- * top are the studio's interpretive read (italic, real in-flow text, never
- * hidden).
+ * always recorded (roman, `aria-hidden` graphic); phase narratives are the
+ * studio's interpretive read (italic, real in-flow text, never hidden).
  *
- * LAYOUT APPROACH (flagged for Dom's visual sign-off, same as the spec's own
- * "taste call" framing for the media scatter layout): rather than one set of
- * caption nodes whose CSS `position` flips between flow/absolute at the `lg`
- * breakpoint, this renders two sibling presentations of the SAME data — a
- * `lg:hidden` vertical flow (ticks + captions in normal reading order, one
- * DOM location) and a `hidden lg:block` horizontal graphic (alternating
- * above/below captions with SVG connectors, a second DOM location). Exactly
- * one is ever visible/in the accessibility tree at a given viewport width
- * (the other is `display: none`, fully removed from it — not merely
- * visually hidden) — the same standard "responsive duplicate content"
- * pattern the codebase already uses for the mobile/desktop meta blocks in
- * ProjectDetail.tsx. No content is read twice by assistive tech; this is
- * presentational duplication, not an accessibility violation.
+ * LAYOUT, deliberate deviation from spec §2.2 (2026-08-06, ported from the
+ * abandoned team/2026-07-19-project-page-v2 tail — see
+ * docs/buildmode-tail-assessment.md §5a): §2.2 originally called for phase
+ * captions positioned around the desktop rule, alternating above/below with
+ * `MarginNote` connectors. That produced real, measured, character-level
+ * text overlap on `/projects/mensapp` and `/projects/studio-site` — both
+ * have 5 phases clustered early in a long date domain, and N
+ * absolutely-positioned, fixed-width caption boxes anchored to N
+ * arbitrarily close points on one rule has no correct general packing
+ * solution; every additional clustered phase makes it worse.
  *
- * The `<details>` commit-log disclosure below the graphic is rendered once
- * (not duplicated per breakpoint) — it's the accessibility floor AND Dom's
- * fact-check surface (spec §2.2), independent of which graphic is showing.
+ * So: the rule keeps every commit-scaffold detail (`TimelineRule`, tick
+ * dots, gap labels, the "still open" terminus) exactly as it was — that IS
+ * the honest visualization and none of it overlaps. Small numbered markers
+ * on the rule (`DesktopPhaseNumberMarker`) now replace phase captions
+ * there; the narratives themselves moved into an ordered list in normal
+ * document flow below the rule (`DesktopPhaseListItem`), each item carrying
+ * the same number as its rule marker. A flow list cannot overlap,
+ * structurally, at any phase count or clustering — trading the spec's
+ * alternating-captions composition (a genuinely nicer look on evenly-spread
+ * phases, which none of today's six projects have) for a layout that's
+ * always readable. `docs/project-page-v2.md` §2.2 has been amended to
+ * describe this layout.
+ *
+ * Two sibling presentations of the SAME data still exist for mobile vs.
+ * desktop — a `lg:hidden` vertical flow (ticks + captions in normal reading
+ * order, one DOM location) and a `hidden lg:block` rule-plus-list (a second
+ * DOM location). Exactly one is ever visible/in the accessibility tree at a
+ * given viewport width (the other is `display: none`, fully removed from
+ * it — not merely visually hidden) — the same standard "responsive
+ * duplicate content" pattern the codebase already uses for the
+ * mobile/desktop meta blocks in ProjectDetail.tsx. No content is read
+ * twice by assistive tech; this is presentational duplication, not an
+ * accessibility violation.
+ *
+ * The `<details>` commit-log disclosure below is rendered once (not
+ * duplicated per breakpoint) — it's the accessibility floor AND Dom's
+ * fact-check surface (spec §2.2), independent of which presentation is
+ * showing.
  */
 export function BuildTimeline({
   commits,
@@ -70,13 +98,6 @@ const TONE_LABEL: Record<ProcessPhase['tone'], string> = {
   cleanup: 'Cleanup',
   reactivation: 'Reactivation',
 };
-
-function phaseAnchorPosition(phase: ProcessPhase, scaffold: TimelineScaffold): number {
-  const fromPos = positionForDate(phase.from, scaffold);
-  if (!phase.to) return fromPos;
-  const toPos = positionForDate(phase.to, scaffold);
-  return (fromPos + toPos) / 2;
-}
 
 /** Shared reveal-on-draw value for a single decorative tick dot, gated to
  * how far the (scroll-linked, or instantly-complete under reduced motion)
@@ -172,7 +193,9 @@ function TimelineRule({
 }
 
 /* ---------------------------------------------------------------------- */
-/* Desktop: horizontal rule, alternating above/below phase captions        */
+/* Desktop: the rule (unchanged, honest visualization) + an ordered list   */
+/* of phase narratives in normal flow beneath it — see the deviation note  */
+/* on `BuildTimeline` above for why this replaced alternating captions.    */
 /* ---------------------------------------------------------------------- */
 
 function DesktopTimeline({
@@ -186,49 +209,64 @@ function DesktopTimeline({
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
-  return (
-    <div className="relative mb-6 hidden pt-[22rem] pb-[22rem] pr-24 lg:block">
-      {/* Decorative scaffold — rule, ticks, connectors. Real content (phase
-          captions) lives outside this aria-hidden wrapper below. The extra
-          `pr-24` on the outer container reserves room for the "still open"
-          terminus label so it never bleeds past the column's right edge —
-          it's positioned at the rule's end (100%), inside that reserved
-          space, never outside the component's own box.
+  // The entire "layout" a phase needs now: a chronological number, nothing
+  // more — see `numberPhasesChronologically`'s doc comment in
+  // `src/lib/timeline.ts` for why there's no side/lane/height/clearance
+  // math here anymore.
+  const numberedPhases = numberPhasesChronologically(phases, scaffold);
 
-          `pt-[22rem]`/`pb-[22rem]` (was `pt-24 pb-24`, 96px): a phase caption
-          is `w-56` (224px) with up to 3 sentences of body text, and its box
-          is anchored by its OUTER edge (`bottom-[calc(50%+28px)]` / `top-...`)
-          growing away from the rule as content wraps — absolutely-positioned
-          content is never clipped by a parent's padding, so 96px of headroom
-          was nowhere near enough: measured caption heights across all five
-          standard-template projects range up to 322px (lovediary), and
-          several exceeded 96px enough to overlap the "The process" H2 above
-          and the commit-log `<details>`/media gallery below (QA finding —
-          verified via real Chrome, not just this dev tool). 352px clears the
-          tallest measured caption with headroom for future copy edits. */}
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
-        <TimelineRule axis="x" progress={progress} reduced={reduced} />
-        {scaffold.ticks.map((tick) => (
-          <DesktopTickDot key={tick.date} tick={tick} progress={progress} reduced={reduced} />
-        ))}
-        {scaffold.isOpenEnded && (
-          <span
-            className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
-          >
-            → still open
-          </span>
-        )}
-        {scaffold.gaps.map((gap) => (
-          <GapLabel key={gap.position} gap={gap} />
-        ))}
+  return (
+    // `mb-6`: without it the `<ol>` below butts directly against
+    // `CommitLog`'s `<details>` at 0px — measured via a real Chromium
+    // render at 1280px, not the docs/buildmode-tail-assessment.md §4
+    // measurement (that one compared against unported `main`'s old
+    // `pt-[22rem] pb-[22rem]` caption box, whose own padding happened to
+    // supply this clearance; it doesn't carry over to this box, which no
+    // longer needs project-dependent padding for caption height at all).
+    // Deliberately a plain container margin, not a special case on
+    // `CommitLog` itself — section-to-section spacing is this component's
+    // job, not the disclosure's.
+    <div className="mb-6 hidden lg:block">
+      {/* The rule graphic — proportional positions, ticks, burst-count
+          badges, gap labels, the cleanup-sweep flag, and now a small
+          numbered marker per phase, pairing it to its list item below.
+          Nothing here needs project-dependent clearance any more (phase
+          text no longer lives in this box), so the vertical padding is a
+          small fixed constant, sized only for this graphic's own
+          decorative elements. The extra `pr-24` reserves room for the
+          "still open" terminus label so it never bleeds past the column's
+          right edge. */}
+      <div className="relative mb-8 py-9 pr-24">
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" aria-hidden="true">
+          <TimelineRule axis="x" progress={progress} reduced={reduced} />
+          {scaffold.ticks.map((tick) => (
+            <DesktopTickDot key={tick.date} tick={tick} progress={progress} reduced={reduced} />
+          ))}
+          {scaffold.isOpenEnded && (
+            <span
+              className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted"
+            >
+              → still open
+            </span>
+          )}
+          {scaffold.gaps.map((gap) => (
+            <GapLabel key={gap.position} gap={gap} />
+          ))}
+          {numberedPhases.map((numberedPhase) => (
+            <DesktopPhaseNumberMarker key={numberedPhase.number} numberedPhase={numberedPhase} />
+          ))}
+        </div>
       </div>
 
-      {/* Real content — phase captions, alternating above (even index) /
-          below (odd index) the rule, connected by a decorative aria-hidden
-          SVG line (the design-brief §6 `MarginNote` connector device). */}
-      {phases.map((phase, index) => (
-        <DesktopPhaseCaption key={`${phase.from}-${phase.title}`} phase={phase} index={index} scaffold={scaffold} />
-      ))}
+      {/* Real content — one list item per phase, in the SAME chronological
+          order and carrying the SAME number as its rule marker above. An
+          `<ol>` in normal document flow cannot overlap, at any phase count
+          or clustering. */}
+      <ol className="flex flex-col gap-5">
+        {numberedPhases.map((numberedPhase) => (
+          <DesktopPhaseListItem key={`${numberedPhase.phase.from}-${numberedPhase.phase.title}`} numberedPhase={numberedPhase} />
+        ))}
+      </ol>
     </div>
   );
 }
@@ -279,48 +317,58 @@ function GapLabel({ gap }: { gap: { position: number; days: number } }) {
   );
 }
 
-function DesktopPhaseCaption({
-  phase,
-  index,
-  scaffold,
-}: {
-  phase: ProcessPhase;
-  index: number;
-  scaffold: TimelineScaffold;
-}) {
-  const prefersReducedMotion = useReducedMotion();
-  const position = phaseAnchorPosition(phase, scaffold);
-  const above = index % 2 === 0;
+/** Decorative-only (`aria-hidden`) — the visual pointer from a rule
+ * position to its matching numbered list item below. The number itself is
+ * real content only in `DesktopPhaseListItem`; this is purely a "look
+ * here" marker, same reasoning as the tick dots and gap labels it sits
+ * alongside. Deliberately distinct in shape/size from a plain commit-burst
+ * tick dot so it doesn't read as just another commit. */
+function DesktopPhaseNumberMarker({ numberedPhase }: { numberedPhase: NumberedPhase }) {
+  return (
+    <span
+      className="absolute top-1/2 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-marker-700/60 bg-paper font-mono text-[9px] font-semibold leading-none text-marker-700"
+      style={{ left: `${numberedPhase.position * 100}%` }}
+    >
+      {numberedPhase.number}
+    </span>
+  );
+}
 
+/** One phase's real content, in the ordered list beneath the rule — never
+ * overlaps anything, regardless of how tightly its phases cluster on the
+ * rule above, because it's normal document flow. Carries the same number
+ * as its `DesktopPhaseNumberMarker`, its real date range, its tone label,
+ * and the narrative itself. */
+function DesktopPhaseListItem({ numberedPhase }: { numberedPhase: NumberedPhase }) {
+  const { phase, number } = numberedPhase;
+  const prefersReducedMotion = useReducedMotion();
   const motionProps = prefersReducedMotion
     ? { initial: { y: 0 }, whileInView: { y: 0 }, viewport: { once: true } }
     : {
-        initial: { y: above ? 16 : -16 },
+        initial: { y: 16 },
         whileInView: { y: 0 },
         viewport: { once: true, margin: '-40px' },
         transition: { duration: 0.35, ease: 'easeOut' as const },
       };
 
   return (
-    <m.div
-      className={`absolute w-56 -translate-x-1/2 text-center ${above ? 'bottom-[calc(50%+28px)]' : 'top-[calc(50%+28px)]'}`}
-      style={{ left: `${position * 100}%` }}
-      {...motionProps}
-    >
-      {/* Hand-drawn-style connector to the rule (design-brief §6 MarginNote
-          device) — purely decorative. */}
-      <svg
+    <m.li className="flex gap-3" {...motionProps}>
+      {/* `aria-hidden`: the `<ol>`/`<li>` pairing already gives assistive
+          tech this item's ordinal position ("N of TOTAL") — a second,
+          redundant spoken "1" here would double up, not clarify. */}
+      <span
         aria-hidden="true"
-        width="2"
-        height="28"
-        viewBox="0 0 2 28"
-        className={`mx-auto text-marker-700/50 ${above ? 'mb-1 rotate-[1.5deg]' : 'mt-1 -rotate-[1.5deg] rotate-180'}`}
+        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-marker-700/60 bg-paper font-mono text-[10px] font-semibold leading-none text-marker-700"
       >
-        <line x1="1" y1="0" x2="1" y2="28" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-      <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">{TONE_LABEL[phase.tone]}</p>
-      <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
-    </m.div>
+        {number}
+      </span>
+      <div>
+        <p className="mb-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted">
+          {phase.to && phase.to !== phase.from ? `${phase.from} – ${phase.to}` : phase.from} · {TONE_LABEL[phase.tone]}
+        </p>
+        <p className="text-sm italic leading-snug text-ink">{phase.narrative}</p>
+      </div>
+    </m.li>
   );
 }
 

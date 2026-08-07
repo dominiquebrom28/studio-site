@@ -77,6 +77,45 @@
  * custom properties ("--warning") from ever being mis-read as file paths —
  * none of their trailing segments match a real extension in this repo.
  *
+ * COMPOUND EXTENSIONS (`.test.ts`, `.d.mts`, `.generated.json`, `.spec.ts`,
+ * …) — fixed 2026-08-06, found by the falsification pass for the
+ * files-produced-column backlog item (BACKLOG.md MEDIUM, "Give the 'Items
+ * worked on' table a files-produced column"). `PATH_TOKEN_RE`'s final path
+ * segment used to forbid a dot in the NAME part (`[A-Za-z0-9_-]+\.EXT`,
+ * matching `check-report-claims.mjs` but NOT `check-report-claims.test.ts`
+ * or `check-report-claims.d.mts`) — an oversight, not a deliberate
+ * false-positive guard: the ALLOWED_EXTENSIONS whitelist above is what does
+ * the real work of excluding contrast ratios/timings/semver, so relaxing the
+ * name part to allow interior dots (`[A-Za-z0-9_.-]+\.EXT`) adds no new
+ * false-positive surface against this file's own test suite (verified: every
+ * existing "must never match" case in `check-report-claims.test.ts` still
+ * fails on the EXTENSION check, not the dot restriction) while fixing a
+ * silent false NEGATIVE on exactly the file shapes this repo's own
+ * deliverables constantly are — every sibling check script in this directory
+ * ships a `.test.ts` and a `.d.mts`, and this bug meant NEITHER was ever
+ * extractable as a claim, in any report, ever. Load-bearing for the
+ * files-produced-column feature: a "Files produced/changed" cell listing
+ * `scripts/x.mjs`, `scripts/x.test.ts`, `scripts/x.d.mts` would silently
+ * drop 2 of those 3 paths without this fix — see that backlog item's own
+ * empirical verification note.
+ *
+ * THE NAME PART STILL MAY NOT START WITH A DOT — `[A-Za-z0-9_-]` for the
+ * first character, interior dots allowed only after it. Found by the lead's
+ * review, measuring the widened regex against the REAL corpus rather than
+ * only against this file's existing "must never match" cases (which it
+ * passed — which is how this was nearly missed). Relaxing the name part
+ * wholesale to `[A-Za-z0-9_.-]+` also made BARE EXTENSION FRAGMENTS match:
+ * `.test.ts`, `.d.mts`, `.spec.ts` and `.generated.json` are written in
+ * prose throughout `reports/` and `BACKLOG.md` (11 occurrences when this was
+ * written) to mean "files of this shape", not a path. They are not files,
+ * appear in no diff, and would have failed this gate the first time one
+ * landed in a block beside its own branch name — a false positive on the one
+ * gate whose header spends forty lines arguing that a false positive HERE
+ * teaches people to ignore report-writing gates specifically. Anchoring the
+ * first character costs none of the compound-extension coverage above:
+ * verified that all 50 distinct newly-extractable tokens across the real
+ * corpus are genuine paths, and that every bare fragment is rejected.
+ *
  * THREE EXIT CODES, same convention as `scripts/check-deps-drift.mjs` (see
  * that file's header for the fuller rationale) — this repo has a standing
  * rule that a check which cannot determine an answer must say so loudly,
@@ -129,7 +168,10 @@ const ALLOWED_EXTENSIONS = [
   'ico',
 ];
 
-const PATH_TOKEN_RE = new RegExp(`^(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\\.(?:${ALLOWED_EXTENSIONS.join('|')})$`, 'i');
+const PATH_TOKEN_RE = new RegExp(
+  `^(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.(?:${ALLOWED_EXTENSIONS.join('|')})$`,
+  'i',
+);
 
 /** Default `gitRunner` — real `git` via `execFileSync` (array args, no
  * shell), injectable so tests never need a real git repository fixture on
