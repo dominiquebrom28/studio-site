@@ -62,12 +62,26 @@ gh auth login
   3. If **any** changed file falls outside that allowlist — including
      anything under `src/` that isn't a test file, anything under
      `.github/`, `package.json`, either lockfile, or any config file — it
-     posts a comment explaining why, **removes the `safe-auto` label**, and
-     stops. Auto-merge is never enabled in this case.
+     first runs `gh pr merge --disable-auto` to cancel any auto-merge that
+     may already be armed on this PR, then posts a comment explaining why,
+     **removes the `safe-auto` label**, and stops.
   4. Only if every changed file is in the allowlist does it run
      `gh pr merge --auto --squash`, which tells GitHub "merge this the moment
      its required checks pass." GitHub — not this workflow — is what
      actually waits for the `CI / build` check and does the merge.
+
+- **Why the disarm step in 3 exists:** `gh pr merge --auto` is *sticky*
+  repo-side state, not something scoped to a single workflow run. Sequence
+  that used to slip through before this was added: a PR's first commit only
+  touches `content/**` → gets `safe-auto` → step 4 arms auto-merge. A later
+  commit on the *same* PR adds a change under `src/` → `synchronize` fires
+  again → the guard correctly flags the unsafe path and removes the label —
+  but auto-merge was already armed on GitHub's side, and removing a label
+  does not un-arm it. Without an explicit `--disable-auto` call, GitHub would
+  still squash-merge the (now unsafe, unreviewed) PR the moment `CI / build`
+  went green. `--disable-auto` exits non-zero when nothing was armed (the
+  common case), which the step treats as expected, not a failure — it always
+  still posts the comment and removes the label.
 
 - **What `safe-auto` means:** it's a claim that a PR only touches
   low-risk, non-code paths (blog/content posts, docs, test-only changes,
@@ -89,7 +103,16 @@ gh auth login
 
 Any one of these fully disables the system:
 
-- Remove the `safe-auto` label from a PR (stops that PR only).
+- Push a commit that touches a path outside the allowlist (stops that PR
+  only): `synchronize` re-runs the guard, which now both disarms any
+  already-armed auto-merge (`gh pr merge --disable-auto`) and removes the
+  label. This is the safe, automatic way to stop a single PR.
+- Manually removing the `safe-auto` label yourself (e.g. `gh pr edit
+  --remove-label`) does **not** by itself disarm auto-merge if this workflow
+  had already armed it on an earlier commit — label removal done outside
+  this workflow doesn't trigger the disarm step, because GitHub doesn't fire
+  this workflow on unlabeling. If you remove the label by hand, also run
+  `gh pr merge <PR> --repo <REPO> --disable-auto` to be sure.
 - Delete `.github/workflows/auto-merge.yml` (stops the feature repo-wide;
   `ci.yml` keeps running as normal required CI).
 - Remove the `build` required-status-check rule from `main`'s branch
