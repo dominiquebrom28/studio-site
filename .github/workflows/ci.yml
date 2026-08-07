@@ -70,21 +70,23 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # `npm test` is hermetic by design (node-environment, fake `git`/`gh`
+      # runners everywhere, no network) — it used to also carry three
+      # real-`gh`, real-network tests (`check-backlog-checkoffs.test.ts`'s
+      # "real corpus" block, PR #110, 2026-08-06), which needed a `GH_TOKEN`
+      # here purely because `gh` refuses to run inside Actions without one.
+      # That PR fixed the immediate red but flagged the underlying design
+      # smell: should this repo's default, every-contributor gate depend on
+      # a GitHub session at all? Decided NO (BACKLOG.md MEDIUM, 2026-08-07):
+      # those three tests moved to `check-backlog-checkoffs.real-corpus
+      # .test.ts`, run via `npm run test:real-corpus` in the
+      # `backlog-checkoffs` job below instead — the one job that already
+      # carries `GH_TOKEN` and an existing `gh`-dependent step for the
+      # identical reason, so the network/session dependency stays contained
+      # to a single advisory lane instead of spreading into this required
+      # job. See that test file's header for the full rationale.
       - name: Test
         run: npm test
-        env:
-          # `scripts/check-backlog-checkoffs.test.ts` has three real-corpus
-          # tests that shell out to the REAL `gh` — deliberately, because the
-          # gate's ground truth is "does GitHub actually consider this PR
-          # merged", and a test that mocks that away would prove nothing
-          # about the thing most likely to break. `gh` refuses to run inside
-          # Actions without a token, so without this the suite fails here
-          # while passing on any developer machine with a keyring login
-          # (which is exactly how it first shipped red — 2026-08-06).
-          # Those tests SKIP when gh is unavailable locally, but hard-fail if
-          # they ever skip while CI=true, so this variable going missing can
-          # never quietly downgrade them to no-ops.
-          GH_TOKEN: ${{ github.token }}
 
       # Human-readable provenance table (file -> author -> reviewer -> judge
       # -> commit -> tokens), run so it lands in this check's log — the
@@ -335,15 +337,37 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      # No `npm ci` — this script (like `check-deployed-routes.mjs` above)
-      # is dependency-free (node builtins + the `gh` CLI only), so there is
-      # nothing for `npm run` to need installed; skipping the install keeps
-      # this reporting job cheap.
+      # No `npm ci` for the check script itself (like `check-deployed-
+      # routes.mjs` above, it's dependency-free — node builtins + the `gh`
+      # CLI only). It IS needed for the "Real-corpus test" step below, which
+      # runs through `vitest` (a devDependency) — see that step's own
+      # comment for why it's worth the install cost in this one job.
+      - name: Install dependencies (needed for the real-corpus vitest step below)
+        run: npm ci
+
       - name: Every merged branch a run report names is checked off in BACKLOG.md (reporting only, does not block merge)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-backlog-checkoffs.mjs
+
+      # BACKLOG.md MEDIUM (2026-08-06/07) — the three real-`gh`, real-network
+      # tests that assert THIS SCRIPT's behavior against this repo's actual
+      # PR history used to live inside `npm test` (the required `build`
+      # job's default, hermetic sweep); they moved here instead, alongside
+      # the script run immediately above that already needs the identical
+      # `GH_TOKEN` + network dependency. This is the step that proves the
+      # split didn't quietly stop checking anything: it runs on EVERY PR
+      # (this job has no path/branch filter beyond the workflow's own
+      # `pull_request` trigger), and `check-backlog-checkoffs.real-corpus
+      # .test.ts`'s own `GH_PROBE` hard-`throw`s (not skips) if `GH_TOKEN`
+      # is ever missing while `CI` is set — see that file's header for the
+      # full "must never silently check nothing" guard.
+      - name: Real-corpus test — check-backlog-checkoffs.mjs against this repo's actual gh pr history
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run test:real-corpus
 
   # Real-browser lane (BACKLOG P1 "Real-browser responsive/visual testing") —
   # Playwright against `vite preview`'s `dist/` output at 375/768/1280. See

@@ -33,6 +33,16 @@ export default defineConfig({
     //   dist/ left over from a previous local build — neither is the point.
     //   It runs POST-build instead, via `npm run verify:dist-csp-hash` /
     //   vitest.dist-csp.config.ts. See that test file's header comment.
-    exclude: ['**/node_modules/**', 'src/content/validate-content.test.ts', 'src/lib/csp/distIndexHash.test.ts'],
+    // - `check-backlog-checkoffs.real-corpus.test.ts` shells out to the REAL
+    //   `gh` CLI over the network (BACKLOG.md MEDIUM, 2026-08-06/07) — kept
+    //   out of the default hermetic sweep, run instead via `npm run
+    //   test:real-corpus` / vitest.real-corpus.config.ts. See that test
+    //   file's own header comment for the full rationale.
+    exclude: [
+      '**/node_modules/**',
+      'src/content/validate-content.test.ts',
+      'src/lib/csp/distIndexHash.test.ts',
+      'scripts/check-backlog-checkoffs.real-corpus.test.ts',
+    ],
   },
 });

@@ -59,7 +59,14 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
   script shipping, not hidden), which is exactly why it isn't wired required
   yet: a gate with no track record of staying green for the right reasons
   should not block merges on day one. Promote it once it's run clean across
-  real PR traffic, same path `validate:content` took.
+  real PR traffic, same path `validate:content` took. This job also runs
+  `npm run test:real-corpus` — the three tests that assert
+  `check-backlog-checkoffs.mjs`'s behavior against this repo's REAL `gh pr`
+  history (moved out of the default `npm test`, BACKLOG.md MEDIUM,
+  2026-08-06/07, so `npm test` stays hermetic and needs no GitHub session —
+  see `scripts/check-backlog-checkoffs.real-corpus.test.ts`'s header for the
+  full design rationale). Run it by hand any time with `gh auth login`ed:
+  `npm run test:real-corpus`.
 
 **A red check posts a PR comment automatically** (the `notify-on-failure`
 job, `ci.yml`) naming which job failed and the exact `gh run download`
