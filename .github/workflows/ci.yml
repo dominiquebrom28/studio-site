@@ -72,6 +72,19 @@ jobs:
 
       - name: Test
         run: npm test
+        env:
+          # `scripts/check-backlog-checkoffs.test.ts` has three real-corpus
+          # tests that shell out to the REAL `gh` — deliberately, because the
+          # gate's ground truth is "does GitHub actually consider this PR
+          # merged", and a test that mocks that away would prove nothing
+          # about the thing most likely to break. `gh` refuses to run inside
+          # Actions without a token, so without this the suite fails here
+          # while passing on any developer machine with a keyring login
+          # (which is exactly how it first shipped red — 2026-08-06).
+          # Those tests SKIP when gh is unavailable locally, but hard-fail if
+          # they ever skip while CI=true, so this variable going missing can
+          # never quietly downgrade them to no-ops.
+          GH_TOKEN: ${{ github.token }}
 
       # Human-readable provenance table (file -> author -> reviewer -> judge
       # -> commit -> tokens), run so it lands in this check's log — the
@@ -273,6 +286,64 @@ jobs:
         env:
           SMOKE_URL: ${{ github.event.inputs.deployed_url || vars.SMOKE_URL }}
         run: node scripts/check-deployed-routes.mjs
+
+  # Backlog-checkoff gate (BACKLOG.md MEDIUM, 2026-08-05 — "Nothing checks
+  # that a run's shipped lanes get checked off in BACKLOG.md, and it just
+  # failed for the fifth time") — PR #100 shipped three merged PRs
+  # (#97/#98/#99) that `BACKLOG.md` never once cited by branch name.
+  # `scripts/check-backlog-checkoffs.mjs`'s header has the full rule/scope;
+  # short version: every `Item | Branch | PR`-shaped row across
+  # `reports/*.md` whose branch has a real MERGED pull request (per `gh pr
+  # list`, never the report's own prose) must be cited inside a `[x]`-checked
+  # `BACKLOG.md` bullet somewhere.
+  #
+  # DELIBERATELY NOT REQUIRED, same reasoning as `deployed-smoke` above and
+  # `check-stranded-branches.mjs`'s own header: this check's FIRST real run
+  # against this repo's real corpus found a genuine, live violation
+  # (`team/2026-08-04-undici-advisories`, PR #101 — fixed in the same
+  # `BACKLOG.md` edit this job's own introducing PR ships), so it has no
+  # track record yet of staying green for the right reasons. A gate wired
+  # required on day one, the moment after its first run was red, is exactly
+  # the "born failing" shape this repo's standing rule rejects. Promote it
+  # into `build`'s required steps once it has run clean across real PR
+  # traffic for a while — the same path `validate:content` took (shipped
+  # advisory, promoted once proven, 2026-07-21).
+  #
+  # NO `fetch-depth: 0` NEEDED — unlike the report-claims/merge-revert steps
+  # in `build`, this script does no `git log`/`git diff` at all: it reads
+  # `reports/*.md` + `BACKLOG.md` as plain files from whatever is checked
+  # out (a shallow clone's working tree is complete; only its history is
+  # truncated) and asks GitHub, not local git history, which branches
+  # merged — see the script's own header, "FETCH-DEPTH — DELIBERATELY NOT
+  # NEEDED", for the by-inspection verification that it makes zero git
+  # calls. Default `actions/checkout@v4` is enough.
+  #
+  # `pull-requests: read` is the only permission this job needs (`gh pr
+  # list` against this repo, nothing else) — job-level `permissions:`
+  # REPLACES the workflow-default `contents: read` for this job, so `write`
+  # access to anything is never granted here, matching `notify-on-failure`'s
+  # own least-privilege precedent.
+  backlog-checkoffs:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No `npm ci` — this script (like `check-deployed-routes.mjs` above)
+      # is dependency-free (node builtins + the `gh` CLI only), so there is
+      # nothing for `npm run` to need installed; skipping the install keeps
+      # this reporting job cheap.
+      - name: Every merged branch a run report names is checked off in BACKLOG.md (reporting only, does not block merge)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-backlog-checkoffs.mjs
 
   # Real-browser lane (BACKLOG P1 "Real-browser responsive/visual testing") —
   # Playwright against `vite preview`'s `dist/` output at 375/768/1280. See
