@@ -41,7 +41,13 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
 - **`e2e`** (runs on every PR, **not required** — deliberately, see the
   job's own header comment in `ci.yml`): Playwright against `dist/` at
   375/768/1280. On failure, uploads the `playwright-report` artifact
-  (HTML report + trace).
+  (HTML report + trace). **Chromium only** (`playwright.config.ts`'s
+  `projects` list has a single `chromium` entry) — this lane covers
+  responsive layout, focus, and contrast bugs in Chromium's rendering only.
+  It does NOT catch a Firefox- or WebKit/Safari-specific regression (no
+  such lane runs anywhere in this repo's CI). That's a deliberate cost
+  tradeoff (`ci.yml`'s `e2e` job comment), not an oversight — revisit if a
+  bug ever ships that only reproduces in a non-Chromium browser.
 - **`backlog-checkoffs`** (runs on every PR, **not required** — deliberately,
   see the job's own header comment in `ci.yml`): does every branch a MERGED
   run report's "Items worked on" table names actually get checked off
