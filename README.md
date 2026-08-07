@@ -125,6 +125,55 @@ loudly, never silently — whether they agree:
   `package.json`) it exits **inconclusive**, distinct from a clean pass —
   it never reports green when it didn't actually check anything.
 
+## Run-start preflight: is the shared checkout itself clean?
+
+**Run this FIRST, before anything else, at the start of every session:**
+
+```
+npm run check:clean-checkout
+```
+
+This is a **run-playbook step, not a CI gate** — CI structurally cannot see
+an uncommitted file (every job starts from a freshly `actions/checkout`'d
+ref, which has nothing uncommitted in it by definition), so this is not, and
+will never be, wired into `.github/workflows/ci.yml`.
+
+Exists because of a real incident (2026-08-05): a complete, `draft: false`,
+publish-ready post
+(`content/posts/2026-08-05-the-post-said-it-was-fixed.md`) sat **untracked**
+in the shared checkout — written by a session that ended before running
+`git add`/`git commit`. It survived purely by luck (nobody happened to run
+`git clean`) and was found, days later, by a *different* scheduled task
+sharing the same checkout. Every other check in this repo is structurally
+blind to this shape: `check:stranded-branches` enumerates branches (a file
+that was never `git add`ed has no ref at all); `check:merge-revert` /
+`check:report-claims` compare commits (an uncommitted file has no commit).
+
+`scripts/check-clean-checkout.mjs`:
+
+- Runs `git status --porcelain` against the **shared/main checkout**, not
+  whichever `git worktree` the command happens to be invoked from — an
+  agent session here normally runs from an isolated worktree
+  (`.claude/worktrees/<name>/`), and a stray file in ONE worktree isn't the
+  incident this guards against (that tree is disposable). It resolves the
+  shared checkout via `git rev-parse --git-common-dir`, which always
+  answers correctly regardless of which worktree it's run from. Override
+  with `CHECK_CLEAN_CHECKOUT_REPO_ROOT` if you deliberately want to check a
+  different tree.
+- **Escalates** anything untracked or modified under `content/` or
+  `reports/` — "possible stranded work — triage before proceeding" — since
+  that's exactly where a run's real deliverables (a post, a report) live. A
+  publish-ready `draft: false` post is precisely this shape.
+- Still reports (at lower severity, but still a non-zero exit) any other
+  dirt — the assertion is "the checkout is empty," not just "no
+  content/reports dirt."
+- Exits **inconclusive** (never a false "clean") if the checkout root can't
+  be resolved or `git status` itself fails.
+
+If it finds something: stop, `git status`/`git diff` by hand, and commit or
+otherwise rescue anything real before continuing with whatever the session
+was about to do.
+
 ## Review throttle: draft PRs, plus a backstop for branches that predate it
 
 When a run hits the review-queue throttle (BACKLOG.md's stated 4-6 open PRs)

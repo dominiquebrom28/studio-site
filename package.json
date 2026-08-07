@@ -6,6 +6,7 @@
   "scripts": {
     "prepare": "node scripts/setup-git-hooks.mjs",
     "check:deps": "node scripts/check-deps-drift.mjs",
+    "check:clean-checkout": "node scripts/check-clean-checkout.mjs",
     "check:report-claims": "node scripts/check-report-claims.mjs",
     "check:stranded-branches": "node scripts/check-stranded-branches.mjs",
     "check:backlog-checkoffs": "node scripts/check-backlog-checkoffs.mjs",
