@@ -2649,6 +2649,37 @@ nothing compares a report's claims against its own diff.
       _Source: Project Lead, 2026-08-08 Notion reconciliation — observed, and the
       reason this run deliberately changed **no** Notion statuses._
 
+- [ ] **HIGH — CI does not run on stacked PRs at all, so the documented
+      bookkeeping-stacking convention produces PRs with zero gates.**
+      `.github/workflows/ci.yml` triggers on `pull_request:` filtered to
+      `branches: [main]`. A stacked PR — one whose **base** is another `team/*`
+      branch rather than `main` — therefore matches no trigger and runs **no
+      `build`, no `e2e`, no `backlog-checkoffs`, no `deployed-smoke`**. Only the
+      two Vercel checks report, and both are green regardless of whether the code
+      compiles. Confirmed on PR #119 this run: `gh pr checks 119` lists exactly
+      two Vercel rows and nothing else. This is not a hypothetical or a
+      one-off — the stacking convention is **already documented as load-bearing**
+      by the LOW item above ("Bookkeeping PRs now stack three deep"), which
+      analysed the merge-order and review-in-isolation costs and never noticed
+      that the stacked PRs were also **entirely ungated**. Every stacked
+      bookkeeping PR in this repo's history ran its gates for the first time only
+      when the stack collapsed onto `main`. The exposure is exactly the class
+      this project keeps paying for: a PR that looks reviewed and checked, whose
+      checks never ran. It compounds with the throttle — the fuller the queue,
+      the more stacking happens, so gates disappear precisely when the queue is
+      least reviewable by hand. Fixes, cheapest first: (a) add
+      `branches: [main, 'team/**']` to the `pull_request` trigger, which is a
+      one-line change and makes every stacked PR run the same gates; (b) drop the
+      `branches` filter entirely and let CI run on every PR; (c) stop stacking,
+      per the `BACKLOG-INBOX.md` idea in the LOW item. Prefer (a) — it fixes the
+      gap without touching the convention or the required-check name that branch
+      protection depends on. Note the required check for branch protection is
+      still only evaluated on the final `→ main` PR, so (a) adds signal without
+      changing what gates a merge. _Source: 2026-08-08 run — found because this
+      run's own draft PR came back with two Vercel checks and nothing else; its
+      585/585, typecheck, lint and `validate:content` results are from **local**
+      runs, which is the only reason the work is verified at all._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
