@@ -444,7 +444,7 @@ describe('checkBacklogCheckoffs — end to end, fake ghRunner + fixture files', 
  * from this fix), so this fix is not what's "protecting" that coverage.
  */
 describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BACKLOG.md + real `gh pr list`)', () => {
-  itRealCorpus('is CLEAN as of this branch\'s own BACKLOG.md fix, with one referencedButOpen note for the real `team/2026-08-04-runs-api` multi-PR epic (PR #98)', () => {
+  itRealCorpus('is CLEAN, and every referencedButOpen note is a real multi-PR epic (incl. `team/2026-08-04-runs-api`, PR #98)', () => {
     const result = checkBacklogCheckoffs({ repoRoot: REPO_ROOT });
 
     if (result.status === 'inconclusive') {
@@ -454,8 +454,28 @@ describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BAC
     expect(result.status).toBe('clean');
     expect(result.unreferenced).toEqual([]);
 
-    expect(result.referencedButOpen).toHaveLength(1);
-    expect(result.referencedButOpen[0]).toMatchObject({ report: 'reports/2026-08-04.md', branch: 'team/2026-08-04-runs-api' });
+    // The gate's ACTUAL condition is `unreferenced` being empty, asserted above.
+    // `referencedButOpen` is an advisory note the gate never fails on, and it
+    // grows by one every time a merged lane is cited inside a legitimate still-
+    // open multi-PR epic — normal repo evolution, not a regression.
+    //
+    // This originally pinned `toHaveLength(1)`. That snapshot went red on
+    // 2026-08-08 at length 3, with both new entries (`team/2026-08-06-report-
+    // contract` PR #110, `team/2026-08-05-stranded-records` PR #108) being
+    // exactly the healthy case the note exists to describe. A test that fails
+    // when nothing is wrong trains people to re-run until green, which is the
+    // precise failure mode the smoke-flake item in BACKLOG.md argues is worse
+    // than no gate at all. So: assert the KNOWN epic is still reported, and
+    // assert the shape of every entry — not the count.
+    expect(result.referencedButOpen).toContainEqual(
+      expect.objectContaining({ report: 'reports/2026-08-04.md', branch: 'team/2026-08-04-runs-api' }),
+    );
+    for (const entry of result.referencedButOpen) {
+      expect(entry).toMatchObject({
+        report: expect.stringMatching(/^reports\/.+\.md$/),
+        branch: expect.stringMatching(/^(team|claude)\//),
+      });
+    }
   });
 
   itRealCorpus('control: a genuinely closed lane from the real corpus (`team/2026-08-05-stranded-branches`, PR #106) is neither unreferenced nor referencedButOpen', () => {

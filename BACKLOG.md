@@ -2448,6 +2448,28 @@ nothing compares a report's claims against its own diff.
       evidence that the allowlist still discriminates rather than having decayed
       into a blanket mute. _Source: 2026-08-07 run, found by running the one
       command the security audit had explicitly flagged that it could not run._
+      _(**CORRECTED 2026-08-08 — "the breakage is closed" was measured and was
+      false.** PR #114 was verified green on 08-07 and `main` was red again on
+      08-08 with **nobody having touched the repo**: `GHSA-2v37-7h3g-55p8|nanoid`
+      (predictable results with non-integer input, affected `<3.3.17`) published
+      in between, and the tree resolved 3.3.16 via `vite → postcss → nanoid`.
+      Installing PR #114's branch in isolation and re-running the real gate still
+      exited red on that one advisory — so the PR that told Dom "merge this first,
+      it unblocks the queue" would **not** have unblocked it. Fixed on the same
+      branch (lockfile-only: `postcss` 8.5.19 → 8.5.26 and `nanoid` 3.3.16 →
+      3.3.18, both already in range, so no new `overrides` and no new allowlist
+      entry); `build` now passes on #114. This item stays checked because the
+      breakage is now genuinely closed — but the check-off was **premature when
+      written**, which is the fifth time this file has misreported its own state
+      and the first time it did so by believing a verification that had expired
+      rather than by forgetting to tick a box. **It also raises the residue from
+      HIGH-with-a-home to its own item:** three newly-published advisories in
+      five days (`undici` 08-04, `js-yaml` 08-07, `nanoid` 08-08) is not a
+      streak, it is the base rate, and "the fix lives in the P2 batch" is no
+      longer a proportionate answer — see the promoted item below. **Standing
+      lesson, the verification-side twin of the one in `audit-ci.jsonc`:** a
+      green audit result is a measurement with a timestamp, not a property of the
+      branch. Re-run it at merge time, not once at authoring time.)_
 - [ ] **MEDIUM — `*.test.ts`/`*.test.tsx` sit in the `safe-auto` allowlist as
       "non-code", and they are code the required `build` job executes.**
       `.github/workflows/auto-merge.yml` treats any `*.test.ts` / `*.test.tsx`
@@ -2574,6 +2596,58 @@ nothing compares a report's claims against its own diff.
       engines to the layout-measuring specs only (contrast, overflow,
       reading-order, timeline-overlap), not the whole lane. _Source: devops,
       2026-08-07._
+
+### Added 2026-08-08 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Promote "scheduled `npm audit`" out of the P2 batch: three
+      newly-published advisories in five days is the base rate, not a streak.**
+      The P2 batch has carried a one-line "scheduled `npm audit`" entry since
+      2026-07-21, and the 08-07 item above concluded "the fix for *this* item is
+      scheduling that gate, and it lives there." One day later that answer stopped
+      being proportionate. The measured record: **`undici` 2026-08-04** (PR #101),
+      **`js-yaml` 2026-08-07** (PR #114), **`nanoid` 2026-08-08** (this run) —
+      three separate advisories published against dependencies that were already
+      installed and unchanged, turning `main`'s required gate red three times in
+      five days without a single commit touching the repo. The gate's only
+      trigger is a PR, so each time, the queue went red and the *reason* was
+      invisible until somebody happened to run the command by hand. All three
+      times, somebody did — which is luck, not a control. **What makes this HIGH
+      rather than housekeeping is the compounding failure it already caused
+      once:** PR #114 verified green on 08-07 and was silently stale by 08-08,
+      so the PR whose entire job was to unblock the queue would have merged and
+      left `main` red. A scheduled run makes that visible within a day instead of
+      within a run. Right-sized scope, deliberately small: a `schedule:` cron in
+      a workflow that runs `npm ci && npm run audit` against `main` and opens (or
+      updates) a single issue on failure — no new dependency, no change to the
+      `build` job, and explicitly **not** an auto-bumping bot, which would push
+      lockfile changes past the review this project has repeatedly shown it needs.
+      Also fold in the verification-side lesson from the corrected item above:
+      whatever runs this should be the thing an "unblocker" PR is re-checked
+      against at merge time. _Source: 2026-08-08 run — measured, and the third
+      instance in five days; supersedes the P2 batch's one-line entry, which
+      should be struck when this lands._
+- [ ] **MEDIUM — The Notion reconciliation rule assumes the previous run's
+      bookkeeping PR has merged, and with a full queue it corrupts the mirror.**
+      The scheduled task says to reconcile every Notion row against "the freshly-
+      synced `BACKLOG.md`" on `main`. That is correct only when the last run's
+      bookkeeping PR has landed. On 2026-08-08 it had not — seven PRs were open,
+      the oldest from 08-06 — and following the rule literally would have done
+      real damage: **8 rows correctly marked "In progress" would have been reset
+      to "Not started"**, and 8 further rows describing findings that exist only
+      on `team/2026-08-07-backlog-and-report` (PR #117) had no counterpart on
+      `main` to reconcile against at all. Every one of those apparent
+      discrepancies was verified this run to be the mirror tracking the unmerged
+      branch **correctly** — zero genuine drift — so the rule would have
+      manufactured the drift it exists to heal. Note this is the *inverse* of the
+      2026-08-05 finding (an item in `BACKLOG.md` with no Notion row) and of the
+      2026-07-31 one (findings only in Notion): the mirror has now been observed
+      out of step in three distinct directions, and in this third case the mirror
+      was right and the rule was wrong. Fix: reconcile against `main` **plus the
+      tips of any open bookkeeping PRs**, and treat a row marked "In progress"
+      whose branch has an open PR as authoritative rather than as drift. Cheap
+      and mechanical — the branch names are already in the `Branch` column.
+      _Source: Project Lead, 2026-08-08 Notion reconciliation — observed, and the
+      reason this run deliberately changed **no** Notion statuses._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
