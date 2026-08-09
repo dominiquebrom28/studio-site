@@ -126,10 +126,26 @@ getting the world walkable in one sitting"* — interpretation of a recorded fac
 
 **Narrative layer (read, italic, real in-flow text, NOT `aria-hidden`):**
 
-- Phase captions anchor to a date range, 1–3 sentences. Desktop: alternating
-  above/below the rule, connected to their anchor by the same thin hand-drawn SVG
-  connector design-brief §6 specifies for `MarginNote` — reuse that device.
-  Mobile: inline below their anchor on the vertical rule; never overlaps, never a
+- Phase captions anchor to a date range, 1–3 sentences.
+- **Desktop, amended 2026-08-06 (see `docs/buildmode-tail-assessment.md` §5a):**
+  the original design here — captions positioned around the rule, alternating
+  above/below with the same `MarginNote` connector device — is superseded. It
+  measured real, character-level text overlap on `/projects/mensapp` and
+  `/projects/studio-site`: both carry 5 phases clustered in the first ~7% of a
+  long date domain, and N absolutely-positioned, fixed-width caption boxes
+  anchored to N arbitrarily close rule points has no correct general packing
+  solution — lane-packing was tried twice (estimated heights, then
+  `ResizeObserver`-measured ones) and still overlapped in a real browser.
+  The rule keeps every scaffold detail (ticks, gap labels, the "still open"
+  terminus) exactly as before, now with a small numbered marker per phase;
+  phase narratives moved into an ordered list (`<ol>`) in normal document
+  flow directly beneath the rule, each `<li>` carrying the same number as its
+  rule marker. A flow list cannot overlap, structurally, at any phase count
+  or clustering. Implementation: `numberPhasesChronologically` in
+  `src/lib/timeline.ts`, `DesktopPhaseNumberMarker` + `DesktopPhaseListItem`
+  in `BuildTimeline.tsx`.
+- **Mobile (unchanged):** inline below their anchor on the vertical rule, in
+  the same date-ordered flow as ticks and gap labels; never overlaps, never a
   separate tab stop.
 - Phase count scales down gracefully: MensApp might carry 4–5 phases; Portfolio
   one or two.
@@ -408,7 +424,10 @@ unchanged.** This is a layout upgrade, not an interaction-model change.
 
 **Reused as-is:** `Container`, `Chip`, `Prose` (ruled, body prose only —
 Why/Brief/Process are not ruled; they read as distinct bands, not more notebook
-page), `TLDRBlock`'s visual grammar, `MarginNote`'s connector device.
+page), `TLDRBlock`'s visual grammar. (`MarginNote`'s connector device was
+originally planned for `BuildTimeline`'s desktop phase captions; superseded
+2026-08-06 by the numbered-marker + ordered-list layout — see §2.2's amendment
+above. `MarginNote` itself remains blog-post-only, unused on project pages.)
 
 **Explicitly NOT reused: `CharacterAvatar`, `ProvenanceStrip`, `Byline`.** These
 six projects are Dom's solo work, not agent-team output; pulling in the cast system
