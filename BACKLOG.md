@@ -2470,6 +2470,13 @@ nothing compares a report's claims against its own diff.
       lesson, the verification-side twin of the one in `audit-ci.jsonc`:** a
       green audit result is a measurement with a timestamp, not a property of the
       branch. Re-run it at merge time, not once at authoring time.)_
+      _(Both fixes above shipped on one branch: `team/2026-08-07-jsyaml-advisory`,
+      merged as PR #114 — the `js-yaml` bump on 2026-08-07 and the `nanoid` /
+      `postcss` lockfile correction on 2026-08-08, the second pushed to the
+      existing branch rather than opening a new PR. Named here because this item
+      cited only the PR number, and `check-backlog-checkoffs` matches on the
+      **branch** — so a genuinely closed, genuinely `[x]` lane still counted as
+      unreferenced. See `reports/2026-08-07.md` and `reports/2026-08-08.md`.)_
 - [ ] **MEDIUM — `*.test.ts`/`*.test.tsx` sit in the `safe-auto` allowlist as
       "non-code", and they are code the required `build` job executes.**
       `.github/workflows/auto-merge.yml` treats any `*.test.ts` / `*.test.tsx`
