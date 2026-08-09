@@ -1861,6 +1861,21 @@ nothing compares a report's claims against its own diff.
       the §13/§14 conventions rather than being slipped in by a CI PR. Sequence
       after PR #91 merges. _Source: Project Lead, 2026-08-02 — measured, not
       assumed; both figures reproduced against the real report corpus._
+      _(2026-08-06, team/2026-08-06-report-contract — awaiting Dom's sign-off
+      on the format change itself, so left unchecked. Proposed column +
+      example row documented under "Run report format" below. **Verified
+      empirically, not assumed:** a row in the new shape needs zero change to
+      `check-report-claims.mjs`'s extractor — confirmed with a constructed
+      row and a new regression test. One real bug WAS found and fixed along
+      the way: `PATH_TOKEN_RE` silently never matched a compound extension
+      (`.test.ts`, `.d.mts`, `.generated.json`) because its final path
+      segment forbade a dot in the name part — meaning every `.test.ts`/
+      `.d.mts` sibling this repo's own scripts ship would have been dropped
+      from a Files-produced cell. Fixed (one-line regex widening, see that
+      file's header "COMPOUND EXTENSIONS"), with a false-positive check
+      against the existing contrast-ratio/timing/semver test cases showing no
+      new false positives. This item stays open until Dom ratifies the format
+      change; the code-side half is done.)_
 - [x] **HIGH — An in-branch `git merge main` can silently revert the branch's
       own edits, and nothing detects it.** The true root cause of the 2026-07-31
       loss, found 2026-08-02 while verifying the gate above — and misdiagnosed
@@ -2095,6 +2110,39 @@ nothing compares a report's claims against its own diff.
       gate; this one is about the backlog's own accuracy. _Source: Project Lead,
       2026-08-05 run-start reconciliation — measured against `main`, not
       inferred._
+      _(2026-08-06, team/2026-08-06-report-contract — awaiting Dom, left
+      unchecked. `scripts/check-backlog-checkoffs.mjs` built: for every
+      `Item | Branch | PR`-shaped table row across `reports/*.md` whose
+      branch has a MERGED pull request (per real `gh pr list`, never the
+      report's own prose), asserts the branch string appears somewhere inside
+      a `[x]`-checked `BACKLOG.md` bullet. A report's own filing/bookkeeping
+      row is excluded (never gets its own checkbox anywhere in this repo's
+      real history — verified). **Run for real against the current corpus,
+      not assumed clean, per this task's own instruction: its first run was
+      RED, and it found a sixth incident on day one.**
+      `team/2026-08-04-undici-advisories` (PR #101, merged) was cited nowhere
+      in `BACKLOG.md` — the exact PR #100 shape the item was written about,
+      undetected for two days. **The gap is closed in this PR** (the new
+      `[x]` undici item below), so the check now exits 0 on the real corpus:
+      _"scanned 29 report(s), 15 item row(s), 109 pull request(s); 0 merged
+      branch(es) unreferenced"_ — verified by the lead re-running it
+      independently, not taken from the agent's summary. **Correction, kept
+      rather than silently edited:** this note first shipped in this same
+      branch saying the check "is RED… left as a found violation, not fixed
+      by this PR." That was already false when written — the fix had landed
+      in the same working tree. The lead caught it by running the gate
+      instead of reading the note, which is the whole thesis of the item this
+      note is attached to. A second, softer
+      shape was also found and is deliberately NOT a hard failure:
+      `team/2026-08-04-runs-api` (PR #98) is cited only inside a still-`[ ]`
+      multi-PR-epic item (§6 PR 2 of several) — legitimate, honest, and
+      structurally indistinguishable from a forgotten checkbox, so it is
+      surfaced as a note every run rather than failed. Wired into
+      `.github/workflows/ci.yml` as a REPORTING step (not required/blocking)
+      in the new `backlog-checkoffs` job, same precedent as
+      `check-stranded-branches.mjs`'s own header: a brand-new check with no
+      track record must not block merges on day one. Promote to required
+      once it has run green for a while, same path `validate:content` took.)_
 - [ ] **LOW — Two small pieces of genuinely stranded work, found by the new
       stranded-branch check.** Both verified absent from `main`, both needing a
       one-line Dom decision rather than work: (a) `claude/first-backlog-item-agvn1h`
@@ -2214,6 +2262,22 @@ nothing compares a report's claims against its own diff.
       it. Cheap either way; the point is that the boundary should be a
       decision, not an accident. _Source: qa-tester, 2026-08-06 timeline-overlap
       lane — flagged as an inherited scope decision rather than one it made._
+- [x] **LOW — Five `undici` advisories fixed on 2026-08-04 were never
+      referenced by branch name in `BACKLOG.md`.** `team/2026-08-04-undici-
+      advisories` (PR #101, merged same day) bumped `undici` past the
+      advisory range via `package.json`'s `overrides`, unblocking `main`'s
+      audit gate — real, shipped, security-relevant work — but no bullet
+      here ever named the branch. Found by the new `check-backlog-checkoffs`
+      gate's first real run against this corpus, not by inspection. Closing
+      it here rather than leaving the gate red on its own first day.
+      _Source: `scripts/check-backlog-checkoffs.mjs`, 2026-08-06 —
+      `reports/2026-08-04.md`'s own "Items worked on" table names the branch
+      and PR; this bullet is the missing `[x]`._
+      _(2026-08-04, team/2026-08-04-undici-advisories, merged as PR #101.
+      See `reports/2026-08-04.md` for the full incident — five new `undici`
+      advisories published against `undici < 7.29.0`, reached via
+      `jsdom@29.1.1 → undici`, turned `main`'s audit gate red; fixed via a
+      version override, no code change.)_
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
@@ -2225,6 +2289,44 @@ reports surface work worth doing — but never reorder Dom's edits.
 - **Decisions made** and why
 - **For Dom to review** — the branch, plus any open questions
 - **Learnings** — anything blog-worthy: surprises, failures, costs, wins
+
+### "Items worked on" table — Files produced/changed column (proposed 2026-08-06, pending Dom's sign-off — see below)
+
+**Dom checkpoint, per the backlog item this answers** ("Give the 'Items
+worked on' table a files-produced column"): this changes the run report
+format, so it is documented here for ratification, not declared binding the
+way §13/§14 below are. Once agreed, every "Items worked on" table row states
+its item, branch, the files it produced/changed, and its PR **in one row**:
+
+```
+| Item | Branch | Files produced/changed | PR |
+|---|---|---|---|
+| Backlog checkoff gate | `team/2026-08-06-report-contract` | `scripts/check-backlog-checkoffs.mjs`, `scripts/check-backlog-checkoffs.test.ts`, `scripts/check-backlog-checkoffs.d.mts`, `BACKLOG.md` | [#NNN](…) |
+```
+
+**Empirically verified, not assumed** (per the backlog item's own instruction
+to check rather than claim): a row in this shape needs **zero code change**
+to `scripts/check-report-claims.mjs`'s existing extractor —
+`extractClaims`/`splitIntoScanBlocks` already treats one markdown table row
+as one scan block, and a row naming this branch already had its
+backtick-quoted paths pulled out (`check-report-claims.test.ts`'s "table row
+naming this branch scopes extraction" case predates this item). **One real
+bug WAS found and fixed while verifying this**, so the claim is not
+unconditionally true: `PATH_TOKEN_RE`'s final path segment forbade a dot in
+the name part, so `scripts/x.mjs` matched but `scripts/x.test.ts` and
+`scripts/x.d.mts` silently did not — meaning a Files-produced cell listing
+this repo's own normal deliverable shape (a script plus its `.test.ts` and
+`.d.mts` siblings) would have dropped two of the three paths. Fixed by
+widening the name-part character class to allow interior dots (see that
+file's own header, "COMPOUND EXTENSIONS", for the false-positive analysis
+proving this doesn't reopen the contrast-ratio/timing/semver false-positive
+class the extension whitelist exists to block). With that one-line fix, the
+row shape above extracts all four paths correctly (regression test:
+`check-report-claims.test.ts`, "THE FILES-PRODUCED-COLUMN EMPIRICAL CHECK").
+
+Not retrofitted onto the 23 existing reports — this is a going-forward
+convention for new reports once Dom ratifies it, same as this repo's other
+report-format changes (§13/§14 below were adopted the same way, forward-only).
 
 ### Provenance blocks (binding since 2026-07-23 — see `docs/provenance-model.md`)
 

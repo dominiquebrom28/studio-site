@@ -42,6 +42,18 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
   job's own header comment in `ci.yml`): Playwright against `dist/` at
   375/768/1280. On failure, uploads the `playwright-report` artifact
   (HTML report + trace).
+- **`backlog-checkoffs`** (runs on every PR, **not required** — deliberately,
+  see the job's own header comment in `ci.yml`): does every branch a MERGED
+  run report's "Items worked on" table names actually get checked off
+  (`[x]`) in `BACKLOG.md`? `npm run check:backlog-checkoffs`
+  (`scripts/check-backlog-checkoffs.mjs`) to run by hand — needs `gh`
+  authenticated against this repo (no other setup). Its FIRST real run found
+  a genuine, live gap (`team/2026-08-04-undici-advisories`, PR #101 — a real
+  security fix `BACKLOG.md` never cited by branch name; fixed alongside this
+  script shipping, not hidden), which is exactly why it isn't wired required
+  yet: a gate with no track record of staying green for the right reasons
+  should not block merges on day one. Promote it once it's run clean across
+  real PR traffic, same path `validate:content` took.
 
 **A red check posts a PR comment automatically** (the `notify-on-failure`
 job, `ci.yml`) naming which job failed and the exact `gh run download`
