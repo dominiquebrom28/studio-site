@@ -2687,6 +2687,33 @@ nothing compares a report's claims against its own diff.
       585/585, typecheck, lint and `validate:content` results are from **local**
       runs, which is the only reason the work is verified at all._
 
+### Added 2026-08-09 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **LOW — `check-report-claims` recorded its first false positive, and the
+      shape it fires on is the one bookkeeping reports keep producing.** The gate
+      treats "a text block containing my own branch string" as a claim about my
+      own branch, and fails if a path in that block is not in the diff. On this
+      branch it fired on `reports/2026-08-08.md`, where the block was:
+      "`.github/workflows/ci.yml` triggers on `pull_request:` filtered to
+      `branches: [main]`. This PR's base is `team/2026-08-07-backlog-and-report`,
+      so it matches no trigger" — a **citation** of the workflow file explaining
+      why a stacked PR ran no gates, in a sentence that mentions the branch as a
+      PR *base*. The report never claimed to have edited `ci.yml`, and did not.
+      Fixed on 2026-08-09 by splitting that block into two paragraphs, which is
+      a real fix (the checker's unit is one paragraph, so the split makes the
+      structural signal match what the prose actually asserts) but also a fix
+      nobody would find without reading the checker's source. **This is not an
+      argument to widen the extraction** — that file's header argues at length
+      against exactly that, and the argument still holds. It is an argument that
+      the failure output should teach the reader the paragraph rule: the message
+      offers only "the report is wrong" or "the change is missing", and the
+      third and actual case — "this is a citation, and the branch name in the
+      same paragraph is what pulled it in" — is not among them. Cheapest fix is
+      a third bullet in the `Fix:` block naming the paragraph rule; nothing else
+      changes. _Source: 2026-08-09 run — hit while making PR #117 green, the
+      first time this gate has fired on a report in review rather than on a real
+      drift._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
