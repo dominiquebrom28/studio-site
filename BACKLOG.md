@@ -2714,6 +2714,34 @@ nothing compares a report's claims against its own diff.
       first time this gate has fired on a report in review rather than on a real
       drift._
 
+### Added 2026-08-10 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — The ≤6 review throttle is enforced by one of the two tasks that
+      open PRs, so it cannot hold the queue.** `studio-site-build` checks the
+      open-PR count and declines to build when it is over ~6 — it did exactly
+      that on 2026-08-10, and in effect on 2026-08-09 too. `daily-logbook`
+      (21:30) opens a PR **every day unconditionally**: it has no view of the
+      review queue and no throttle of its own. Measured across those two runs:
+      the build task shipped **zero** new feature PRs and the queue still went
+      **6 → 7**, because #121 landed overnight. Three of the seven PRs open at
+      2026-08-10 run start were logbook posts (#118, #120, #121). A throttle on
+      one producer is not a throttle on the system; the current design lets the
+      disciplined task starve itself while the undisciplined one sets the queue
+      depth. Options, cheapest first: (a) `daily-logbook` checks the open-PR
+      count and, when over throttle, appends the post to the existing logbook
+      branch instead of opening a new PR — same content, one PR per batch
+      rather than per day; (b) logbook posts get the `safe-auto` label so they
+      never consume a review slot (depends on the auto-merge question above);
+      (c) logbook PRs are excluded from the throttle count on the grounds that
+      reviewing a blog post is not the same cost as reviewing a diff — which is
+      arguably true and would want Dom to say so explicitly. **This is a
+      process change to a task Dom owns, so it is a question, not a task the
+      studio should action unilaterally** — same posture as the auto-merge item
+      above, and it should probably be answered at the same time as it, since
+      (b) collapses both into one decision. _Source: Project Lead, 2026-08-10 —
+      measured on this run's own queue state, not inferred; see
+      `reports/2026-08-10.md`._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
