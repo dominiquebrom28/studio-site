@@ -210,6 +210,13 @@
     "kind": "run-report"
   },
   {
+    "runId": "2026-08-10",
+    "reportPath": "reports/2026-08-10.md",
+    "title": "Run report — 2026-08-10",
+    "date": "2026-08-10",
+    "kind": "run-report"
+  },
+  {
     "runId": "maintenance-2026-07-20",
     "reportPath": "reports/maintenance-2026-07-20.md",
     "title": "Maintenance sweep — 2026-07-20",
