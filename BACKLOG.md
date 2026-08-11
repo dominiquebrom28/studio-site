@@ -2154,7 +2154,7 @@ nothing compares a report's claims against its own diff.
       Playwright (49 pre-existing + 15 new), axe clean on both pages. Named
       residual gap: a 0-or-1-phase process block is trivially passed by a
       consecutive-pair loop; no current content has that shape.)_
-- [ ] **MEDIUM — Nothing checks that a run's shipped lanes get checked off in
+- [x] **MEDIUM — Nothing checks that a run's shipped lanes get checked off in
       `BACKLOG.md`, and it just failed for the fifth time.** PR #100
       (2026-08-04) added five new backlog items and closed one, but **never
       checked off the three lanes that run shipped** — PRs #97, #98 and #99 all
@@ -2206,6 +2206,27 @@ nothing compares a report's claims against its own diff.
       `check-stranded-branches.mjs`'s own header: a brand-new check with no
       track record must not block merges on day one. Promote to required
       once it has run green for a while, same path `validate:content` took.)_
+      _(**CHECKED OFF 2026-08-11** — the note above says "awaiting Dom, left
+      unchecked", and that was correct while PR #110 was open. **PR #110 merged
+      2026-08-07** (`a98ec4a`; `scripts/check-backlog-checkoffs.mjs` is on
+      `main` and its `backlog-checkoffs` job runs on every PR in the current
+      queue), so the box has been owed for four days. **This is the sixth
+      instance of the exact lag this item is about, on this item.** The
+      2026-08-10 run found it, verified it against `main`'s own history, set the
+      Notion row to Done and — per the mirror's "flag, don't silently fix" rule
+      — flagged rather than edited the backlog; the flag is the record, and this
+      is the edit it was waiting for. Worth stating what that sequence means for
+      the item's own thesis: the gate it shipped **cannot** catch this, because
+      the gate only fails when a merged branch is cited nowhere in `BACKLOG.md`,
+      and this branch was cited — inside its own still-`[ ]` bullet. That is the
+      "softer shape" the note above already predicted and deliberately declined
+      to fail on. Declining was defensible; the cost is now measured at four
+      days on the item that exists to measure it. Whether that second shape
+      should become a failure — "a merged branch cited ONLY inside an unchecked
+      item" — is a real design question and is deliberately NOT actioned here,
+      because the note's own reasoning (it is structurally indistinguishable
+      from a legitimate multi-PR epic, of which this repo currently has two) has
+      not changed.)_
 - [ ] **LOW — Two small pieces of genuinely stranded work, found by the new
       stranded-branch check.** Both verified absent from `main`, both needing a
       one-line Dom decision rather than work: (a) `claude/first-backlog-item-agvn1h`
@@ -2741,6 +2762,86 @@ nothing compares a report's claims against its own diff.
       (b) collapses both into one decision. _Source: Project Lead, 2026-08-10 —
       measured on this run's own queue state, not inferred; see
       `reports/2026-08-10.md`._
+
+### Added 2026-08-11 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Two PRs that are each green against `main` can merge into a
+      defect neither of them contains, and nothing checks the combination.**
+      Concrete, reproduced this run, not hypothetical. PR #117 replaced a
+      snapshot assertion in `scripts/check-backlog-checkoffs.test.ts`
+      (`expect(result.referencedButOpen).toHaveLength(1)`) with a shape-based
+      one, because the snapshot had gone red on 2026-08-08 at length 3 on
+      healthy repo growth. PR #116 independently **moved that whole block** into
+      the new `scripts/check-backlog-checkoffs.real-corpus.test.ts` as part of
+      making the default `npm test` hermetic — and carried the **pre-fix**
+      assertion across with it. The two therefore conflict, and the natural
+      resolution (take #116's side, since #116 owns the file split) silently
+      reinstates the known-red snapshot. Real transcript from the merged tree:
+      `expected [ { …(4) }, { …(4) }, { …(4) } ] to have a length of 1 but got 3`.
+      **No gate in this repo can see this.** Both PRs are based on `main`, so
+      both run full CI and both are green — this is a *different* mechanism from
+      the "stacked PRs run no CI at all" item above (that one is about PRs based
+      on other `team/*` branches matching no `ci.yml` trigger; these are based on
+      `main` and do run every check). The general shape: **when PR A *moves*
+      code that PR B *fixes*, git resolves the text and loses the intent**, and
+      the only artifact that would show it is a tree neither PR's CI ever
+      builds. Found only by merging all nine open PRs locally and running the
+      full suite — about 15 minutes by hand. Options, cheapest first: (a) a
+      queue-integration CI job that merges every open green PR and runs the full
+      suite, reporting which pair conflicts; (b) require branches to be
+      up-to-date with `main` before merge (GitHub branch-protection setting —
+      catches nothing here, because the offender is another *open* PR, not
+      `main`; noted so it is not mistaken for a fix); (c) accept it and keep
+      doing the manual pre-merge integration run whenever the queue exceeds ~3
+      PRs that touch overlapping files. **The specific instance is already
+      fixed** — the corrected assertion was ported onto #116's branch this run
+      (commit `1b7a17b`), so the queue is safe to merge in any order; this item
+      is about the class. _Source: Project Lead, 2026-08-11 — reproduced red on
+      the merged tree, then green after the port._
+- [ ] **LOW — A real-corpus assertion pinned to `BACKLOG.md` content is a
+      snapshot that ordinary backlog growth turns red.** The assertion above
+      (`referencedButOpen` having exactly length 1) was not wrong when written:
+      `referencedButOpen` is *derived from `BACKLOG.md`*, and on #116's branch,
+      which carries `main`'s backlog, the real count genuinely **is** 1 —
+      verified by running `npm run check:backlog-checkoffs` there. It becomes 3
+      only once #117's `BACKLOG.md` lands. That is worth naming as its own
+      hazard: a "real corpus" test is only as stable as the corpus, and this
+      corpus is a file every run edits. The count assertion is now shape-based,
+      so the immediate case is closed; the open question is whether any *other*
+      real-corpus assertion in `scripts/*.real-corpus.test.ts` is pinned to a
+      value that normal repo activity moves. Worth one pass over that lane
+      asking, per assertion, "what repo activity makes this red without anything
+      being wrong?" _Source: 2026-08-11 run — found while falsifying the fix
+      above, when the falsification **failed to fail** on #116's branch alone
+      and the reason turned out to be legitimate rather than a weak test._
+
+- [ ] **MEDIUM — `check-backlog-checkoffs` treats a passing *mention* of a
+      branch as a check-off, so closing one item can silently uncover another.**
+      Measured this run, as a side effect of checking off the shipped-lanes item
+      above. Before: the gate reported **3** `referencedButOpen` notes
+      (`team/2026-08-04-runs-api` #98, `team/2026-08-06-report-contract` #110,
+      `team/2026-08-06-stranded-records` #108). After one check-off: **1**. Two
+      notes disappeared, but only one item was closed. The extra one is
+      `runs-api`, whose genuine home is the still-`[ ]` "No on-site surface for
+      the run reports" epic — it stopped being reported because the item I
+      checked off happens to *discuss* `team/2026-08-04-runs-api` in its prose,
+      and `scripts/check-backlog-checkoffs.mjs` matches with
+      `block.text.includes(branch)` then `if (block.checked) return 'checked'`.
+      Any mention inside any `[x]` bullet counts, including a narrative aside in
+      a completely unrelated item. The consequence is the quiet kind: PR #98's
+      real multi-PR-epic status is now **invisible** to the gate, and it was
+      hidden by an edit that had nothing to do with it. This repo's backlog is
+      unusually prose-heavy and routinely names other branches when explaining a
+      decision, so the collision rate will only grow. Not urgent — the gate's
+      hard failure (`unreferenced`) is unaffected, and this only degrades the
+      advisory note — but the note is the half that catches the "softer shape"
+      the gate's own header says it is deliberately not failing on, so losing it
+      silently is worse than never having had it. Cheapest fix: require the
+      branch mention to sit in a bullet that also *claims* it (e.g. inside the
+      trailing `_( … )_` provenance note), or scope matching to the bullet whose
+      item the report row names, rather than any bullet in the file. _Source:
+      Project Lead, 2026-08-11 — found by diffing the gate's own output before
+      and after a one-checkbox edit, not by reading its source._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
