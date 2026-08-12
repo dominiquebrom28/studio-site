@@ -2154,7 +2154,7 @@ nothing compares a report's claims against its own diff.
       Playwright (49 pre-existing + 15 new), axe clean on both pages. Named
       residual gap: a 0-or-1-phase process block is trivially passed by a
       consecutive-pair loop; no current content has that shape.)_
-- [x] **MEDIUM — Nothing checks that a run's shipped lanes get checked off in
+- [ ] **MEDIUM — Nothing checks that a run's shipped lanes get checked off in
       `BACKLOG.md`, and it just failed for the fifth time.** PR #100
       (2026-08-04) added five new backlog items and closed one, but **never
       checked off the three lanes that run shipped** — PRs #97, #98 and #99 all
@@ -2294,7 +2294,7 @@ nothing compares a report's claims against its own diff.
 
 ### Added 2026-08-06 (impact-ranked; slot above "Pre-launch review")
 
-- [x] **HIGH — A finished blog post sat UNCOMMITTED in the shared checkout,
+- [ ] **HIGH — A finished blog post sat UNCOMMITTED in the shared checkout,
       and no check can see that class of loss.** Run-start found
       `content/posts/2026-08-05-the-post-said-it-was-fixed.md` untracked in the
       working tree at
@@ -2316,35 +2316,7 @@ nothing compares a report's claims against its own diff.
       two scheduled tasks share this one checkout, so the file was left by a
       *different* task than the one that found it. _Source: Project Lead,
       2026-08-06 run start — observed, not hypothetical._
-      _(2026-08-07, team/2026-08-07-gate-and-doc-truth, PR #116 — awaiting Dom.
-      `scripts/check-clean-checkout.mjs` (+ `.test.ts`, `.d.mts`, `npm run
-      check:clean-checkout`): asserts `git status --porcelain=v1
-      --untracked-files=all` is empty in the **shared checkout**, and escalates
-      untracked `content/`/`reports/` paths as possible stranded work rather
-      than lumping them in with scratch files. **The load-bearing design
-      decision is which tree it looks at.** Agent sessions normally run from a
-      linked worktree under `.claude/worktrees/`, each with its own working
-      tree, so a naive "the checkout this script lives in" default would have
-      reported a confident *clean* while the shared checkout sat dirty — which
-      is precisely the incident, since the lost file was left by a *different*
-      scheduled task sharing that one checkout. Resolved via `git rev-parse
-      --git-common-dir`, which returns the main checkout's `.git` from any
-      worktree, so it is correct without special-casing worktrees at all;
-      overridable by `CHECK_CLEAN_CHECKOUT_REPO_ROOT` for tests. Wired as a
-      **run-playbook step, deliberately NOT a CI gate** — CI cannot see an
-      uncommitted file *by construction* (`actions/checkout` fetches a ref;
-      a ref has nothing uncommitted in it), the same local-only class as the
-      `npm install` drift trap. Falsified for real rather than by unit test
-      alone: the 2026-08-05 incident was reconstructed in a scratch clone and
-      the check went **RED, exit 1**, green again after the commit.
-      **And it caught one live, at this run's own start** — a stale, still-
-      untracked copy of
-      `content/posts/2026-08-05-the-post-said-it-was-fixed.md` was sitting in
-      the shared checkout and blocked the fast-forward. It was byte-identical to
-      the version PR #108 already merged, so nothing was lost this time; the
-      point is that the human-eyeball step that would have noticed is exactly
-      what this check replaces. Second sighting of the same file in two days.)_
-- [x] **MEDIUM — Three tests in the default `npm test` now require network +
+- [ ] **MEDIUM — Three tests in the default `npm test` now require network +
       an authenticated `gh`, and the first CI run proved how that fails.**
       `scripts/check-backlog-checkoffs.test.ts`'s real-corpus block shells out
       to real `gh` on purpose — the gate's ground truth is "does GitHub
@@ -2354,54 +2326,15 @@ nothing compares a report's claims against its own diff.
       while the identical command passed on every dev machine with a keyring
       login. Fixed in that PR two ways (token on the step; skip-only-when-not-
       CI, hard-fail under CI so a missing token can never downgrade them to
-      silent no-ops). **The open question is the design, not the bug:**
-      ~~this is the first time this repo's default gate depends on the network
-      and on a GitHub session~~ — **FALSE, corrected 2026-08-07: it was the
-      SECOND time, by one day.** `scripts/check-stranded-branches.test.ts`
-      (PR #106, 2026-08-05) shipped a real-`gh`, real-network corpus block of
-      its own, and this item simply did not know about it. The correction is
-      left in place rather than deleted because the wrong premise is what made
-      the first fix half a fix (see the check-off note). The rest of the item
-      stands: a default gate depending on the network and on a GitHub session
-      makes `npm test` slower, flakier, and unavailable to a contributor
-      without `gh`. Worth deciding deliberately — keep them in
+      silent no-ops). **The open question is the design, not the bug:** this is
+      the first time this repo's default gate depends on the network and on a
+      GitHub session, which makes `npm test` slower, flakier, and unavailable
+      to a contributor without `gh`. Worth deciding deliberately — keep them in
       `npm test`, move them to their own opt-in script alongside the
       `backlog-checkoffs` job, or accept the dependency and document it. _Source:
       Project Lead, 2026-08-06 — the environment-shaped verification lesson
       from PR #103 landing in a new place._
-      _(2026-08-07, team/2026-08-07-gate-and-doc-truth, PR #116 — awaiting Dom.
-      Decision: **move them out.** Both real-corpus blocks now live in
-      `*.real-corpus.test.ts` files run by `npm run test:real-corpus`
-      (`vitest.real-corpus.config.ts`), excluded from the default sweep, and
-      still executed on **every PR** by the `backlog-checkoffs` job — the one
-      job that already carries `GH_TOKEN` and an existing `gh`-dependent step
-      for the identical reason. The skip-outside-CI / hard-fail-under-CI guard
-      from PR #110 is preserved verbatim in both files, so this can never
-      quietly become "moved, and now runs nowhere". **Three things worth keeping
-      from how this went, none of which the item asked for.** (1) **The item's
-      own premise was false** — see the strike-through above; corrected in
-      place, not deleted. (2) **The first pass was worse than doing nothing
-      uniformly:** it moved only the three tests this item named and left the
-      sibling's identical real-`gh` block sitting in `npm test`, so the default
-      suite would still have needed a GitHub session — an inconsistency strictly
-      worse than either uniform answer, and worse still because
-      `vitest.config.ts`'s `exclude` list is the map a future run reads to learn
-      what touches the network. Caught in lead review; both are moved now.
-      (3) **The move would have silently broken the check in CI:** the
-      `backlog-checkoffs` job checked out at `actions/checkout`'s default —
-      single-branch, depth 1 — while `check-stranded-branches` scans
-      `git for-each-ref refs/remotes/origin/team refs/remotes/origin/claude`,
-      which in that clone sees **1** ref against **119** in a full one. The
-      check returned `inconclusive` / `0 scanned`: green, and covering nothing.
-      Found by measuring both clones rather than reasoning about it; fixed with
-      `fetch-depth: 0`, and the superseded "no fetch-depth needed" comment
-      rewritten rather than left to mislead the next reader. **Method note for
-      the next hermeticity claim: `GH_TOKEN=` proves nothing** — `gh` falls back
-      to the local keyring, so a blanked token still authenticates on any dev
-      machine. That was the lead's own first check and it was worthless;
-      removing `gh` from `PATH` is the real test, and it is what surfaced the
-      leftover block.)_
-- [x] **LOW — The `e2e` lane is Chromium-only and nothing says so out loud.**
+- [ ] **LOW — The `e2e` lane is Chromium-only and nothing says so out loud.**
       Every real-browser gate this project has built — contrast, overflow,
       reading-order, perf-budget, and now timeline-overlap — runs against
       Chromium alone. That is a defensible scope decision (it is where the
@@ -2413,19 +2346,6 @@ nothing compares a report's claims against its own diff.
       it. Cheap either way; the point is that the boundary should be a
       decision, not an accident. _Source: qa-tester, 2026-08-06 timeline-overlap
       lane — flagged as an inherited scope decision rather than one it made._
-      _(2026-08-07, team/2026-08-07-gate-and-doc-truth, PR #116 — awaiting Dom.
-      Closed as **written down, not widened**: the limitation is now stated in
-      `README.md`'s CI-gates section, where a reader of a green `e2e` check will
-      actually meet it, rather than being inferable only from
-      `playwright.config.ts`. Firefox/WebKit projects were **deliberately not
-      added** — that is a cost decision with no evidence behind it either way
-      (every measured browser bug in this project's history was found in
-      Chromium), and spending CI minutes to make a boundary look wider is not
-      the same as covering it. The undecided half is logged separately as its
-      own LOW item under "Added 2026-08-07" below, so closing this one does not
-      quietly close that one too.)_
-### Added 2026-08-06
-
 - [x] **LOW — Five `undici` advisories fixed on 2026-08-04 were never
       referenced by branch name in `BACKLOG.md`.** `team/2026-08-04-undici-
       advisories` (PR #101, merged same day) bumped `undici` past the

@@ -30,6 +30,14 @@ function setLinkTag(rel: string, href: string) {
   el.setAttribute('href', href);
 }
 
+function removeMetaTag(name: string, attr: 'name' | 'property' = 'name') {
+  document.head.querySelector(`meta[${attr}="${name}"]`)?.remove();
+}
+
+function removeLinkTag(rel: string) {
+  document.head.querySelector(`link[rel="${rel}"]`)?.remove();
+}
+
 /** Resolves a root-relative or already-absolute URL against the current
  * origin — mirrors the `SITE_URL` fallback in
  * `scripts/generate-seo-files.mjs`, but computed at runtime from
@@ -52,12 +60,29 @@ export function Seo({
   title,
   description,
   image = DEFAULT_OG_IMAGE,
+  noindex = false,
 }: {
   title: string;
   description: string;
   /** Root-relative (e.g. `/og-default.png`) or absolute image URL. Defaults
    * to the site-wide social-share image. */
   image?: string;
+  /**
+   * Marks the page as non-indexable (`<meta name="robots" content="noindex">`)
+   * and skips setting a canonical link — used for pages that don't have a
+   * "real" canonical URL, e.g. `NotFound`, whose canonical would otherwise be
+   * whatever arbitrary, possibly spammy path the visitor requested (the SPA
+   * rewrite in `vercel.json` returns 200 for any path).
+   *
+   * This component mutates `document.head` imperatively and reuses tags by
+   * selector across renders rather than removing them on unmount, so a
+   * `noindex` page's tags MUST be explicitly reversed here on the next
+   * `Seo` render (i.e. a route change to a real page) — otherwise a stray
+   * `noindex` meta tag or a missing canonical would silently leak onto a
+   * real, indexable route. See `Seo.test.tsx` for the explicit
+   * noindex → real-page transition test.
+   */
+  noindex?: boolean;
 }) {
   useEffect(() => {
     const fullTitle = title.includes(SITE_NAME) ? title : `${title} — ${SITE_NAME}`;
@@ -73,8 +98,15 @@ export function Seo({
     setMetaTag('og:image', absoluteImage, 'property');
     setMetaTag('twitter:card', 'summary_large_image');
     setMetaTag('twitter:image', absoluteImage);
-    setLinkTag('canonical', canonicalUrl);
-  }, [title, description, image]);
+
+    if (noindex) {
+      setMetaTag('robots', 'noindex');
+      removeLinkTag('canonical');
+    } else {
+      removeMetaTag('robots');
+      setLinkTag('canonical', canonicalUrl);
+    }
+  }, [title, description, image, noindex]);
 
   return null;
 }

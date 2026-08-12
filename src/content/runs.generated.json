@@ -189,41 +189,6 @@
     "kind": "run-report"
   },
   {
-    "runId": "2026-08-07",
-    "reportPath": "reports/2026-08-07.md",
-    "title": "Run report — 2026-08-07",
-    "date": "2026-08-07",
-    "kind": "run-report"
-  },
-  {
-    "runId": "2026-08-08",
-    "reportPath": "reports/2026-08-08.md",
-    "title": "Run report — 2026-08-08",
-    "date": "2026-08-08",
-    "kind": "run-report"
-  },
-  {
-    "runId": "2026-08-09",
-    "reportPath": "reports/2026-08-09.md",
-    "title": "Run report — 2026-08-09",
-    "date": "2026-08-09",
-    "kind": "run-report"
-  },
-  {
-    "runId": "2026-08-10",
-    "reportPath": "reports/2026-08-10.md",
-    "title": "Run report — 2026-08-10",
-    "date": "2026-08-10",
-    "kind": "run-report"
-  },
-  {
-    "runId": "2026-08-11",
-    "reportPath": "reports/2026-08-11.md",
-    "title": "Run report — 2026-08-11",
-    "date": "2026-08-11",
-    "kind": "run-report"
-  },
-  {
     "runId": "maintenance-2026-07-20",
     "reportPath": "reports/maintenance-2026-07-20.md",
     "title": "Maintenance sweep — 2026-07-20",
