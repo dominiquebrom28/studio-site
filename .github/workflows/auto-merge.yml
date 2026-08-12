@@ -84,12 +84,35 @@ jobs:
           UNSAFE_FILE: ${{ runner.temp }}/unsafe-files.txt
         run: |
           set -euo pipefail
+
+          # Disarm first. `gh pr merge --auto` is sticky repo-side state: if
+          # an earlier commit on this PR was safe and armed auto-merge, then
+          # a later commit introduced an unsafe path, removing the
+          # `safe-auto` label alone does NOT cancel the still-armed
+          # auto-merge — GitHub will squash-merge the unreviewed commit the
+          # moment CI goes green. `--disable-auto` exits non-zero when the PR
+          # never had auto-merge armed in the first place (the common case:
+          # most PRs that touch an unsafe path never got labeled `safe-auto`
+          # at all), which is an expected outcome, not a failure. Capture the
+          # exit code explicitly instead of a blanket `|| true` so the step
+          # stays fail-safe (label removal and the comment below always run)
+          # while a genuine `gh` failure (auth, API outage) is still visible
+          # in the log rather than being silently swallowed.
+          disable_status=0
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --disable-auto || disable_status=$?
+          if [ "$disable_status" -ne 0 ]; then
+            echo "note: 'gh pr merge --disable-auto' exited $disable_status — PR most likely had no auto-merge armed. Continuing."
+          else
+            echo "Auto-merge disarmed for PR #$PR_NUMBER."
+          fi
+
           {
-            echo "The \`safe-auto\` label was removed because this PR touches files outside the safe-auto allowlist:"
+            echo "The \`safe-auto\` label was removed and auto-merge disarmed because this PR touches files outside the safe-auto allowlist:"
             echo
-            echo '```'
-            cat "$UNSAFE_FILE"
-            echo '```'
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              echo "    $f"
+            done < "$UNSAFE_FILE"
             echo
             echo "Allowlist: \`content/**\`, \`docs/**\`, \`reports/**\`, root-level \`*.md\`, \`**/*.test.ts\`, \`**/*.test.tsx\`, \`src/content/*.generated.json\`."
             echo "This PR needs a human review and manual merge."

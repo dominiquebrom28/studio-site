@@ -1472,7 +1472,7 @@ site whose provenance device is still decorative.
       **Note for Dom:** this makes `git commit` run node on report-bearing
       commits — opt-out per commit via `--no-verify`, but a conscious call, same
       class as PR #86's repo-local git config note.)_
-- [ ] **MEDIUM — Nothing measures whether anyone reads this site.**
+- [x] **MEDIUM — Nothing measures whether anyone reads this site.**
       PROJECT-BRIEF goal 2 wants readers; there is no analytics of any kind, so
       every prioritisation decision about content is made blind — the
       reports-surface spec had to note that "ship it and see if people click" is
@@ -1485,6 +1485,35 @@ site whose provenance device is still decorative.
       hosted Plausible/Umami, or server-side-only log analysis with zero client
       JS. _Source: named product gap; found 2026-07-30 while specifying the
       reports surface. Recommend costing before building._
+      _(2026-08-06, team/2026-08-06-analytics-costing, PR #109 — awaiting Dom.
+      `docs/analytics-options.md`. **Nothing installed**, per the item's own
+      "recommendation, not an install" instruction: no dependency, no client
+      code, no `vercel.json` edit. Recommends **Vercel Web Analytics**, with a
+      preview-deploy check as a hard prerequisite. **The CSP analysis is what
+      decides it, and it was done against the tree rather than from memory:**
+      `script-src` is hash-pinned to a single sha256 with no `'unsafe-inline'`
+      and `connect-src` is `'self'`, so a third-party analytics script is
+      refused twice — on load and on beacon. Vercel WA needs **zero** CSP
+      change (same-origin script + beacon, and an *external* `<script src>`,
+      so no new inline hash). Three constraints found that a casual reading
+      misses: the two hash guards bake `toHaveLength(1)` into four assertions
+      across two suites, so any second inline script is half a day's careful
+      work on the repo's most delicate test, not a one-liner; **`img-src
+      'self'` kills the classic zero-JS tracking pixel** (blocked by the
+      *image* directive, not the script one); and a Plausible proxy's rewrite
+      entries must precede the SPA catch-all or it silently serves
+      `index.html` as `text/html` with a 200. **Zero-JS was taken seriously
+      and fails structurally** — this is a `createBrowserRouter` SPA, so a
+      whole browsing session is ONE server request, and server logs therefore
+      cannot answer "which posts get read", the exact question the item
+      exists to answer; on Hobby, logs live 1 hour and drains are Pro-only,
+      so the "cheap" option costs more and answers less. Every price carries
+      a source; figures not corroborated from the vendor's own domain are
+      marked **"not verified"** rather than recalled — including **which plan
+      this project is even on**, which gates several others. Ten open
+      decisions for Dom, including the legitimate "don't measure at all" (D1)
+      and whether defeating readers' ad-blockers via a first-party proxy is
+      acceptable on an honesty-branded site (D4).)_
 - [x] **HIGH — A run cannot record its own provenance until its PRs merge (and
       2026-07-30's three blocks are outstanding because of it).** Undocumented
       ordering constraint in the provenance format, hit for the first time on
@@ -2000,7 +2029,7 @@ nothing compares a report's claims against its own diff.
 
 ### Added 2026-08-05 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — Desktop `BuildTimeline` phase captions overlap on
+- [x] **HIGH — Desktop `BuildTimeline` phase captions overlap on
       `/projects/mensapp` and `/projects/studio-site`, and a published post says
       this was fixed.** `content/posts/2026-07-19-three-tries-at-the-same-overlap.md`
       is live (`draft: false`) and describes the captions leaving absolute
@@ -2028,6 +2057,40 @@ nothing compares a report's claims against its own diff.
       class has escaped a green suite four times. _Source: 2026-08-05 run —
       found by architect during the tail assessment, then measured by
       visual-media rather than trusted._
+      _(2026-08-06, team/2026-08-06-timeline-overlap, PR #111 — awaiting Dom.
+      Ported and gated. The rule keeps every commit-scaffold detail and gains
+      a small numbered marker per phase; the narratives moved into an `<ol>`
+      in normal document flow beneath it. Root cause restated as arithmetic
+      rather than bad luck: `w-56` (224px) fixed-width boxes anchored to a
+      date axis inside a **720px** column, with 5 phases averaging ~180px
+      apart, cannot not overlap — which is also why the six 2–3-phase pages
+      were always clean. `numberPhasesChronologically` ported into
+      `src/lib/timeline.ts` as pure DOM-free logic; §2.2 amended for real
+      this time. **This item's own instruction was wrong, and measuring
+      caught it.** It said to skip the tail's `CommitLog` commit because that
+      bug measured as absent on `main` (~404px clearance) — but that reading
+      was taken against UNPORTED `main`, where the old `pt-[22rem] pb-[22rem]`
+      caption padding was incidentally supplying the clearance. Remove the
+      captions and it goes too: measured in real Chromium at 1280px against
+      built `dist/`, the last `<li>` sat at **exactly 0px** from the
+      `<details>` commit log on **all six** project pages. Fixed with `mb-6`
+      on the layout container (spacing belongs to the container, not the leaf
+      disclosure) rather than porting the commit; re-measured at 24px.
+      **The gate the item asked for shipped**: `e2e/timeline-overlap.spec.ts`,
+      15 tests, routes discovered from `content/projects/*.md` frontmatter
+      mirroring `ProjectDetail.tsx`'s own branch logic so a future clustered
+      project is covered without a list edit. Built deliberately against the
+      vacuous-pass failure this repo has shipped twice: it asserts a real
+      `<ol>` exists and `<li>` count > 0 BEFORE measuring, and
+      chart-token-playground asserts both zero timeline nodes AND that the
+      page rendered real content, so "found nothing because correct" can
+      never be confused with "found nothing because broken". Four
+      falsifications, all red then reverted, **none failed to fail** —
+      including stashing the entire component fix, which fires the
+      zero-elements guard on the real historical shape. 549 unit + 64/64
+      Playwright (49 pre-existing + 15 new), axe clean on both pages. Named
+      residual gap: a 0-or-1-phase process block is trivially passed by a
+      consecutive-pair loop; no current content has that shape.)_
 - [ ] **MEDIUM — Nothing checks that a run's shipped lanes get checked off in
       `BACKLOG.md`, and it just failed for the fifth time.** PR #100
       (2026-08-04) added five new backlog items and closed one, but **never
@@ -2094,6 +2157,19 @@ nothing compares a report's claims against its own diff.
       protect, missing for 15 days. Land either, both, or neither, then the five
       confirmed-redundant refs can be swept. _Source: 2026-08-05 run, lead
       triage of the nine branches PR #106's check surfaced._
+      _(**HALF DONE 2026-08-06** — stays open for (a). (b) **landed** in
+      team/2026-08-06-stranded-records, PR #109's sibling PR #108: the 07-20
+      addendum is restored, with a dated in-file note rather than smoothed
+      into the prose. **Only the addendum hunk was taken, and that mattered** —
+      the stranded branch predates the 2026-07-27 provenance backfill at the
+      foot of that report, so applying its diff wholesale (or merging the
+      branch) would have **silently deleted that `yaml provenance` block**,
+      the exact mechanism logged HIGH on 2026-08-02 and gated by
+      `check-merge-revert.mjs`. (a) — the 23-line `## Notion backlog mirror`
+      section on `claude/first-backlog-item-agvn1h` — is untouched and still
+      needs Dom's one-line call, since "genuinely redundant now that the rule
+      lives in the scheduled task's own instructions" is a judgement, not a
+      fact.)_
 - [ ] **LOW — The Notion mirror has no completeness check: an item can exist in
       `BACKLOG.md` with no row at all.** The 2026-08-05 reconciliation found the
       HIGH stale-`runs.generated.json` item had been added to `BACKLOG.md` by
@@ -2107,6 +2183,19 @@ nothing compares a report's claims against its own diff.
       orphans on each side, rather than iterating `BACKLOG.md` alone. _Source:
       Project Lead, 2026-08-05 Notion reconciliation — observed, not
       hypothetical._
+      _(**More evidence, 2026-08-06 — and the cheap version of the fix already
+      pays.** This run's sync did the set comparison by hand: 28 unchecked
+      items ↔ 28 non-Done rows matched exactly (**zero status drift, a
+      first**), but the totals did not — **64 Done rows against 63 `[x]`
+      items**. The orphan is the row "The 'QA pass' item is stale and should be
+      re-scoped or closed", whose substance was folded into the QA-pass item's
+      closing note on 2026-08-01 while its own checkbox disappeared from
+      `BACKLOG.md` entirely. Harmless (both are done) but it is the third
+      demonstrated direction of this gap: row-without-item, after
+      item-without-row (2026-08-05) and finding-only-in-Notion (2026-07-31).
+      Flagged, **not fixed** — the mirror is one-way, so deleting a Notion row
+      to make the counts agree is exactly the silent reconciliation the rule
+      forbids.)_
 - [ ] **LOW — `buildMode` / the team-rebuild model is parked as superseded.**
       Not abandoned: superseded by `soloBuild` (shipped 2026-07-24), which
       solves the same reader-facing problem for the projects that exist today.
@@ -2119,8 +2208,60 @@ nothing compares a report's claims against its own diff.
       `docs/buildmode-tail-assessment.md` §4. Do not re-derive either.
       _Source: 2026-08-05 tail assessment (PR #105) §5b._
 
-### Added 2026-08-06
+### Added 2026-08-06 (impact-ranked; slot above "Pre-launch review")
 
+- [ ] **HIGH — A finished blog post sat UNCOMMITTED in the shared checkout,
+      and no check can see that class of loss.** Run-start found
+      `content/posts/2026-08-05-the-post-said-it-was-fixed.md` untracked in the
+      working tree at
+      `/Users/doom/Documents/VibeCodeProjects/studio-site`: a complete,
+      `draft: false`, publish-ready 28-line post from the **2026-08-05
+      daily-logbook run**, whose branch `team/2026-08-05-logbook` has **zero
+      commits**. That session wrote the post and ended before committing it.
+      It survived only because nobody ran `git clean`, and it was landed in
+      PR #108. **This is a sixth distinct work-goes-missing mechanism, and the
+      first that is not a branch at all.** PR #106's stranded-branch check
+      enumerates *branches*; PR #103's merge-revert check compares *commits*;
+      both are structurally blind to a file that was never added. The fix is
+      cheap and belongs to the run playbook rather than CI (CI never sees an
+      uncommitted file **by construction** — this is the same class as the
+      `npm install` drift item, a local-only trap CI cannot catch): assert
+      `git status --porcelain` is empty at run start, and treat any untracked
+      `content/` or `reports/` file as a finding to triage before doing
+      anything else. Note the aggravating factor already logged separately:
+      two scheduled tasks share this one checkout, so the file was left by a
+      *different* task than the one that found it. _Source: Project Lead,
+      2026-08-06 run start — observed, not hypothetical._
+- [ ] **MEDIUM — Three tests in the default `npm test` now require network +
+      an authenticated `gh`, and the first CI run proved how that fails.**
+      `scripts/check-backlog-checkoffs.test.ts`'s real-corpus block shells out
+      to real `gh` on purpose — the gate's ground truth is "does GitHub
+      actually consider this PR merged", and mocking that proves nothing about
+      the part most likely to break. But `gh` refuses to run inside Actions
+      without `GH_TOKEN`, so PR #110's first CI run failed the `build` job
+      while the identical command passed on every dev machine with a keyring
+      login. Fixed in that PR two ways (token on the step; skip-only-when-not-
+      CI, hard-fail under CI so a missing token can never downgrade them to
+      silent no-ops). **The open question is the design, not the bug:** this is
+      the first time this repo's default gate depends on the network and on a
+      GitHub session, which makes `npm test` slower, flakier, and unavailable
+      to a contributor without `gh`. Worth deciding deliberately — keep them in
+      `npm test`, move them to their own opt-in script alongside the
+      `backlog-checkoffs` job, or accept the dependency and document it. _Source:
+      Project Lead, 2026-08-06 — the environment-shaped verification lesson
+      from PR #103 landing in a new place._
+- [ ] **LOW — The `e2e` lane is Chromium-only and nothing says so out loud.**
+      Every real-browser gate this project has built — contrast, overflow,
+      reading-order, perf-budget, and now timeline-overlap — runs against
+      Chromium alone. That is a defensible scope decision (it is where the
+      measured bugs were), but it is currently implicit in
+      `playwright.config.ts` rather than stated, so each new spec silently
+      inherits it and the coverage boundary is invisible on a green check.
+      Either add WebKit/Firefox projects for the layout-measuring specs, or
+      write the limitation down where a reader of a green `e2e` check will see
+      it. Cheap either way; the point is that the boundary should be a
+      decision, not an accident. _Source: qa-tester, 2026-08-06 timeline-overlap
+      lane — flagged as an inherited scope decision rather than one it made._
 - [x] **LOW — Five `undici` advisories fixed on 2026-08-04 were never
       referenced by branch name in `BACKLOG.md`.** `team/2026-08-04-undici-
       advisories` (PR #101, merged same day) bumped `undici` past the

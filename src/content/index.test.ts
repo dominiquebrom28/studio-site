@@ -109,6 +109,18 @@ describe('content loader — real repo content', () => {
     }
   });
 
+  it('the homepage 3-up "Recent builds" grid leads with studio-site (order: 0) — the one team-built project, the proof behind the hero\'s AI-team claim — ahead of the solo-built projects', () => {
+    // Pre-launch review fix 4: before this, `studio-site.md` was
+    // `featured: false` with no `order` (sorts last, effectively invisible),
+    // so the homepage showed three cards all stamped SOLO BUILD directly
+    // under a hero claiming an AI team builds this software, and the one
+    // project that proves that claim was absent. Pinned against the real
+    // committed content (not synthetic fixtures) so a future content edit
+    // that regresses this is caught here.
+    const top3 = getFeaturedProjects(3);
+    expect(top3.map((p) => p.slug)).toEqual(['studio-site', 'soulforge', 'portfolio']);
+  });
+
   it('getLatestPosts respects the limit argument', () => {
     const latest = getLatestPosts(1);
     expect(latest.length).toBeLessThanOrEqual(1);
