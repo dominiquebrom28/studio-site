@@ -33,10 +33,51 @@
  * failing gets disabled").
  *
  * SCOPE — WHICH TABLE ROWS COUNT AS A CLAIM (read this before touching the
- * regexes below). Only a table whose HEADER ROW contains a column starting
- * with "branch" (case-insensitive; matches "Branch" and "Branch / target")
- * **and** a column literally "PR" (case-insensitive) is scanned. Both are
- * required, deliberately:
+ * regexes below). Only a table whose HEADER ROW contains a column literally
+ * "Item" (case-insensitive) **and** a column starting with "branch"
+ * (case-insensitive; matches "Branch" and "Branch / target") **and** a column
+ * literally "PR" (case-insensitive) is scanned. All three are required,
+ * deliberately:
+ *   - "ITEM" IS THE DISCRIMINATOR, and it is what makes this a shape match
+ *     rather than a shape GUESS — added 2026-08-13 after a real false
+ *     positive, described below. The documented input contract (BACKLOG.md,
+ *     "'Items worked on' table — Files produced/changed column") is
+ *     `| Item | Branch | Files produced/changed | PR |`. "Branch" and "PR"
+ *     alone are two column names that OTHER kinds of table legitimately
+ *     share; "Item" is the one that actually says "each row here is a unit of
+ *     work this run is claiming credit for", which is the only claim this
+ *     gate is entitled to act on.
+ *
+ *     THE FALSE POSITIVE, precisely: `reports/2026-08-11.md:80` carries a
+ *     "Verified merge plan for Dom" table — `| # | PR | Branch | Result |` —
+ *     a merge-ORDER rehearsal of EIGHT OTHER PRs, simulated in a throwaway
+ *     clone, explicitly recording that nothing was pushed and no PR merged.
+ *     It is a citation of other people's queued work, the exact "cites a
+ *     branch belonging to another lane" shape `check-report-claims.mjs`'s
+ *     header spends forty lines refusing to misread. Matching on branch+PR
+ *     only, this gate read that rehearsal as a ledger of shipped lanes and
+ *     demanded `BACKLOG.md` check-offs for `team/2026-08-07-logbook` and
+ *     `team/2026-08-08-logbook` the moment PRs #118/#120 merged. Daily
+ *     logbook posts have no backlog item and never will — there was no
+ *     honest `[x]` to add, so the only ways out were to invent backlog
+ *     bookkeeping (precisely the falsehood this gate exists to catch) or to
+ *     reshape a true, already-written report to fit a gate's guess. Requiring
+ *     the column the contract already specifies is neither.
+ *
+ *     NOT A RELAXATION — MEASURED, NOT ASSUMED. Swept every markdown table in
+ *     all 35 `reports/*.md` and diffed the old condition against the new one.
+ *     OLD matched 11 tables / 43 branch rows; NEW matches 10 tables / 35 rows.
+ *     The ONE dropped table is the merge-plan rehearsal above (all 8 rows).
+ *     Every genuine items-worked-on table survives, across all three shapes
+ *     the corpus actually uses — `| Item | Branch | PR |` (2026-08-02, -04,
+ *     -05), `| # | Item | Branch | PR |` (2026-08-01, note the leading
+ *     `#` column), and `| Item | Branch | Files produced/changed | PR |`
+ *     (2026-08-06 through 2026-08-11, the current contract). Zero real items
+ *     tables in the corpus lack an "Item" header, so this costs no coverage
+ *     of the PR #97/#98/#99 incident this gate was built for. Pinned in both
+ *     directions by `check-backlog-checkoffs.test.ts` ("THE MERGE-PLAN TABLE
+ *     FALSIFICATION"), so a future widening of this condition cannot silently
+ *     re-admit the rehearsal table.
  *   - A "branch"-only column with no "PR" column shows up in this repo's
  *     real corpus for RETROSPECTIVE/DIAGNOSTIC tables, not shipped-lane
  *     ledgers — `reports/2026-07-31.md` and `reports/2026-08-03.md` both use
@@ -277,14 +318,14 @@ export function extractItemRows(reportContent) {
       const branchIdx = headerCells.findIndex((c) => c.startsWith('branch'));
       const prIdx = headerCells.findIndex((c) => c === 'pr');
       const itemIdx = headerCells.findIndex((c) => c === 'item');
-      if (branchIdx !== -1 && prIdx !== -1) {
+      if (branchIdx !== -1 && prIdx !== -1 && itemIdx !== -1) {
         for (const rowLine of block.slice(2)) {
           const cells = splitTableRow(rowLine);
           const branchCell = cells[branchIdx] ?? '';
           const m = BRANCH_TOKEN_RE.exec(branchCell);
           if (!m) continue;
           rows.push({
-            item: itemIdx !== -1 ? (cells[itemIdx] ?? '') : '',
+            item: cells[itemIdx] ?? '',
             branch: m[1],
             prCell: cells[prIdx] ?? '',
           });

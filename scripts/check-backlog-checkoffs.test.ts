@@ -124,7 +124,7 @@ function prRecord(overrides: Partial<{ number: number; state: PrState; headRefNa
 
 // ---------------------------------------------------------------------------
 
-describe('extractItemRows — the "Branch AND PR column both present" scope narrowing', () => {
+describe('extractItemRows — the "Item AND Branch AND PR columns all present" scope narrowing', () => {
   it('extracts item/branch/PR-cell from a canonical `| Item | Branch | PR |` table', () => {
     const report = [
       '## Items worked on',
@@ -144,6 +144,59 @@ describe('extractItemRows — the "Branch AND PR column both present" scope narr
   it('handles a `| # | Item | Branch | PR |` table (extra leading column) the same way', () => {
     const report = ['| # | Item | Branch | PR |', '|---|---|---|---|', '| 1 | Thing | `team/2026-08-01-thing` | [#84](https://x/84) |', ''].join('\n');
     expect(extractItemRows(report)).toEqual([{ item: 'Thing', branch: 'team/2026-08-01-thing', prCell: '[#84](https://x/84)' }]);
+  });
+
+  // -------------------------------------------------------------------------
+  // THE MERGE-PLAN TABLE FALSIFICATION (2026-08-13)
+  //
+  // Both directions of the "Item" discriminator, pinned together on purpose:
+  // this gate's worst failure mode is silently covering LESS, so the negative
+  // case is worthless without the positive one nailed down beside it.
+  //
+  // The real false positive: `reports/2026-08-11.md:80` is a "Verified merge
+  // plan for Dom" table — a merge-ORDER rehearsal of eight OTHER PRs run in a
+  // throwaway clone, which the report itself says shipped nothing. Matching on
+  // Branch+PR alone read it as a ledger of lanes THIS run shipped and demanded
+  // BACKLOG.md check-offs for `team/2026-08-07-logbook` / `-08-08-logbook` as
+  // soon as PRs #118/#120 merged. Daily logbook posts have no backlog item and
+  // never will, so there was no honest `[x]` to add. The rows below are copied
+  // verbatim from that report.
+  // -------------------------------------------------------------------------
+  it('does NOT scan a `| # | PR | Branch | Result |` merge-PLAN table — no "Item" column, so it is a rehearsal of other lanes, not a claim (the real `reports/2026-08-11.md:80` false positive)', () => {
+    const report = [
+      '## Verified merge plan for Dom',
+      '',
+      'Simulated in a throwaway clone. **Nothing was pushed to `main` and no PR was merged.**',
+      '',
+      '| # | PR | Branch | Result |',
+      '|---|---|---|---|',
+      '| 1 | [#118](https://x/118) | `team/2026-08-07-logbook` | clean |',
+      '| 2 | [#120](https://x/120) | `team/2026-08-08-logbook` | clean |',
+      '| 8 | [#116](https://x/116) | `team/2026-08-07-gate-and-doc-truth` | clean **after the fix pushed this run** |',
+      '',
+    ].join('\n');
+    expect(extractItemRows(report)).toEqual([]);
+  });
+
+  it('DOES scan the current-contract `| Item | Branch | Files produced/changed | PR |` shape — the positive half of the same fix (real `reports/2026-08-11.md:244`)', () => {
+    const report = [
+      '## Items worked on',
+      '',
+      '| Item | Branch | Files produced/changed | PR |',
+      '|---|---|---|---|',
+      '| Pre-merge queue integration | `team/2026-08-07-gate-and-doc-truth` | `scripts/x.test.ts` | [#116](https://x/116) |',
+      '| Run report, backlog check-off | `team/2026-08-07-backlog-and-report` | `reports/2026-08-11.md` | [#117](https://x/117) |',
+      '',
+    ].join('\n');
+    expect(extractItemRows(report)).toEqual([
+      { item: 'Pre-merge queue integration', branch: 'team/2026-08-07-gate-and-doc-truth', prCell: '[#116](https://x/116)' },
+      { item: 'Run report, backlog check-off', branch: 'team/2026-08-07-backlog-and-report', prCell: '[#117](https://x/117)' },
+    ]);
+  });
+
+  it('does NOT scan a Branch+PR table that merely OMITS "Item", even in an otherwise items-shaped report — the discriminator is the header, not the surrounding heading', () => {
+    const report = ['## Items worked on', '', '| Lane | Branch | PR |', '|---|---|---|', '| Thing | `team/2026-08-01-thing` | [#84](https://x/84) |', ''].join('\n');
+    expect(extractItemRows(report)).toEqual([]);
   });
 
   it('does NOT scan a "Branch"-only table with no "PR" column (the real `reports/2026-07-31.md` / `2026-08-03.md` "Work | Branch / target" shape)', () => {
