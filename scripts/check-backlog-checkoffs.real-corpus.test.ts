@@ -184,9 +184,18 @@ describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BAC
     // `check-backlog-checkoffs.test.ts` owns that, with a fake `ghRunner`, so
     // weakening this one does not leave the behaviour uncovered.
     //
-    // The mention-matching behaviour is tracked as its own MEDIUM item in
-    // BACKLOG.md ("treats a passing mention of a branch as a check-off"). If it
-    // is fixed, a specific pin becomes safe again and should come back.
+    // The mention-matching behaviour is a real, unfixed defect in
+    // `classifyBranchAgainstBacklog` (`check-backlog-checkoffs.mjs` — it takes
+    // the FIRST `[x]` block whose text merely `includes(branch)`). If it is
+    // fixed, a specific pin becomes safe again and should come back.
+    //
+    // This comment previously claimed the defect was "tracked as its own MEDIUM
+    // item in BACKLOG.md" — it was not; no such item existed when that line was
+    // written, which made it the third lying doc comment on a PR titled "…and
+    // two docs that lied". Corrected 2026-08-13 rather than back-filled: the
+    // item is being logged on the bookkeeping branch, and pointing this comment
+    // at an item that does not exist YET would repeat the same mistake in the
+    // opposite tense. Describe the defect here; let BACKLOG.md own tracking it.
     for (const entry of result.referencedButOpen) {
       expect(entry).toMatchObject({
         report: expect.stringMatching(/^reports\/.+\.md$/),
