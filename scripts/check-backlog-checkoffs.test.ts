@@ -23,6 +23,35 @@ import {
 // test in THIS file uses a fake `ghRunner` and a throwaway fixture — no
 // network, no `gh` session, nothing environment-dependent — so `npm test`
 // stays hermetic and works for a contributor with no `gh` login at all.
+//
+// DO NOT LET A MERGE PUT THAT BLOCK BACK. It has already happened once, and
+// the shape of it is worth knowing because git resolves it SILENTLY, with no
+// conflict markers:
+//   - this branch (2142989) DELETED the `describe('… real corpus …')` block
+//     from this file, taking its `REPO_ROOT` / `realGh` / `itRealCorpus`
+//     helpers and its `node:child_process` + `node:url` imports with it;
+//   - `main`, meanwhile, MODIFIED that same block (PR #117's
+//     `referencedButOpen` fix) and still has no real-corpus file at all;
+//   - the `main` merge (ea05490) hit delete-on-one-side/modify-on-the-other
+//     and kept main's modified copy of the BLOCK, while keeping this side's
+//     deletion of the IMPORTS and helpers around it.
+// Result: a `describe` block referring to three symbols that no longer exist
+// here, `npm run typecheck` red with TS2304/TS2552 (`itRealCorpus`,
+// `REPO_ROOT`, `realGh`), and PR #116 unmergeable from 2026-08-07 until
+// 2026-08-13. Nothing in the merge output said a word about it — the file
+// merged "cleanly".
+//
+// So if a future `main` merge resurrects that block here: delete it again,
+// do NOT re-add the helpers. The copy in
+// `check-backlog-checkoffs.real-corpus.test.ts` is the live one and is
+// strictly newer — it drops the `team/2026-08-04-runs-api` pin on purpose
+// (`classify()` returns 'checked' on the first `[x]` block whose text merely
+// `includes(branch)`, so an unrelated check-off silently un-reports that
+// epic), and it has PR #108's branch name right (`team/2026-08-06-stranded-
+// records`, verified against `gh pr view 108`) where the resurrected copy
+// said `2026-08-05`. Re-adding the old block therefore also reinstates two
+// known-wrong things. The tombstone at the bottom of this file marks the
+// exact spot the block keeps coming back to.
 
 const tempDirs: string[] = [];
 afterEach(() => {
@@ -369,78 +398,16 @@ describe('checkBacklogCheckoffs — end to end, fake ghRunner + fixture files', 
 });
 
 // ---------------------------------------------------------------------------
-
-/**
- * Real corpus regression — REAL `gh` (this repo's actual PR history) against
- * the REAL `reports/*.md` + `BACKLOG.md` as committed on this branch. This is
- * the falsification the task requires: run for real, does the gate find
- * exactly what this task's own investigation found — no more, no less?
- *
- * THE RED->GREEN TRANSCRIPT (not just asserted, reproduced): before this
- * branch's own `BACKLOG.md` edit, `node scripts/check-backlog-checkoffs.mjs`
- * against this exact corpus printed:
- *   `[check-backlog-checkoffs] VIOLATION — 1 merged branch(es) never
- *   referenced in BACKLOG.md ... - ... \`team/2026-08-04-undici-advisories\`
- *   (reports/2026-08-04.md, PR cell: [#101](.../pull/101))`
- * — the exact PR #100-shaped incident this gate exists to catch, found on
- * its own very first real run, not injected. This branch's `BACKLOG.md` adds
- * the missing `[x]` (see "Added 2026-08-06" there) rather than leaving the
- * gate red on day one; the test below asserts the now-clean result. The
- * violation-detection path itself is separately proven red by the synthetic
- * "THE PR #100 FALSIFICATION FIXTURE" test above (fake `ghRunner`, isolated
- * from this fix), so this fix is not what's "protecting" that coverage.
- */
-describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BACKLOG.md + real `gh pr list`)', () => {
-  itRealCorpus('is CLEAN, and every referencedButOpen note is a real multi-PR epic (incl. `team/2026-08-04-runs-api`, PR #98)', () => {
-    const result = checkBacklogCheckoffs({ repoRoot: REPO_ROOT });
-
-    if (result.status === 'inconclusive') {
-      throw new Error(`real-corpus check came back inconclusive (gh unavailable in this environment?): ${result.reason}`);
-    }
-
-    expect(result.status).toBe('clean');
-    expect(result.unreferenced).toEqual([]);
-
-    // The gate's ACTUAL condition is `unreferenced` being empty, asserted above.
-    // `referencedButOpen` is an advisory note the gate never fails on, and it
-    // grows by one every time a merged lane is cited inside a legitimate still-
-    // open multi-PR epic — normal repo evolution, not a regression.
-    //
-    // This originally pinned `toHaveLength(1)`. That snapshot went red on
-    // 2026-08-08 at length 3, with both new entries (`team/2026-08-06-report-
-    // contract` PR #110, `team/2026-08-05-stranded-records` PR #108) being
-    // exactly the healthy case the note exists to describe. A test that fails
-    // when nothing is wrong trains people to re-run until green, which is the
-    // precise failure mode the smoke-flake item in BACKLOG.md argues is worse
-    // than no gate at all. So: assert the KNOWN epic is still reported, and
-    // assert the shape of every entry — not the count.
-    expect(result.referencedButOpen).toContainEqual(
-      expect.objectContaining({ report: 'reports/2026-08-04.md', branch: 'team/2026-08-04-runs-api' }),
-    );
-    for (const entry of result.referencedButOpen) {
-      expect(entry).toMatchObject({
-        report: expect.stringMatching(/^reports\/.+\.md$/),
-        branch: expect.stringMatching(/^(team|claude)\//),
-      });
-    }
-  });
-
-  itRealCorpus('control: a genuinely closed lane from the real corpus (`team/2026-08-05-stranded-branches`, PR #106) is neither unreferenced nor referencedButOpen', () => {
-    const result = checkBacklogCheckoffs({ repoRoot: REPO_ROOT });
-    if (result.status === 'inconclusive') return; // covered by the test above
-    const branches = [...result.unreferenced, ...result.referencedButOpen].map((f) => f.branch);
-    expect(branches).not.toContain('team/2026-08-05-stranded-branches');
-  });
-
-  itRealCorpus('sanity: `gh pr list` really does see PR #101 as MERGED (the ground truth this whole gate depends on, not assumed)', () => {
-    let raw: string;
-    try {
-      raw = realGh(['pr', 'view', '101', '--json', 'state,headRefName']);
-    } catch (error) {
-      throw new Error(`could not reach real gh in this environment: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    const pr = JSON.parse(raw);
-    expect(pr.state).toBe('MERGED');
-    expect(pr.headRefName).toBe('team/2026-08-04-undici-advisories');
-  });
-});
+//
+// TOMBSTONE — `describe('checkBacklogCheckoffs — real corpus …')` used to end
+// this file, and this is the line a `main` merge keeps trying to put it back
+// on. It is NOT missing and it is NOT deleted coverage: all three of its tests
+// live, in a newer and corrected form, in
+// `check-backlog-checkoffs.real-corpus.test.ts` (`npm run test:real-corpus`,
+// wired into ci.yml's `backlog-checkoffs` job, which carries the `GH_TOKEN`).
+// See this file's header comment for how the merge resurrects it without a
+// conflict marker, and why re-adding it also re-adds two known-wrong things.
+//
+// If you are here because typecheck says `Cannot find name 'itRealCorpus'` /
+// `'REPO_ROOT'` / `'realGh'`: a merge just resurrected the block. Delete it —
+// do not re-add the helpers.
