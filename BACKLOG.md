@@ -612,6 +612,15 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       confirming CI on PR #26; the skip prints loudly in the log but nothing
       surfaces it on the PR checks screen, which is exactly the
       "green-but-covering-nothing" pattern PR #20 itself was built to end._
+      _(**Second source, 2026-08-13:** the 2026-08-07 pre-launch review reached
+      the same item independently — `docs/pre-launch-review-2026-08-07.md` §2's
+      "Live-header verification + setting `SMOKE_URL`". Deduped into this item
+      rather than added twice. It adds one thing this item did not say: the URL
+      choice is itself the decision (prod vs a preview pattern), and setting it
+      makes CI depend on that deployment being reachable when the job runs. The
+      header-verification half of that bullet is its own new item below —
+      "Nothing has ever made an HTTP request to the live site" — because it
+      needs an assertion written, not just a variable set._
 - [x] **MEDIUM — Backfill the missing 2026-07-19 evening run record.** PR #25
       (project page v2 — six commits, a full redesign, shipped and merged
       same-day) has no `reports/` entry; the 07-19 report predates it. The
@@ -2346,6 +2355,11 @@ nothing compares a report's claims against its own diff.
       it. Cheap either way; the point is that the boundary should be a
       decision, not an accident. _Source: qa-tester, 2026-08-06 timeline-overlap
       lane — flagged as an inherited scope decision rather than one it made._
+      _(**Second source, 2026-08-13:** the 2026-08-07 pre-launch review reached
+      the same conclusion — its Notion row reads "Whether the e2e lane should
+      cover Firefox/WebKit is an unmade cost decision". Deduped into this item
+      rather than added twice. Two independent reviewers landing on "this is an
+      unmade decision, not a gap" is itself the argument for writing it down.)_
 - [x] **LOW — Five `undici` advisories fixed on 2026-08-04 were never
       referenced by branch name in `BACKLOG.md`.** `team/2026-08-04-undici-
       advisories` (PR #101, merged same day) bumped `undici` past the
@@ -2762,6 +2776,168 @@ nothing compares a report's claims against its own diff.
       item the report row names, rather than any bullet in the file. _Source:
       Project Lead, 2026-08-11 — found by diffing the gate's own output before
       and after a one-checkbox edit, not by reading its source._
+
+### Added 2026-08-13 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — The `react-router` allowlist entry's stated cost has expired: a
+      patch release now clears the advisory, and nothing re-checked.**
+      `audit-ci.jsonc`'s entry for GHSA-qwww-vcr4-c8h2 (written 2026-08-04)
+      justifies the deferral with "The 7.x line's latest (7.18.2) is still
+      INSIDE that range, so no patch release clears this on 7.x — only the 8.x
+      major does", and prices the fix as the ~28-file 8.x migration the
+      2026-08-03 sweep measured. **Both halves are now false against the live
+      advisory.** Verified this run: `npm audit --omit=dev --json` reports the
+      range as `>=7.12.0 <7.18.2` — it **narrowed**; the entry was written when
+      it read `<8.3.0` — `react-router@7.18.2` is published (`npm view
+      react-router versions`), `package.json` declares `react-router-dom:
+      ^7.18.1`, and npm's own output says "fix available via `npm audit fix`"
+      with no `--force`. So the remedy is an in-range patch bump, not a major
+      migration. The CI gate is green only because this entry suppresses the
+      finding. _Source: this run, reading today's CI log. It is the exact
+      failure mode `audit-ci.jsonc`'s own STANDING LESSON names — "an allowlist
+      entry justified by [a version claim] is only true against the advisory's
+      range AS IT READS TODAY" — written about a range that widened, and now
+      fired by one that narrowed, which is the case the lesson did not
+      anticipate. **Not done this run only because the PR queue was already at
+      7, over Dom's review throttle.** Top of the list: one lockfile bump, one
+      deleted allowlist entry, one test pass._
+
+- [ ] **HIGH — Two of the studio's own PRs sat red for six days and no run
+      noticed.** #116 (typecheck) and #117 (`check:report-claims`) went red on
+      2026-08-07. Every scheduled run since fast-forwarded `main`, reconciled
+      Notion, planned, and opened **more** PRs — without once asking whether the
+      queue it had already built was healthy. The red was surfaced correctly at
+      the PR: `notify-on-failure` (`ci.yml:480`) comments naming the failed
+      check and the artifact command, which is the item above at line 1695
+      working as designed. Nothing reads PR comments. This is the gap one level
+      out: the run-start preflight checks the checkout, dependency drift and
+      `main`, and never looks at the studio's own open work. The cost was not
+      abstract — the queue-unjam PR was itself jammed, and the throttle stayed
+      pinned at 7 for six days, blocking every new item. Fix: a preflight step
+      running `gh pr list --json number,statusCheckRollup,mergeStateStatus` over
+      the studio's own open PRs, reporting every red one **before** planning,
+      with "repair the queue" outranking "start new items". _Source: 2026-08-13
+      run — the first thing it did was look, and it found six-day-old red._
+
+- [ ] **HIGH — `check-merge-revert` is path-granular, so an intra-file merge
+      revert walks straight past it.** Demonstrated, not argued. On
+      `team/2026-08-07-gate-and-doc-truth` the in-branch `git merge main`
+      (`ea05490`) resurrected a `describe` block the branch had deliberately
+      **moved** to another file, without its helpers — six `TS2304`/`TS2552`
+      errors, PR red for six days. Running `node scripts/check-merge-revert.mjs`
+      on that exact branch prints `OK — … 14 path(s) touched by the branch's own
+      commits, all still present`, because the *file* is still in the net diff;
+      only a hunk inside it was reverted. The gate detects "the branch's edit to
+      path P vanished" and structurally cannot detect "the branch's edit to hunk
+      H inside surviving path P vanished" — PR #81's incident class, one level
+      down. The cleanest possible control ran the same morning: the sibling
+      branch `team/2026-08-07-backlog-and-report` took the path-granular version
+      of the same bad merge and the gate **did** catch it, naming both paths and
+      the merge commit. Fix options: compare per-hunk (expensive, noisy), or
+      cheaply flag any merge commit whose resolution differs from the branch's
+      pre-merge content on a path the branch itself had edited — which is what
+      the existing walk already computes, one granularity finer. _Source:
+      2026-08-13 run; both branches diagnosed the same morning._
+
+- [ ] **HIGH — CI gate ordering let the weaker gate mask the stronger one for
+      six days.** `check:report-claims` runs at `ci.yml:178` and
+      `check:merge-revert` at `ci.yml:205`; the job stops at the first red. So
+      PR #117 announced "a new report claims a path its own branch does not
+      touch" — sending readers hunting for a lying report — while
+      `check:merge-revert` sat four steps later holding the actual diagnosis,
+      naming both silently reverted paths and the merge commit that ate them.
+      The reports were never wrong. This is not a hypothetical ordering
+      preference: it cost six days and two runs' worth of misdirection, and the
+      repo already owns the better gate. Fix: order gates by diagnostic strength
+      (root-cause gates ahead of symptom gates), or run the cheap diagnostic
+      gates unconditionally and report them together rather than short-circuiting
+      at the first failure. _Source: qa-tester, 2026-08-13 run — found by running
+      the later gate by hand on the red branch._
+
+#### Pre-launch review deferrals — Notion rows that never had a BACKLOG.md item
+
+Found 2026-08-13 during the Notion reconciliation: rows created 2026-08-07 from
+`docs/pre-launch-review-2026-08-07.md` §2 ("Deferred to Dom as decisions") exist
+in the mirror with **no counterpart in this file**. Not an oversight by that run
+— its §7 says so out loud ("No BACKLOG.md edit — … that's a call for whoever
+owns that file's edit process"), and this is that call, six days late. The known
+mirror-completeness gap is logged in the other direction (an item with no row);
+this is the direction nobody checked. Sourced below from the merged review doc,
+never from Notion. Deduped rather than re-added: the review's live-header
+bullet folds into the existing `SMOKE_URL` item, its "curated Start here rail"
+bullet into the existing blog-entry-point item, and its Firefox/WebKit bullet
+into the existing Chromium-only item.
+
+- [ ] **MEDIUM — `*.test.ts` is on the `safe-auto` allowlist, and it is the one
+      member of that list that executes.** The allowlist treats any
+      `*.test.ts`/`*.test.tsx` path anywhere in the repo as safe to auto-merge,
+      while `.github/AUTO-MERGE-SETUP.md`'s "What `safe-auto` means" describes
+      the allowlist as "non-code" paths (content, docs, tests, reports). CI runs
+      `npm test`, so a test file is arbitrary code execution inside the runner,
+      not merely "changes app behaviour". Dom's decision, tradeoff stated:
+      dropping `*.test.ts` from the allowlist makes routine QA-authored test PRs
+      no longer auto-mergeable. Narrow in practice — the runner is isolated and
+      the lane is dormant per that review's Fix 1 — but the doc should stop
+      calling it non-code either way, which is free. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §2 (security-auditor)._
+
+- [ ] **MEDIUM — `img-src 'self'` contradicts the content schema, which permits
+      an external `cover` URL.** `vercel.json`'s CSP allows no external image
+      hosts; `cover: z.string().optional()` in `schemas.ts` imposes no
+      root-relative constraint. An external `cover` would validate cleanly at the
+      content layer and silently fail to load in production — a green build
+      carrying a broken page, which is this project's recurring shape. Decide one
+      direction: tighten the schema to require root-relative paths (matches the
+      CSP; blocks hotlinking a repo's own README image) or widen `img-src` to
+      named trusted hosts. _Source: `docs/pre-launch-review-2026-08-07.md` §2._
+
+- [ ] **MEDIUM — Nothing has ever made an HTTP request to the live site.** The
+      security-auditor had read-only file tools and said so: it did not run
+      `npm audit` (that pass ran it and found a real, then-unfixed CVE), did not
+      scan git history for secrets, and made no request to
+      `doms-ai-studio.vercel.app`. The review pass did not close the last two
+      either. So the six security headers shipped in PR #42 are verified only as
+      *config text in `vercel.json`* — no one has confirmed the deployed site
+      actually serves them, and `vercel.json` headers are unverifiable on the
+      Vite dev server by construction. Two cheap, separable jobs: a `curl -I`
+      assertion per header against the deployed URL (the natural home is the
+      `deployed-smoke` lane, which needs the `SMOKE_URL` item above), and a
+      one-off git-history secret scan. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §6/§7._
+
+- [ ] **LOW — `style-src 'unsafe-inline'` (scripts are hash-pinned; styles are
+      not).** `script-src` is `'self'` + sha256 with no `unsafe-inline`;
+      `style-src` still carries `'unsafe-inline'` because Tailwind and inline
+      `style={{…}}` props are used throughout (e.g. `Badge`'s `color-mix` tints).
+      Removing it needs per-style hashing or a nonce scheme — real engineering
+      against a style-only injection surface, lower severity than script
+      injection but not zero (CSS can exfiltrate via attribute selectors in some
+      browsers). Dom's call whether it is worth doing before launch. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §2._
+
+- [ ] **LOW — Draft posts may ship in the production bundle (code shape flagged,
+      bundle never inspected).** `filterVisiblePosts` filters drafts out of the
+      rendered `posts` array in JS, *after* `import.meta.glob` has already loaded
+      every post file — so a draft's raw markdown is plausibly present in the
+      shipped chunks even though no route or link reaches it. The reviewer was
+      explicit that this is the code shape that would produce it and **not a
+      confirmed finding**: nobody has grepped `dist/assets/*.js` for draft-only
+      content. That grep is the whole first step and takes minutes; only after it
+      is there a decision to make. Kept LOW deliberately — unreachable-but-present
+      draft prose on a logbook about building in the open is embarrassing, not
+      dangerous. _Source: `docs/pre-launch-review-2026-08-07.md` §2._
+
+- [ ] **LOW — The auto-merge guard's file list rests on `gh pr diff
+      --name-only`, which can truncate.** The guard step in
+      `.github/workflows/auto-merge.yml` enumerates changed files that way; if
+      `gh` truncates on a large diff the guard under-counts and a PR touching
+      unsafe paths could read as "safe" — a fail-open on the one control
+      standing between the label and an unreviewed merge. Named by the auditor
+      as a hypothesis **with its own verification command**, never run: compare
+      `gh pr diff --name-only` against `gh pr view --json files` (or paginated
+      `gh api …/files`) on a deliberately large synthetic PR. Until someone
+      runs it, the guard's completeness is assumed rather than known. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §2._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
