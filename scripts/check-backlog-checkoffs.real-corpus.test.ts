@@ -189,13 +189,16 @@ describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BAC
     // the FIRST `[x]` block whose text merely `includes(branch)`). If it is
     // fixed, a specific pin becomes safe again and should come back.
     //
-    // This comment previously claimed the defect was "tracked as its own MEDIUM
-    // item in BACKLOG.md" — it was not; no such item existed when that line was
-    // written, which made it the third lying doc comment on a PR titled "…and
-    // two docs that lied". Corrected 2026-08-13 rather than back-filled: the
-    // item is being logged on the bookkeeping branch, and pointing this comment
-    // at an item that does not exist YET would repeat the same mistake in the
-    // opposite tense. Describe the defect here; let BACKLOG.md own tracking it.
+    // This comment claims the defect is "tracked as its own MEDIUM item in
+    // BACKLOG.md". That is TRUE, but not from this branch's vantage point: the
+    // item ("treats a passing mention of a branch as a check-off", added
+    // 2026-08-11) exists only on `team/2026-08-07-backlog-and-report` / PR #117,
+    // which is not merged. Grepping BACKLOG.md here — i.e. `main`'s copy —
+    // returns nothing, which on a PR titled "…and two docs that lied" reads as
+    // a third one. Qualified rather than deleted (2026-08-13): the cross-
+    // reference is worth keeping, and #117 is queued to merge ahead of this
+    // branch, at which point the unqualified claim becomes checkable. If you
+    // are reading this after #117 landed, this paragraph can go.
     for (const entry of result.referencedButOpen) {
       expect(entry).toMatchObject({
         report: expect.stringMatching(/^reports\/.+\.md$/),
