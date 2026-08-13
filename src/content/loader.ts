@@ -36,11 +36,15 @@ const postFiles = import.meta.glob('/content/posts/*.md', {
 // `scripts/provenance/generate.mjs`, wired into the `predev`/`prebuild`/
 // `pretest` npm scripts (package.json) — by the time this module is
 // evaluated in any normal `npm run dev|build|test`, it already exists.
-// It is gitignored on purpose (§5.2: "the design removes the possibility
-// of drift rather than policing it"), which means there IS exactly one
-// real way it can be absent here: something ran Vite/Vitest directly,
-// bypassing every hook that regenerates it — a stale checkout, a broken CI
-// cache, or the file getting deleted mid-session.
+// It is COMMITTED on purpose as of the 2026-07-27 reversal (see .gitignore's
+// note on this file, and docs/provenance-model.md §5.2/§5.3: Vercel's
+// shallow-clone deploy build can't regenerate it from git history, so the
+// committed copy is its fallback, kept honest by CI's drift gate). It was
+// gitignored/regenerate-every-build before that date; this file predates the
+// reversal. Even committed, there is still exactly one real way it can be
+// absent here at import time: something ran Vite/Vitest directly, bypassing
+// every hook that regenerates it — a stale checkout, a broken CI cache, or
+// the file getting deleted mid-session.
 //
 // That "missing" case must NEVER be silently treated the same as an
 // EMPTY artifact (`{}` — today's real, honest, zero-records state; see
@@ -85,9 +89,10 @@ const PROVENANCE_ARTIFACT_PATH = '/src/content/provenance.generated.json';
  *    artifact is genuinely missing (§5.2's "generated artifact missing at
  *    import time" row).
  *  - present but Zod-rejects: defense in depth against a corrupted or
- *    hand-edited file. The artifact is generator-written and gitignored,
- *    but nothing at the loader layer enforces that nobody edited it
- *    locally, and `generate.mjs` already re-validates each record before
+ *    hand-edited file. The artifact is generator-written and committed
+ *    (see the file-header note above), but nothing at the loader layer
+ *    enforces that nobody edited it locally, and `generate.mjs` already
+ *    re-validates each record before
  *    writing — this is the same "never trust, always re-check at the
  *    consuming boundary" posture as every other Zod-validated input in
  *    this file.
