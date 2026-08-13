@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   checkBacklogCheckoffs,
   classifyBranchAgainstBacklog,
@@ -15,67 +13,45 @@ import {
   parseBacklogBlocks,
 } from './check-backlog-checkoffs.mjs';
 
-const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(DIRNAME, '..');
-
-/** Real `gh`/filesystem, used only by the "real corpus" describe block at
- * the bottom — the falsification evidence this task requires. Everything
- * else in this file uses a fake `ghRunner` and throwaway fixture files, same
- * split as `check-report-claims.test.ts` / `check-stranded-branches.test.ts`. */
-function realGh(args: string[]): string {
-  return execFileSync('gh', args, { cwd: REPO_ROOT, encoding: 'utf8' });
-}
-
-/**
- * Is a working, authenticated `gh` reachable from this environment?
- *
- * Probed once, because the three real-corpus tests below are the only ones
- * in this file that touch the network, and they must behave differently in
- * the two environments this suite genuinely runs in:
- *
- *   - a developer machine WITHOUT a `gh` login — skip, loudly. `npm test`
- *     is this repo's default gate and must not require a GitHub session to
- *     pass; the other ~30 tests in this file use a fake `ghRunner` and cover
- *     the logic completely on their own.
- *   - CI — must really run. `gh` refuses to work inside GitHub Actions
- *     without `GH_TOKEN`, so the first CI run of this file failed here while
- *     passing on every dev machine (2026-08-06, PR #110). `ci.yml` now sets
- *     that token on the `Test` step.
- *
- * The trap this guards is the second environment silently becoming the
- * first. A plain `it.skipIf` would turn a missing `GH_TOKEN` into three
- * quietly-skipped tests and a green check — precisely the
- * "green-but-covering-nothing" pattern this repo has now logged three times
- * (`deployed-smoke` skipping for weeks with no URL; a claims gate reading 2
- * claims across 23 reports; an artifact upload firing on unrelated
- * failures). So: skipping is allowed ONLY when `CI` is unset. Under CI an
- * unreachable `gh` is a hard failure with the fix in the message.
- */
-const GH_PROBE: { ok: boolean; reason: string } = (() => {
-  try {
-    realGh(['auth', 'status']);
-    return { ok: true, reason: '' };
-  } catch (error) {
-    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
-  }
-})();
-
-if (!GH_PROBE.ok) {
-  if (process.env.CI) {
-    throw new Error(
-      'check-backlog-checkoffs real-corpus tests cannot reach `gh`, and CI is set — refusing to skip them ' +
-        'into a false green. Set `GH_TOKEN: ${{ github.token }}` on the workflow step that runs `npm test`. ' +
-        `Underlying error: ${GH_PROBE.reason}`,
-    );
-  }
-  console.warn(
-    '[check-backlog-checkoffs.test] SKIPPING 3 real-corpus tests — no authenticated `gh` in this environment. ' +
-      'The fake-ghRunner tests still cover all logic. Run `gh auth login` to exercise the real-corpus path.',
-  );
-}
-
-/** Skips only outside CI — see `GH_PROBE`, which throws rather than skip under CI. */
-const itRealCorpus = GH_PROBE.ok ? it : it.skip;
+// NOTE: the real-corpus, network-and-`gh`-dependent tests that USED to live
+// at the bottom of this file now live in
+// `check-backlog-checkoffs.real-corpus.test.ts`, run via `npm run
+// test:real-corpus` (its own opt-in vitest config,
+// `vitest.real-corpus.config.ts`) rather than the default `npm test` sweep.
+// See that file's header comment for the full design rationale (this
+// project's own decision record for BACKLOG.md MEDIUM, 2026-08-06/07): every
+// test in THIS file uses a fake `ghRunner` and a throwaway fixture — no
+// network, no `gh` session, nothing environment-dependent — so `npm test`
+// stays hermetic and works for a contributor with no `gh` login at all.
+//
+// DO NOT LET A MERGE PUT THAT BLOCK BACK. It has already happened once, and
+// the shape of it is worth knowing because git resolves it SILENTLY, with no
+// conflict markers:
+//   - this branch (2142989) DELETED the `describe('… real corpus …')` block
+//     from this file, taking its `REPO_ROOT` / `realGh` / `itRealCorpus`
+//     helpers and its `node:child_process` + `node:url` imports with it;
+//   - `main`, meanwhile, MODIFIED that same block (PR #117's
+//     `referencedButOpen` fix) and still has no real-corpus file at all;
+//   - the `main` merge (ea05490) hit delete-on-one-side/modify-on-the-other
+//     and kept main's modified copy of the BLOCK, while keeping this side's
+//     deletion of the IMPORTS and helpers around it.
+// Result: a `describe` block referring to three symbols that no longer exist
+// here, `npm run typecheck` red with TS2304/TS2552 (`itRealCorpus`,
+// `REPO_ROOT`, `realGh`), and PR #116 unmergeable from 2026-08-07 until
+// 2026-08-13. Nothing in the merge output said a word about it — the file
+// merged "cleanly".
+//
+// So if a future `main` merge resurrects that block here: delete it again,
+// do NOT re-add the helpers. The copy in
+// `check-backlog-checkoffs.real-corpus.test.ts` is the live one and is
+// strictly newer — it drops the `team/2026-08-04-runs-api` pin on purpose
+// (`classify()` returns 'checked' on the first `[x]` block whose text merely
+// `includes(branch)`, so an unrelated check-off silently un-reports that
+// epic), and it has PR #108's branch name right (`team/2026-08-06-stranded-
+// records`, verified against `gh pr view 108`) where the resurrected copy
+// said `2026-08-05`. Re-adding the old block therefore also reinstates two
+// known-wrong things. The tombstone at the bottom of this file marks the
+// exact spot the block keeps coming back to.
 
 const tempDirs: string[] = [];
 afterEach(() => {
@@ -568,3 +544,16 @@ describe('checkBacklogCheckoffs — real corpus (this repo\'s actual reports/BAC
     expect(pr.headRefName).toBe('team/2026-08-04-undici-advisories');
   });
 });
+//
+// TOMBSTONE — `describe('checkBacklogCheckoffs — real corpus …')` used to end
+// this file, and this is the line a `main` merge keeps trying to put it back
+// on. It is NOT missing and it is NOT deleted coverage: all three of its tests
+// live, in a newer and corrected form, in
+// `check-backlog-checkoffs.real-corpus.test.ts` (`npm run test:real-corpus`,
+// wired into ci.yml's `backlog-checkoffs` job, which carries the `GH_TOKEN`).
+// See this file's header comment for how the merge resurrects it without a
+// conflict marker, and why re-adding it also re-adds two known-wrong things.
+//
+// If you are here because typecheck says `Cannot find name 'itRealCorpus'` /
+// `'REPO_ROOT'` / `'realGh'`: a merge just resurrected the block. Delete it —
+// do not re-add the helpers.

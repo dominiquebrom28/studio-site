@@ -41,7 +41,13 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
 - **`e2e`** (runs on every PR, **not required** — deliberately, see the
   job's own header comment in `ci.yml`): Playwright against `dist/` at
   375/768/1280. On failure, uploads the `playwright-report` artifact
-  (HTML report + trace).
+  (HTML report + trace). **Chromium only** (`playwright.config.ts`'s
+  `projects` list has a single `chromium` entry) — this lane covers
+  responsive layout, focus, and contrast bugs in Chromium's rendering only.
+  It does NOT catch a Firefox- or WebKit/Safari-specific regression (no
+  such lane runs anywhere in this repo's CI). That's a deliberate cost
+  tradeoff (`ci.yml`'s `e2e` job comment), not an oversight — revisit if a
+  bug ever ships that only reproduces in a non-Chromium browser.
 - **`backlog-checkoffs`** (runs on every PR, **not required** — deliberately,
   see the job's own header comment in `ci.yml`): does every branch a MERGED
   run report's "Items worked on" table names actually get checked off
@@ -53,7 +59,14 @@ on a schedule. See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for what this is and
   script shipping, not hidden), which is exactly why it isn't wired required
   yet: a gate with no track record of staying green for the right reasons
   should not block merges on day one. Promote it once it's run clean across
-  real PR traffic, same path `validate:content` took.
+  real PR traffic, same path `validate:content` took. This job also runs
+  `npm run test:real-corpus` — the three tests that assert
+  `check-backlog-checkoffs.mjs`'s behavior against this repo's REAL `gh pr`
+  history (moved out of the default `npm test`, BACKLOG.md MEDIUM,
+  2026-08-06/07, so `npm test` stays hermetic and needs no GitHub session —
+  see `scripts/check-backlog-checkoffs.real-corpus.test.ts`'s header for the
+  full design rationale). Run it by hand any time with `gh auth login`ed:
+  `npm run test:real-corpus`.
 
 **A red check posts a PR comment automatically** (the `notify-on-failure`
 job, `ci.yml`) naming which job failed and the exact `gh run download`
@@ -118,6 +131,55 @@ loudly, never silently — whether they agree:
 - If it can't determine an answer (no `node_modules` at all, unreadable
   `package.json`) it exits **inconclusive**, distinct from a clean pass —
   it never reports green when it didn't actually check anything.
+
+## Run-start preflight: is the shared checkout itself clean?
+
+**Run this FIRST, before anything else, at the start of every session:**
+
+```
+npm run check:clean-checkout
+```
+
+This is a **run-playbook step, not a CI gate** — CI structurally cannot see
+an uncommitted file (every job starts from a freshly `actions/checkout`'d
+ref, which has nothing uncommitted in it by definition), so this is not, and
+will never be, wired into `.github/workflows/ci.yml`.
+
+Exists because of a real incident (2026-08-05): a complete, `draft: false`,
+publish-ready post
+(`content/posts/2026-08-05-the-post-said-it-was-fixed.md`) sat **untracked**
+in the shared checkout — written by a session that ended before running
+`git add`/`git commit`. It survived purely by luck (nobody happened to run
+`git clean`) and was found, days later, by a *different* scheduled task
+sharing the same checkout. Every other check in this repo is structurally
+blind to this shape: `check:stranded-branches` enumerates branches (a file
+that was never `git add`ed has no ref at all); `check:merge-revert` /
+`check:report-claims` compare commits (an uncommitted file has no commit).
+
+`scripts/check-clean-checkout.mjs`:
+
+- Runs `git status --porcelain` against the **shared/main checkout**, not
+  whichever `git worktree` the command happens to be invoked from — an
+  agent session here normally runs from an isolated worktree
+  (`.claude/worktrees/<name>/`), and a stray file in ONE worktree isn't the
+  incident this guards against (that tree is disposable). It resolves the
+  shared checkout via `git rev-parse --git-common-dir`, which always
+  answers correctly regardless of which worktree it's run from. Override
+  with `CHECK_CLEAN_CHECKOUT_REPO_ROOT` if you deliberately want to check a
+  different tree.
+- **Escalates** anything untracked or modified under `content/` or
+  `reports/` — "possible stranded work — triage before proceeding" — since
+  that's exactly where a run's real deliverables (a post, a report) live. A
+  publish-ready `draft: false` post is precisely this shape.
+- Still reports (at lower severity, but still a non-zero exit) any other
+  dirt — the assertion is "the checkout is empty," not just "no
+  content/reports dirt."
+- Exits **inconclusive** (never a false "clean") if the checkout root can't
+  be resolved or `git status` itself fails.
+
+If it finds something: stop, `git status`/`git diff` by hand, and commit or
+otherwise rescue anything real before continuing with whatever the session
+was about to do.
 
 ## Review throttle: draft PRs, plus a backstop for branches that predate it
 
