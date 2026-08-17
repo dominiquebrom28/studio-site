@@ -2939,6 +2939,71 @@ into the existing Chromium-only item.
       runs it, the guard's completeness is assumed rather than known. _Source:
       `docs/pre-launch-review-2026-08-07.md` §2._
 
+### Added 2026-08-17 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Repo-level auto-merge is ON while branch protection is OFF, so
+      the lane may not be inert the way every doc here says it is.** Found by
+      devops during PR #128 and independently re-verified by the lead, both
+      commands run for real:
+      `gh api repos/dominiquebrom28/studio-site -q .allow_auto_merge` returns
+      **`true`**, while `gh api …/branches/main/protection` still returns
+      **404 "Branch not protected"**. Each fact is already logged separately;
+      **together they say something neither says alone.** Every document in
+      this repo describes the auto-merge lane as inert-but-safe on the grounds
+      that nobody applies the `safe-auto` label any more. But with repo-level
+      auto-merge enabled and **no required check to wait for**, arming
+      `gh pr merge --auto` today would most likely merge **immediately**
+      rather than fail to arm. So the thing actually holding the lane closed
+      is the labelling habit alone — not any mechanism, and not the reason the
+      docs give. **This is not a live incident**: no PR has carried the label
+      since 2026-07-18, and the path allowlist still gates which files
+      qualify. It is a statement that the *stated* reason for safety is not
+      the *operative* one. This is the missing third fact for the two open
+      HIGH items above (branch protection never configured; the lane works and
+      the studio stopped using it) and it strengthens their existing sequencing
+      rule: branch protection must be configured **before** the labelling habit
+      is ever resumed. **Honest limit on the claim:** the merge behaviour was
+      NOT observed on a real PR — it is derived from those two API responses
+      plus GitHub's documented auto-merge semantics, and should be confirmed
+      before anyone relies on it in either direction. Deliberately not fixed in
+      PR #128 (one concern per PR). _Source: devops + Project Lead,
+      2026-08-17._
+
+- [ ] **MEDIUM — A stranded bookkeeping PR causes duplicate work, and this run
+      measured it instead of predicting it.** The 2026-08-17 run dispatched a
+      lane to state the `e2e` lane's Chromium-only boundary — work **merged
+      PR #116 had already done** (`README.md` lines 44–50 say it plainly). The
+      backlog read `[ ]` only because the check-off was stranded in PR #117,
+      which sat open for ten days. Caught mid-flight during the Notion
+      reconciliation and the agent was redirected, so nothing shipped twice,
+      but the near-miss is the point: **for ten days `BACKLOG.md` on `main`
+      told every reader that finished work was unfinished.** The existing item
+      "Notion reconciliation rule assumes the previous run's bookkeeping PR has
+      merged" named this class; this is its first demonstrated instance, and it
+      shows the cost is not bookkeeping tidiness but wasted agent runs. Worth
+      deciding: should a run's FIRST step diff `main`'s `BACKLOG.md` against
+      open bookkeeping PRs and refuse to dispatch a lane for any item those PRs
+      already close? That is cheap and mechanical, unlike the general problem.
+      _Source: Project Lead, 2026-08-17 — observed on this run, not
+      hypothetical._
+
+- [ ] **LOW — The Notion reconciliation rule, applied literally, would have
+      destroyed more information than it healed.** The scheduled task says: for
+      each item in `BACKLOG.md`, unchecked `[ ]` → Notion "Not started". On
+      2026-08-17 the mirror held 115 rows against `main`'s 95 items, and
+      **seven "In progress" rows carried detailed notes on work that had
+      already merged** (PRs #108, #109, #110, #115, #116 among them). Every one
+      of those items is legitimately `[ ]` in `BACKLOG.md`. Flattening them to
+      "Not started" would have made the mirror *less* true than it was, erasing
+      the distinction between "not begun" and "shipped, awaiting Dom". The lead
+      declined to apply the rule and flagged it instead, per the standing
+      "disagree beyond status → tell Dom, don't silently fix either side"
+      guardrail — but the rule and the guardrail now visibly contradict each
+      other, and one of them should be amended. Suggested amendment: reconcile
+      `[x]` → Done unconditionally, but treat `[ ]` as "do not downgrade a row
+      that is In progress with a recorded branch". _Source: Project Lead,
+      2026-08-17 Notion reconciliation._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
