@@ -160,9 +160,18 @@
  *   `scripts/check-backlog-checkoffs.test.ts` stayed "present" in the net
  *   diff purely because the branch's OTHER own commits (`db25190`,
  *   `dd6c2ff`, `30e19f6`, ...) also touched it — the resurrected block was
- *   never checked at all, not "checked and misjudged." Six days red on
- *   `typecheck` (PR #117, 2026-08-07 → 2026-08-13, and again until fixed by
- *   hand on 2026-08-17) with this gate green throughout is the direct cost.
+ *   never checked at all, not "checked and misjudged."
+ *
+ *   THE COST, STATED PRECISELY (an earlier draft of this comment said "six
+ *   days red, 2026-08-07 → 2026-08-13"; that was wrong, and the real shape
+ *   is a sharper illustration than the wrong one was). Per `gh run list`
+ *   on this branch, PR #117 failed and recovered repeatedly through early
+ *   August for unrelated reasons, and was **green** at `a82a2f8`
+ *   (2026-08-13T08:14Z). Forty-three minutes later the merge `1fcab9e`
+ *   (2026-08-13T08:57Z) turned it red — and it stayed red until it was
+ *   fixed by hand on 2026-08-17, four days later. So the sequence is
+ *   green → in-branch merge → red, which is precisely the transition this
+ *   check exists to catch, and it reported clean across it.
  *
  *   NOT FIXED HERE, ON PURPOSE — the false-positive cost of hunk/line-level
  *   detection is the reason, not effort: a real content-level fix needs
