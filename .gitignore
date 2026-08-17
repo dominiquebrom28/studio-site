@@ -1,5 +1,9 @@
 node_modules/
 dist/
+
+# Per-worktree Vite dep-optimizer cache (see vite.config.ts cacheDir comment) —
+# only created when node_modules is a symlink, i.e. inside a hand-made worktree.
+.vite-cache/
 .env
 .env.*
 !.env.example
