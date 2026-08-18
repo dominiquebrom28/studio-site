@@ -1322,6 +1322,25 @@ site whose provenance device is still decorative.
       keeps the 2026-07-16 batch's three byte-identical-but-distinct provenance
       records from collapsing into one. **Next is §6 PR 3, the designer pass —
       a hard Dom checkpoint that gates every public surface here.**)_
+
+      _(**§6 PR 3, the designer pass, SHIPPED as `docs/reports-surface-design.md`
+      on `team/2026-08-17-reports-design`,
+      [#127](https://github.com/dominiquebrom28/studio-site/pull/127), merged
+      2026-08-18 — and this item stays `[ ]` on purpose.** PR 4, the actual
+      `/reports` route, is still ahead; no product code, route or component has
+      shipped. The designer corrected the architect's spec in three places
+      rather than designing around it: the spec's counts were stale (written
+      against 21 reports; the empty state is the DOMINANT case, not the edge),
+      the per-item commit hash in §2.1's mockup does not exist on
+      `RunProducedRef`, and it refused to reuse ProvenanceStrip's "no run
+      record" string verbatim because that phrase is false for
+      `reports/2026-07-30.md`. **Four questions were drafted for Dom and remain
+      unanswered** — h1 wording, empty-state microcopy, outbound link label, and
+      one real decision: whether to repoint the footer's existing "Run reports"
+      link from GitHub to `/reports`. Under the 2026-08-18 merge delegation the
+      first three are the team's to settle when PR 4 is built; the footer
+      repoint changes a live public surface and is carried to Dom.)_
+
 - [x] **LOW — `media[].width`/`height` are never checked against the real
       image.** The schema requires them (they exist to prevent layout shift) and
       the new asset-path gate proves the file exists, but nothing verifies the
@@ -1340,7 +1359,7 @@ site whose provenance device is still decorative.
       plus a real off-by-one in the SOF truncation bound. The code was correct;
       the tests weren't pinning it. **This checkbox lagged the merge by a day**
       — see the 2026-08-05 reconciliation note below.)_
-- [ ] **LOW — Worktree isolation: a shared `node_modules` also shares
+- [x] **LOW — Worktree isolation: a shared `node_modules` also shares
       `.vite`, and parallel dev servers corrupt each other.** Extends the
       existing worktree item. The proven workaround (hand-made worktrees +
       symlinked `node_modules`) has a second failure mode beyond "`npm install`
@@ -1353,6 +1372,20 @@ site whose provenance device is still decorative.
       each worktree its own `.vite` (e.g. `cacheDir` per worktree) or don't run
       concurrent dev servers off a shared `node_modules`. _Source: Project Lead,
       2026-07-29 — observed, not hypothetical._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-worktree-vite-cache`,
+      [#126](https://github.com/dominiquebrom28/studio-site/pull/126), merged
+      2026-08-18.** `vite.config.ts` now detects a symlinked `node_modules` and
+      only then points `cacheDir` at `<root>/.vite-cache` — deliberately
+      OUTSIDE `node_modules`, so the symlink cannot route two worktrees back to
+      one directory; a normal checkout leaves `cacheDir` undefined and Vite's
+      default untouched. Premise verified before fixing and the normal checkout
+      proven unaffected by re-running `vite.resolveConfig()` against the real
+      main checkout before and after. **Residual gap, carried not implied
+      fixed:** this does NOT cover `npm install` replacing the symlink inside a
+      worktree (a separate known trap, cross-referenced in the code comment),
+      and Vitest's own cache was out of scope.)_
+
 - [ ] **LOW — Notion mirror can't attribute the tenth cast member.** The
       "Studio Site — Backlog" database's `Agent(s)` multi-select offers only the
       nine original disciplines; `visual-media` (Lucas, hired 2026-07-18,
@@ -1673,6 +1706,29 @@ nothing compares a report's claims against its own diff.
       lane back on first would be enabling self-merge with the safety catch
       off. One-time Dom action in the GitHub UI, no PR. _Source: 2026-07-31
       run; re-verified 2026-08-01._
+
+      _**LEAD CORRECTION, 2026-08-18 — this item's premise is false, and it is
+      the third time this repo has made the same mistake.** `main` **is**
+      protected. The `/branches/main/protection` 404 this item rests on is a
+      known false negative: that endpoint only reports **classic** branch
+      protection and is blind to **rulesets**. Verified this run against the
+      authoritative endpoint — `gh api
+      repos/dominiquebrom28/studio-site/rules/branches/main` returns three
+      active rules from ruleset **19140193**: `deletion`, `non_fast_forward`,
+      and `required_status_checks` carrying
+      `{"context": "build", "integration_id": 15368}`. So step 2 of
+      `.github/AUTO-MERGE-SETUP.md` **is** in force — the `build` check IS
+      required on `main`, and the doc sentence this item calls "currently false"
+      is in fact true. The same 404 produced a HIGH that had to be retracted in
+      the 2026-08-10 maintenance sweep, and again in the 2026-08-17 sweep.
+      **Rule, recorded here so it stops recurring: never assert anything about
+      `main`'s protection from the `/protection` endpoint — use
+      `/rules/branches/main`.** What remains genuinely open is narrower than
+      this item claims and should be re-scoped rather than closed outright:
+      required **review** is not configured (the ruleset's `bypass_actors` is
+      empty, but nothing requires an approval), so anything passing `build` can
+      merge unreviewed. — Project Lead, 2026-08-18_
+
 - [ ] **HIGH — The auto-merge lane works, and the studio stopped using it.**
       Not broken infrastructure: the lane merged PRs #10/#11/#12/#17 on
       2026-07-18 via `app/github-actions` — **those four are its only
@@ -2432,7 +2488,7 @@ nothing compares a report's claims against its own diff.
       cited only the PR number, and `check-backlog-checkoffs` matches on the
       **branch** — so a genuinely closed, genuinely `[x]` lane still counted as
       unreferenced. See `reports/2026-08-07.md` and `reports/2026-08-08.md`.)_
-- [ ] **MEDIUM — `*.test.ts`/`*.test.tsx` sit in the `safe-auto` allowlist as
+- [x] **MEDIUM — `*.test.ts`/`*.test.tsx` sit in the `safe-auto` allowlist as
       "non-code", and they are code the required `build` job executes.**
       `.github/workflows/auto-merge.yml` treats any `*.test.ts` / `*.test.tsx`
       as safe, and `.github/AUTO-MERGE-SETUP.md` describes the label as a claim
@@ -2453,6 +2509,22 @@ nothing compares a report's claims against its own diff.
       named in the P2 batch as "drop `*.test.*` from the auto-merge allowlist"
       — this item is the reasoning that batch entry never carried. _Source:
       security-auditor, 2026-08-07 pre-launch review._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-safe-auto-test-paths`,
+      [#128](https://github.com/dominiquebrom28/studio-site/pull/128), merged
+      2026-08-18.** The pattern was dropped rather than anchored, chosen from
+      measured history: across all 124 merged PRs, ZERO were ever
+      test-file-only, only 8 would flip to unsafe, none of those 8 ever carried
+      the label, and none of the 4 PRs that really auto-merged
+      (#10/#11/#12/#17) touched a test file — so the clause had zero realized
+      benefit. One sub-claim was corrected in the worse direction while
+      verifying: the workflow runs with `contents: write` AND
+      `pull-requests: write`, not `contents: read`. Accepted cost, stated: a PR
+      shaped like #58 now needs a human merge. **Duplicate of the item below,
+      from a different source — both closed by the same PR; left as two entries
+      rather than silently merged, since deduping the backlog's own history
+      hides that two reviewers found it independently.**)_
+
 - [ ] **MEDIUM — Nothing verifies the LIVE site serves any security header.**
       Both CSP gates are source-side: they compare `dist/index.html` against a
       string in `vercel.json`. That proves the two files agree — it proves
@@ -2819,7 +2891,7 @@ nothing compares a report's claims against its own diff.
       with "repair the queue" outranking "start new items". _Source: 2026-08-13
       run — the first thing it did was look, and it found six-day-old red._
 
-- [ ] **HIGH — `check-merge-revert` is path-granular, so an intra-file merge
+- [x] **HIGH — `check-merge-revert` is path-granular, so an intra-file merge
       revert walks straight past it.** Demonstrated, not argued. On
       `team/2026-08-07-gate-and-doc-truth` the in-branch `git merge main`
       (`ea05490`) resurrected a `describe` block the branch had deliberately
@@ -2838,6 +2910,22 @@ nothing compares a report's claims against its own diff.
       pre-merge content on a path the branch itself had edited — which is what
       the existing walk already computes, one granularity finer. _Source:
       2026-08-13 run; both branches diagnosed the same morning._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-merge-revert-granularity`,
+      [#130](https://github.com/dominiquebrom28/studio-site/pull/130), merged
+      2026-08-18 — as DOCUMENT + PIN, not as detection.** Hunk-level detection
+      was rejected on false-positive cost rather than effort: it needs a 3-way
+      diff (no such dependency, and adding one is a bigger call than this item)
+      or a line-presence heuristic that would fire on ordinary churn in exactly
+      the shared high-traffic files this affects — and the check runs inside the
+      REQUIRED `build` job, where a noisy version is worse than a narrow honest
+      one. Ships a KNOWN GAP header plus a hermetic test pinning today's
+      behaviour, so a future fix has to be a deliberate update rather than an
+      accident. Falsified red→green; full-corpus sweep unchanged at 97 merges /
+      1 violation (PR #81) / 0 false positives. **The gap itself is therefore
+      still real and deliberately un-fixed** — this item closes because the
+      decision was made and pinned, not because the detection improved.)_
+
 
 - [ ] **HIGH — CI gate ordering let the weaker gate mask the stronger one for
       six days.** `check:report-claims` runs at `ci.yml:178` and
@@ -2868,7 +2956,7 @@ bullet folds into the existing `SMOKE_URL` item, its "curated Start here rail"
 bullet into the existing blog-entry-point item, and its Firefox/WebKit bullet
 into the existing Chromium-only item.
 
-- [ ] **MEDIUM — `*.test.ts` is on the `safe-auto` allowlist, and it is the one
+- [x] **MEDIUM — `*.test.ts` is on the `safe-auto` allowlist, and it is the one
       member of that list that executes.** The allowlist treats any
       `*.test.ts`/`*.test.tsx` path anywhere in the repo as safe to auto-merge,
       while `.github/AUTO-MERGE-SETUP.md`'s "What `safe-auto` means" describes
@@ -2880,6 +2968,14 @@ into the existing Chromium-only item.
       the lane is dormant per that review's Fix 1 — but the doc should stop
       calling it non-code either way, which is free. _Source:
       `docs/pre-launch-review-2026-08-07.md` §2 (security-auditor)._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-safe-auto-test-paths`,
+      [#128](https://github.com/dominiquebrom28/studio-site/pull/128), merged
+      2026-08-18** — the same PR that closed the near-identical item above,
+      which came from the 2026-08-07 pre-launch review. `auto-merge.yml` and
+      `AUTO-MERGE-SETUP.md` now tell the same story and the doc no longer calls
+      tests a non-code path.)_
+
 
 - [ ] **MEDIUM — `img-src 'self'` contradicts the content schema, which permits
       an external `cover` URL.** `vercel.json`'s CSP allows no external image
@@ -2938,6 +3034,127 @@ into the existing Chromium-only item.
       `gh api …/files`) on a deliberately large synthetic PR. Until someone
       runs it, the guard's completeness is assumed rather than known. _Source:
       `docs/pre-launch-review-2026-08-07.md` §2._
+
+### Added 2026-08-17 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Repo-level auto-merge is ON while branch protection is OFF, so
+      the lane may not be inert the way every doc here says it is.** Found by
+      devops during PR #128 and independently re-verified by the lead, both
+      commands run for real:
+      `gh api repos/dominiquebrom28/studio-site -q .allow_auto_merge` returns
+      **`true`**, while `gh api …/branches/main/protection` still returns
+      **404 "Branch not protected"**. Each fact is already logged separately;
+      **together they say something neither says alone.** Every document in
+      this repo describes the auto-merge lane as inert-but-safe on the grounds
+      that nobody applies the `safe-auto` label any more. But with repo-level
+      auto-merge enabled and **no required check to wait for**, arming
+      `gh pr merge --auto` today would most likely merge **immediately**
+      rather than fail to arm. So the thing actually holding the lane closed
+      is the labelling habit alone — not any mechanism, and not the reason the
+      docs give. **This is not a live incident**: no PR has carried the label
+      since 2026-07-18, and the path allowlist still gates which files
+      qualify. It is a statement that the *stated* reason for safety is not
+      the *operative* one. This is the missing third fact for the two open
+      HIGH items above (branch protection never configured; the lane works and
+      the studio stopped using it) and it strengthens their existing sequencing
+      rule: branch protection must be configured **before** the labelling habit
+      is ever resumed. **Honest limit on the claim:** the merge behaviour was
+      NOT observed on a real PR — it is derived from those two API responses
+      plus GitHub's documented auto-merge semantics, and should be confirmed
+      before anyone relies on it in either direction. Deliberately not fixed in
+      PR #128 (one concern per PR). _Source: devops + Project Lead,
+      2026-08-17._
+
+      _**LEAD CORRECTION, 2026-08-18 — the load-bearing half of this item is
+      false.** The `allow_auto_merge: true` half is correct; the "no required
+      check to wait for" half is not. `gh api
+      repos/dominiquebrom28/studio-site/rules/branches/main` returns
+      `required_status_checks` with `{"context": "build"}` from ruleset
+      **19140193**. The `/protection` 404 that both this item and its devops
+      source relied on is blind to rulesets and has now caused three
+      retractions in this repo. Arming `gh pr merge --auto` therefore would
+      **not** merge immediately — it would wait for `build`, which is exactly
+      the behaviour every doc here describes. The lane is inert-but-safe for
+      the reason the docs give, *plus* a mechanism this item argued was absent.
+      **The item's own closing caveat was right and its conclusion was not:** it
+      said the claim "should be confirmed before anyone relies on it either
+      way", and confirming it falsified it. Genuinely still open: whether
+      required *review* should be added (none is configured). Recommend closing
+      this item and folding the review question into the branch-protection item
+      above. — Project Lead, 2026-08-18_
+
+
+- [ ] **MEDIUM — A stranded bookkeeping PR causes duplicate work, and this run
+      measured it instead of predicting it.** The 2026-08-17 run dispatched a
+      lane to state the `e2e` lane's Chromium-only boundary — work **merged
+      PR #116 had already done** (`README.md` lines 44–50 say it plainly). The
+      backlog read `[ ]` only because the check-off was stranded in PR #117,
+      which sat open for ten days. Caught mid-flight during the Notion
+      reconciliation and the agent was redirected, so nothing shipped twice,
+      but the near-miss is the point: **for ten days `BACKLOG.md` on `main`
+      told every reader that finished work was unfinished.** The existing item
+      "Notion reconciliation rule assumes the previous run's bookkeeping PR has
+      merged" named this class; this is its first demonstrated instance, and it
+      shows the cost is not bookkeeping tidiness but wasted agent runs. Worth
+      deciding: should a run's FIRST step diff `main`'s `BACKLOG.md` against
+      open bookkeeping PRs and refuse to dispatch a lane for any item those PRs
+      already close? That is cheap and mechanical, unlike the general problem.
+      _Source: Project Lead, 2026-08-17 — observed on this run, not
+      hypothetical._
+
+- [ ] **LOW — The Notion reconciliation rule, applied literally, would have
+      destroyed more information than it healed.** The scheduled task says: for
+      each item in `BACKLOG.md`, unchecked `[ ]` → Notion "Not started". On
+      2026-08-17 the mirror held 115 rows against `main`'s 95 items, and
+      **seven "In progress" rows carried detailed notes on work that had
+      already merged** (PRs #108, #109, #110, #115, #116 among them). Every one
+      of those items is legitimately `[ ]` in `BACKLOG.md`. Flattening them to
+      "Not started" would have made the mirror *less* true than it was, erasing
+      the distinction between "not begun" and "shipped, awaiting Dom". The lead
+      declined to apply the rule and flagged it instead, per the standing
+      "disagree beyond status → tell Dom, don't silently fix either side"
+      guardrail — but the rule and the guardrail now visibly contradict each
+      other, and one of them should be amended. Suggested amendment: reconcile
+      `[x]` → Done unconditionally, but treat `[ ]` as "do not downgrade a row
+      that is In progress with a recorded branch". _Source: Project Lead,
+      2026-08-17 Notion reconciliation._
+
+- [ ] **MEDIUM — `check-backlog-checkoffs` reads only reports that have already
+      MERGED, so a stranded bookkeeping PR blinds the very gate built to catch
+      un-checked-off work.** Measured on `main` at the 2026-08-18 run start, not
+      inferred. The gate exits 0 and prints _"scanned 31 report(s), 19 item
+      row(s), 132 pull request(s); **0 merged branch(es) unreferenced in
+      `BACKLOG.md`**"_. That green is an artefact of a missing input. PR #116
+      (`team/2026-08-07-gate-and-doc-truth`) merged on **2026-08-13** and
+      delivered four backlog items' worth of work — all four verified present on
+      `main` this run: the real-gh test split
+      (`scripts/check-backlog-checkoffs.real-corpus.test.ts`),
+      `scripts/check-clean-checkout.mjs`, the README's Chromium-only statement
+      (lines 44–50), and the corrected `provenanceArtifact` comment in
+      `src/content/loader.ts:39`. **All four items are still `[ ]` on `main`.**
+      The gate could not have reported any of them, because it derives its
+      branch list from `Item | Branch | PR` rows in `reports/*.md`, and the
+      report naming that branch (`reports/2026-08-07.md`) is itself stranded in
+      unmerged PR #117 — the string `team/2026-08-07-gate-and-doc-truth` appears
+      **nowhere** under `reports/` on `main` (verified by grep). Same
+      green-but-covering-nothing shape as the unset `SMOKE_URL` item and the
+      absent branch protection, and **circular in a way neither of those is**:
+      the gate that exists to catch un-checked-off merged work is switched off
+      by precisely the condition — a queued bookkeeping PR — that *produces*
+      un-checked-off merged work. Distinct from both neighbours, deliberately
+      filed as a third mechanism rather than folded into either: the "passing
+      *mention*" item is about false-negative matching **inside `BACKLOG.md`**;
+      the "stranded bookkeeping PR causes duplicate work" item is about a **run**
+      re-doing merged work. This one is about the gate's **input**. Cheap fix,
+      with its cost named: derive the merged-branch list from `gh pr list
+      --state merged` (the gate already shells out to `gh` for PR state) instead
+      of from report tables, or keep the current source and additionally warn
+      when a merged PR's head branch appears in no report at all — but a naive
+      switch is noisy, because logbook, maintenance and bookkeeping branches
+      legitimately never earn a check-off and would flood the output; it needs
+      the same exclusion the gate already applies to bookkeeping table rows.
+      _Source: Project Lead, 2026-08-18 run-start reconciliation — gate re-run
+      on `main`, each of PR #116's four deliverables checked for individually._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
