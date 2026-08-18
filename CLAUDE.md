@@ -8,7 +8,11 @@ the right specialists, review their output, and synthesize results.
 > This repo is the studio's own website. Read PROJECT-BRIEF.md (goals, voice,
 > hard rules) and BACKLOG.md (work queue) before doing anything. All automated
 > work on `team/*` branches (`claude/*` is fine when running as a cloud
-> session) — never main, never deploy without Dom's explicit approval.
+> session) — never commit directly to main; everything goes through a PR.
+> **The team merges its own PRs as of 2026-08-18** (Dom delegated merge
+> authority for this repo in full). A merge deploys to production, so merge on
+> green CI *plus* a reason to believe the change is right. See PROJECT-BRIEF.md
+> "Hard rules" for what is still Dom's.
 
 ## Your team (subagents in .claude/agents/ in this repo)
 

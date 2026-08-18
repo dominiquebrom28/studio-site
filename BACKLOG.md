@@ -1322,6 +1322,25 @@ site whose provenance device is still decorative.
       keeps the 2026-07-16 batch's three byte-identical-but-distinct provenance
       records from collapsing into one. **Next is §6 PR 3, the designer pass —
       a hard Dom checkpoint that gates every public surface here.**)_
+
+      _(**§6 PR 3, the designer pass, SHIPPED as `docs/reports-surface-design.md`
+      on `team/2026-08-17-reports-design`,
+      [#127](https://github.com/dominiquebrom28/studio-site/pull/127), merged
+      2026-08-18 — and this item stays `[ ]` on purpose.** PR 4, the actual
+      `/reports` route, is still ahead; no product code, route or component has
+      shipped. The designer corrected the architect's spec in three places
+      rather than designing around it: the spec's counts were stale (written
+      against 21 reports; the empty state is the DOMINANT case, not the edge),
+      the per-item commit hash in §2.1's mockup does not exist on
+      `RunProducedRef`, and it refused to reuse ProvenanceStrip's "no run
+      record" string verbatim because that phrase is false for
+      `reports/2026-07-30.md`. **Four questions were drafted for Dom and remain
+      unanswered** — h1 wording, empty-state microcopy, outbound link label, and
+      one real decision: whether to repoint the footer's existing "Run reports"
+      link from GitHub to `/reports`. Under the 2026-08-18 merge delegation the
+      first three are the team's to settle when PR 4 is built; the footer
+      repoint changes a live public surface and is carried to Dom.)_
+
 - [x] **LOW — `media[].width`/`height` are never checked against the real
       image.** The schema requires them (they exist to prevent layout shift) and
       the new asset-path gate proves the file exists, but nothing verifies the
@@ -1340,7 +1359,7 @@ site whose provenance device is still decorative.
       plus a real off-by-one in the SOF truncation bound. The code was correct;
       the tests weren't pinning it. **This checkbox lagged the merge by a day**
       — see the 2026-08-05 reconciliation note below.)_
-- [ ] **LOW — Worktree isolation: a shared `node_modules` also shares
+- [x] **LOW — Worktree isolation: a shared `node_modules` also shares
       `.vite`, and parallel dev servers corrupt each other.** Extends the
       existing worktree item. The proven workaround (hand-made worktrees +
       symlinked `node_modules`) has a second failure mode beyond "`npm install`
@@ -1353,6 +1372,20 @@ site whose provenance device is still decorative.
       each worktree its own `.vite` (e.g. `cacheDir` per worktree) or don't run
       concurrent dev servers off a shared `node_modules`. _Source: Project Lead,
       2026-07-29 — observed, not hypothetical._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-worktree-vite-cache`,
+      [#126](https://github.com/dominiquebrom28/studio-site/pull/126), merged
+      2026-08-18.** `vite.config.ts` now detects a symlinked `node_modules` and
+      only then points `cacheDir` at `<root>/.vite-cache` — deliberately
+      OUTSIDE `node_modules`, so the symlink cannot route two worktrees back to
+      one directory; a normal checkout leaves `cacheDir` undefined and Vite's
+      default untouched. Premise verified before fixing and the normal checkout
+      proven unaffected by re-running `vite.resolveConfig()` against the real
+      main checkout before and after. **Residual gap, carried not implied
+      fixed:** this does NOT cover `npm install` replacing the symlink inside a
+      worktree (a separate known trap, cross-referenced in the code comment),
+      and Vitest's own cache was out of scope.)_
+
 - [ ] **LOW — Notion mirror can't attribute the tenth cast member.** The
       "Studio Site — Backlog" database's `Agent(s)` multi-select offers only the
       nine original disciplines; `visual-media` (Lucas, hired 2026-07-18,
@@ -2455,7 +2488,7 @@ nothing compares a report's claims against its own diff.
       cited only the PR number, and `check-backlog-checkoffs` matches on the
       **branch** — so a genuinely closed, genuinely `[x]` lane still counted as
       unreferenced. See `reports/2026-08-07.md` and `reports/2026-08-08.md`.)_
-- [ ] **MEDIUM — `*.test.ts`/`*.test.tsx` sit in the `safe-auto` allowlist as
+- [x] **MEDIUM — `*.test.ts`/`*.test.tsx` sit in the `safe-auto` allowlist as
       "non-code", and they are code the required `build` job executes.**
       `.github/workflows/auto-merge.yml` treats any `*.test.ts` / `*.test.tsx`
       as safe, and `.github/AUTO-MERGE-SETUP.md` describes the label as a claim
@@ -2476,6 +2509,22 @@ nothing compares a report's claims against its own diff.
       named in the P2 batch as "drop `*.test.*` from the auto-merge allowlist"
       — this item is the reasoning that batch entry never carried. _Source:
       security-auditor, 2026-08-07 pre-launch review._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-safe-auto-test-paths`,
+      [#128](https://github.com/dominiquebrom28/studio-site/pull/128), merged
+      2026-08-18.** The pattern was dropped rather than anchored, chosen from
+      measured history: across all 124 merged PRs, ZERO were ever
+      test-file-only, only 8 would flip to unsafe, none of those 8 ever carried
+      the label, and none of the 4 PRs that really auto-merged
+      (#10/#11/#12/#17) touched a test file — so the clause had zero realized
+      benefit. One sub-claim was corrected in the worse direction while
+      verifying: the workflow runs with `contents: write` AND
+      `pull-requests: write`, not `contents: read`. Accepted cost, stated: a PR
+      shaped like #58 now needs a human merge. **Duplicate of the item below,
+      from a different source — both closed by the same PR; left as two entries
+      rather than silently merged, since deduping the backlog's own history
+      hides that two reviewers found it independently.**)_
+
 - [ ] **MEDIUM — Nothing verifies the LIVE site serves any security header.**
       Both CSP gates are source-side: they compare `dist/index.html` against a
       string in `vercel.json`. That proves the two files agree — it proves
@@ -2842,7 +2891,7 @@ nothing compares a report's claims against its own diff.
       with "repair the queue" outranking "start new items". _Source: 2026-08-13
       run — the first thing it did was look, and it found six-day-old red._
 
-- [ ] **HIGH — `check-merge-revert` is path-granular, so an intra-file merge
+- [x] **HIGH — `check-merge-revert` is path-granular, so an intra-file merge
       revert walks straight past it.** Demonstrated, not argued. On
       `team/2026-08-07-gate-and-doc-truth` the in-branch `git merge main`
       (`ea05490`) resurrected a `describe` block the branch had deliberately
@@ -2861,6 +2910,22 @@ nothing compares a report's claims against its own diff.
       pre-merge content on a path the branch itself had edited — which is what
       the existing walk already computes, one granularity finer. _Source:
       2026-08-13 run; both branches diagnosed the same morning._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-merge-revert-granularity`,
+      [#130](https://github.com/dominiquebrom28/studio-site/pull/130), merged
+      2026-08-18 — as DOCUMENT + PIN, not as detection.** Hunk-level detection
+      was rejected on false-positive cost rather than effort: it needs a 3-way
+      diff (no such dependency, and adding one is a bigger call than this item)
+      or a line-presence heuristic that would fire on ordinary churn in exactly
+      the shared high-traffic files this affects — and the check runs inside the
+      REQUIRED `build` job, where a noisy version is worse than a narrow honest
+      one. Ships a KNOWN GAP header plus a hermetic test pinning today's
+      behaviour, so a future fix has to be a deliberate update rather than an
+      accident. Falsified red→green; full-corpus sweep unchanged at 97 merges /
+      1 violation (PR #81) / 0 false positives. **The gap itself is therefore
+      still real and deliberately un-fixed** — this item closes because the
+      decision was made and pinned, not because the detection improved.)_
+
 
 - [ ] **HIGH — CI gate ordering let the weaker gate mask the stronger one for
       six days.** `check:report-claims` runs at `ci.yml:178` and
@@ -2891,7 +2956,7 @@ bullet folds into the existing `SMOKE_URL` item, its "curated Start here rail"
 bullet into the existing blog-entry-point item, and its Firefox/WebKit bullet
 into the existing Chromium-only item.
 
-- [ ] **MEDIUM — `*.test.ts` is on the `safe-auto` allowlist, and it is the one
+- [x] **MEDIUM — `*.test.ts` is on the `safe-auto` allowlist, and it is the one
       member of that list that executes.** The allowlist treats any
       `*.test.ts`/`*.test.tsx` path anywhere in the repo as safe to auto-merge,
       while `.github/AUTO-MERGE-SETUP.md`'s "What `safe-auto` means" describes
@@ -2903,6 +2968,14 @@ into the existing Chromium-only item.
       the lane is dormant per that review's Fix 1 — but the doc should stop
       calling it non-code either way, which is free. _Source:
       `docs/pre-launch-review-2026-08-07.md` §2 (security-auditor)._
+
+      _(**Closed 2026-08-17 by `team/2026-08-17-safe-auto-test-paths`,
+      [#128](https://github.com/dominiquebrom28/studio-site/pull/128), merged
+      2026-08-18** — the same PR that closed the near-identical item above,
+      which came from the 2026-08-07 pre-launch review. `auto-merge.yml` and
+      `AUTO-MERGE-SETUP.md` now tell the same story and the doc no longer calls
+      tests a non-code path.)_
+
 
 - [ ] **MEDIUM — `img-src 'self'` contradicts the content schema, which permits
       an external `cover` URL.** `vercel.json`'s CSP allows no external image
