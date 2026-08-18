@@ -3004,6 +3004,43 @@ into the existing Chromium-only item.
       that is In progress with a recorded branch". _Source: Project Lead,
       2026-08-17 Notion reconciliation._
 
+- [ ] **MEDIUM — `check-backlog-checkoffs` reads only reports that have already
+      MERGED, so a stranded bookkeeping PR blinds the very gate built to catch
+      un-checked-off work.** Measured on `main` at the 2026-08-18 run start, not
+      inferred. The gate exits 0 and prints _"scanned 31 report(s), 19 item
+      row(s), 132 pull request(s); **0 merged branch(es) unreferenced in
+      `BACKLOG.md`**"_. That green is an artefact of a missing input. PR #116
+      (`team/2026-08-07-gate-and-doc-truth`) merged on **2026-08-13** and
+      delivered four backlog items' worth of work — all four verified present on
+      `main` this run: the real-gh test split
+      (`scripts/check-backlog-checkoffs.real-corpus.test.ts`),
+      `scripts/check-clean-checkout.mjs`, the README's Chromium-only statement
+      (lines 44–50), and the corrected `provenanceArtifact` comment in
+      `src/content/loader.ts:39`. **All four items are still `[ ]` on `main`.**
+      The gate could not have reported any of them, because it derives its
+      branch list from `Item | Branch | PR` rows in `reports/*.md`, and the
+      report naming that branch (`reports/2026-08-07.md`) is itself stranded in
+      unmerged PR #117 — the string `team/2026-08-07-gate-and-doc-truth` appears
+      **nowhere** under `reports/` on `main` (verified by grep). Same
+      green-but-covering-nothing shape as the unset `SMOKE_URL` item and the
+      absent branch protection, and **circular in a way neither of those is**:
+      the gate that exists to catch un-checked-off merged work is switched off
+      by precisely the condition — a queued bookkeeping PR — that *produces*
+      un-checked-off merged work. Distinct from both neighbours, deliberately
+      filed as a third mechanism rather than folded into either: the "passing
+      *mention*" item is about false-negative matching **inside `BACKLOG.md`**;
+      the "stranded bookkeeping PR causes duplicate work" item is about a **run**
+      re-doing merged work. This one is about the gate's **input**. Cheap fix,
+      with its cost named: derive the merged-branch list from `gh pr list
+      --state merged` (the gate already shells out to `gh` for PR state) instead
+      of from report tables, or keep the current source and additionally warn
+      when a merged PR's head branch appears in no report at all — but a naive
+      switch is noisy, because logbook, maintenance and bookkeeping branches
+      legitimately never earn a check-off and would flood the output; it needs
+      the same exclusion the gate already applies to bookkeeping table rows.
+      _Source: Project Lead, 2026-08-18 run-start reconciliation — gate re-run
+      on `main`, each of PR #116's four deliverables checked for individually._
+
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
 
