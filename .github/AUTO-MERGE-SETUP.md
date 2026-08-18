@@ -1,10 +1,27 @@
 # Auto-merge setup (one-time, manual)
 
 This repo has two GitHub Actions workflows that let safe-category PRs
-(content, docs, tests, reports) merge themselves once CI passes, while
-everything else always waits for a human. The workflows alone don't do
-anything until Dom does the following four things once, by hand, in the
-GitHub UI / CLI.
+(content, docs, reports) merge themselves once CI passes, while everything
+else always waits for a human. The workflows alone don't do anything until
+Dom does the following four things once, by hand, in the GitHub UI / CLI.
+
+**Test files are deliberately NOT in the safe-auto allowlist.** A
+`.test.ts`/`.test.tsx` file is executable code — it's what the required
+`build` job's `npm test` step actually runs, with `GITHUB_TOKEN` (`contents:
+write`, `pull-requests: write`, see `auto-merge.yml`'s `permissions:` block)
+in scope and the runner's normal internet egress available. An earlier
+version of this allowlist included a bare `*.test.ts`/`*.test.tsx` pattern
+and called test changes "non-code" alongside docs/content — that was wrong
+on both counts: the pattern was unanchored (it matched any nested path, e.g.
+`scripts/anything.test.ts`, not just source-tree tests) and the files it
+matched are not non-code. Removed 2026-08-17 (BACKLOG.md MEDIUM, 2026-08-07
+review) after confirming 0 of this repo's 124 merged PRs were ever
+test-file-only, and none of the 4 PRs that ever actually carried the
+`safe-auto` label (#10, #11, #12, #17) touched a test file — so the pattern
+was live risk with zero realized benefit. If a test-file lane is ever
+reintroduced, it needs proper anchoring AND this doc needs to say plainly,
+in this section, that the lane auto-merges executable code CI runs — not
+imply it's a "non-code" path.
 
 ## 1. Enable auto-merge on the repo
 
@@ -99,11 +116,13 @@ gh auth login
   the PR currently carries the `safe-auto` label. When it runs, it:
   1. Lists every file changed in the PR.
   2. Checks each one against the safe-path allowlist: `content/**`,
-     `docs/**`, `reports/**`, root-level `*.md`, and any `*.test.ts` /
-     `*.test.tsx` file (anywhere).
+     `docs/**`, `reports/**`, root-level `*.md`, and
+     `src/content/*.generated.json`.
   3. If **any** changed file falls outside that allowlist — including
-     anything under `src/` that isn't a test file, anything under
-     `.github/`, `package.json`, either lockfile, or any config file — it
+     anything else under `src/` (including test files — see the note
+     above this section on why `*.test.ts`/`*.test.tsx` was deliberately
+     removed), anything under `.github/`, `package.json`, either lockfile,
+     or any config file — it
      first runs `gh pr merge --disable-auto` to cancel any auto-merge that
      may already be armed on this PR, then posts a comment explaining why,
      **removes the `safe-auto` label**, and stops.
@@ -126,12 +145,17 @@ gh auth login
   still posts the comment and removes the label.
 
 - **What `safe-auto` means:** it's a claim that a PR only touches
-  low-risk, non-code paths (blog/content posts, docs, test-only changes,
-  reports). It should only ever be applied by a trusted process (e.g. the
-  daily content routine), never by an untrusted contributor. The path guard
-  above is defense-in-depth for the case where the label gets applied to a
-  PR that turns out to touch app code — the guard strips the label and
-  refuses to enable auto-merge rather than trusting the label alone.
+  low-risk, non-code paths (blog/content posts, docs, reports, root-level
+  `*.md`, and the generated `src/content/*.generated.json` artifacts). It
+  deliberately excludes anything the required `build` job executes,
+  including test files — a `.test.ts` file is JavaScript CI runs with
+  `GITHUB_TOKEN` in scope, not a "non-code" change, so it does not belong
+  in this allowlist no matter how routine test-only PRs feel. It should
+  only ever be applied by a trusted process (e.g. the daily content
+  routine), never by an untrusted contributor. The path guard above is
+  defense-in-depth for the case where the label gets applied to a PR that
+  turns out to touch app code (or test code) — the guard strips the label
+  and refuses to enable auto-merge rather than trusting the label alone.
 
 - **Nothing here bypasses review policy.** Auto-merge only ever fires after
   the `CI / build` required check is green. If branch protection isn't
