@@ -1673,6 +1673,29 @@ nothing compares a report's claims against its own diff.
       lane back on first would be enabling self-merge with the safety catch
       off. One-time Dom action in the GitHub UI, no PR. _Source: 2026-07-31
       run; re-verified 2026-08-01._
+
+      _**LEAD CORRECTION, 2026-08-18 — this item's premise is false, and it is
+      the third time this repo has made the same mistake.** `main` **is**
+      protected. The `/branches/main/protection` 404 this item rests on is a
+      known false negative: that endpoint only reports **classic** branch
+      protection and is blind to **rulesets**. Verified this run against the
+      authoritative endpoint — `gh api
+      repos/dominiquebrom28/studio-site/rules/branches/main` returns three
+      active rules from ruleset **19140193**: `deletion`, `non_fast_forward`,
+      and `required_status_checks` carrying
+      `{"context": "build", "integration_id": 15368}`. So step 2 of
+      `.github/AUTO-MERGE-SETUP.md` **is** in force — the `build` check IS
+      required on `main`, and the doc sentence this item calls "currently false"
+      is in fact true. The same 404 produced a HIGH that had to be retracted in
+      the 2026-08-10 maintenance sweep, and again in the 2026-08-17 sweep.
+      **Rule, recorded here so it stops recurring: never assert anything about
+      `main`'s protection from the `/protection` endpoint — use
+      `/rules/branches/main`.** What remains genuinely open is narrower than
+      this item claims and should be re-scoped rather than closed outright:
+      required **review** is not configured (the ruleset's `bypass_actors` is
+      empty, but nothing requires an approval), so anything passing `build` can
+      merge unreviewed. — Project Lead, 2026-08-18_
+
 - [ ] **HIGH — The auto-merge lane works, and the studio stopped using it.**
       Not broken infrastructure: the lane merged PRs #10/#11/#12/#17 on
       2026-07-18 via `app/github-actions` — **those four are its only
@@ -2968,6 +2991,25 @@ into the existing Chromium-only item.
       before anyone relies on it in either direction. Deliberately not fixed in
       PR #128 (one concern per PR). _Source: devops + Project Lead,
       2026-08-17._
+
+      _**LEAD CORRECTION, 2026-08-18 — the load-bearing half of this item is
+      false.** The `allow_auto_merge: true` half is correct; the "no required
+      check to wait for" half is not. `gh api
+      repos/dominiquebrom28/studio-site/rules/branches/main` returns
+      `required_status_checks` with `{"context": "build"}` from ruleset
+      **19140193**. The `/protection` 404 that both this item and its devops
+      source relied on is blind to rulesets and has now caused three
+      retractions in this repo. Arming `gh pr merge --auto` therefore would
+      **not** merge immediately — it would wait for `build`, which is exactly
+      the behaviour every doc here describes. The lane is inert-but-safe for
+      the reason the docs give, *plus* a mechanism this item argued was absent.
+      **The item's own closing caveat was right and its conclusion was not:** it
+      said the claim "should be confirmed before anyone relies on it either
+      way", and confirming it falsified it. Genuinely still open: whether
+      required *review* should be added (none is configured). Recommend closing
+      this item and folding the review question into the branch-protection item
+      above. — Project Lead, 2026-08-18_
+
 
 - [ ] **MEDIUM — A stranded bookkeeping PR causes duplicate work, and this run
       measured it instead of predicting it.** The 2026-08-17 run dispatched a
