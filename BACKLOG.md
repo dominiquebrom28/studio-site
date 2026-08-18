@@ -149,8 +149,30 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       review capacity, not tokens. Lead spot-checked every factual claim against
       `reports/` before shipping and corrected the run count — the draft said
       "four runs," there are six report files.)_
-- [ ] **Pre-launch review** — security-auditor + designer critique; fix
+- [x] **Pre-launch review** — security-auditor + designer critique; fix
       findings. Then STOP and ask Dom about deployment.
+      _(2026-08-07, team/2026-08-07-pre-launch-review, PR #115 — awaiting Dom.
+      Unstarted since 2026-07-15; the oldest item in this file. **Its scope was
+      corrected on contact and that correction is the honest part:** it was
+      written as a gate *before* a first deploy, and the site has been live at
+      `doms-ai-studio.vercel.app` for weeks — so running it as written was
+      impossible. It ran instead as the periodic whole-codebase audit the
+      standing rules already call for (security-auditor's own charter: "before
+      any production deploy … and periodically on the whole codebase"). Both
+      agents read-only and in parallel; findings written up in
+      `docs/pre-launch-review-2026-08-07.md`. **Fixed in that PR:** the P1
+      auto-merge disarm gap (`gh pr merge --auto` is sticky repo-side state —
+      removing the `safe-auto` label after an unsafe commit did NOT un-arm it,
+      so GitHub would have squash-merged the unreviewed commit the moment CI
+      went green); the indexable soft-404 (`NotFound` served 200 with no
+      `noindex`); the bot-comment fence break-out (unsafe filenames were
+      interpolated inside a ``` fence in the guard's comment); plus two design
+      fixes — the site's own project entry made `featured: true, order: 0`, and
+      a TL;DR chip on `PostCard` derived from `post.tldr` presence rather than a
+      new frontmatter flag. Everything not fixed here is logged as its own item
+      under "Added 2026-08-07" below rather than left inside a review document.
+      Deployment question is moot; the standing question of whether to re-run
+      this periodically is Dom's.)_
 
 ### Dom's directives 2026-07-18 evening (in person, verbatim priorities —
 ### these outrank the machine-generated items below)
@@ -590,6 +612,15 @@ that branch), and stops. One item per run. Dom reviews and merges branches.
       confirming CI on PR #26; the skip prints loudly in the log but nothing
       surfaces it on the PR checks screen, which is exactly the
       "green-but-covering-nothing" pattern PR #20 itself was built to end._
+      _(**Second source, 2026-08-13:** the 2026-08-07 pre-launch review reached
+      the same item independently — `docs/pre-launch-review-2026-08-07.md` §2's
+      "Live-header verification + setting `SMOKE_URL`". Deduped into this item
+      rather than added twice. It adds one thing this item did not say: the URL
+      choice is itself the decision (prod vs a preview pattern), and setting it
+      makes CI depend on that deployment being reachable when the job runs. The
+      header-verification half of that bullet is its own new item below —
+      "Nothing has ever made an HTTP request to the live site" — because it
+      needs an assertion written, not just a variable set._
 - [x] **MEDIUM — Backfill the missing 2026-07-19 evening run record.** PR #25
       (project page v2 — six commits, a full redesign, shipped and merged
       same-day) has no `reports/` entry; the 07-19 report predates it. The
@@ -1090,6 +1121,15 @@ site whose provenance device is still decorative.
       version bump could change emission; assert against `dist/` post-build);
       tighten `style-src 'unsafe-inline'` once a real-browser CSP check
       exists (security-auditor P2, needs the Playwright lane).
+      _(2026-08-07 — **direct evidence for the "scheduled `npm audit`" half of
+      this batch, no longer a theoretical nice-to-have.** This run found `main`
+      RED on its own `npm run audit` gate (`GHSA-5p4m-2wfm-xmqj|js-yaml` — see
+      the HIGH item under "Added 2026-08-07" below), and the only thing in this
+      repo that ever runs that gate is a PR. A newly-published advisory against
+      an already-installed dependency turns every open PR red simultaneously and
+      is invisible until someone opens one. Second occurrence of exactly this
+      shape in four days — the 2026-08-04 `undici` advisories (PR #101) were the
+      first. The rest of the batch is unchanged.)_
 
 ### Added 2026-07-28 (maintenance run)
 
@@ -1928,18 +1968,19 @@ nothing compares a report's claims against its own diff.
       positives**, including PRs #87 and #92 which share the identical shape.
       Option (b), the rebase habit, is NOT done here — detection only; the
       violation message recommends it.)_
-- [ ] **MEDIUM — 16 posts, one reverse-chronological list, and no way in.**
+- [ ] **MEDIUM — 22 posts, one reverse-chronological list, and no way in.**
+      (Counts corrected 2026-08-07 — was written as "16 posts" on 2026-08-01.)
       The blog is the site's main body of work (PROJECT-BRIEF goal 2) and it
       has exactly one view: everything, newest first. A first-time reader
-      landing on `/blog` gets 16 similarly-titled logbook entries with no
+      landing on `/blog` gets 22 similarly-titled logbook entries with no
       indication which are the good ones, and the genuinely strong
       retrospectives ("What the green checkmarks missed", "True by accident")
       are indistinguishable from routine day-logs. **Record the constraint
       before someone builds the obvious thing:** tag-filtering is NOT the
       answer here and should not be built without new evidence — tags are
       already authored on every post and rendered as text by `PostCard` and
-      `BlogPost`, but the vocabulary is lopsided (**14 of 16 posts are tagged
-      `logbook`**; 15 of the 22 distinct tags appear exactly once), so a tag
+      `BlogPost`, but the vocabulary is lopsided (**20 of 22 posts are tagged
+      `logbook`**; 16 of the 24 distinct tags appear exactly once), so a tag
       filter would mostly render one bucket containing almost everything.
       What is actually missing is editorial: a small curated "start here" set,
       or a visible distinction between retrospectives and day-logs. That is a
@@ -1949,6 +1990,27 @@ nothing compares a report's claims against its own diff.
       and answering them separately risks two competing indexes. _Source:
       named product gap, found 2026-08-01; tag counts measured across
       `content/posts/*.md`._
+      _(2026-08-07 — recount + a costed recommendation, still unbuilt. **The
+      counts moved against the blog, not for it:** six more posts since
+      2026-08-01, and the `logbook` tag went from 14/16 to **20/22** while the
+      long tail got longer (16 of 24 distinct tags now appear exactly once).
+      The item's own constraint is therefore stronger than when it was written,
+      not weaker — a tag filter would today render one bucket holding 91% of
+      the corpus. Conclusion unchanged: do not build tag filtering.
+      **Designer's costed recommendation (2026-08-07 pre-launch critique):** a
+      curated **"Start here" rail of 3 hand-picked posts** above the existing
+      reverse-chron list. Editorial picks are Dom's, not the machine's;
+      **~half a day**; **no schema change**. Its supporting observation is the
+      useful part — the corpus *already* has a real seam, it is just unlabeled:
+      the first 5 posts (`2026-07-15` … `2026-07-19`) are origin-narrative prose
+      with no `tldr` at all, while **17 of 22** carry the `blog-format-v2`
+      incident-report shape (`tldr`, and `backlogRefs` on 6 of those). So the
+      distinction the reader needs exists in the data already. It explicitly
+      recommends **AGAINST** adding a `type:` frontmatter enum to make it
+      explicit: derive from `tldr` presence instead, because a parallel flag
+      would drift from whether a `TLDRBlock` actually renders. PR #115 shipped
+      exactly that derivation for the card-level TL;DR chip, so the precedent is
+      set. Still a **Dom checkpoint** — nothing here picks the three posts.)_
 
 ### Added 2026-08-04 (impact-ranked; slot above "Pre-launch review")
 
@@ -1998,7 +2060,7 @@ nothing compares a report's claims against its own diff.
       verified line-by-line as missing after 15 days. The other 5 are
       redundant, their files confirmed present on `main`. The two small losses
       are tracked as their own item below.)_
-- [ ] **LOW — `loader.ts`'s `provenanceArtifact` comment says the artifact is
+- [x] **LOW — `loader.ts`'s `provenanceArtifact` comment says the artifact is
       "gitignored on purpose"; it has been committed since 2026-07-27.** The
       comment block above `provenanceArtifact` in `src/content/loader.ts`
       contradicts `.gitignore`, which records the 2026-07-27 commit-the-artifact
@@ -2007,6 +2069,16 @@ nothing compares a report's claims against its own diff.
       one-line export — flagged rather than silently swept in. Same doc-drift
       class PR #66 cleaned up, and the same class as the two stale references
       PR #71 annotated. _Source: frontend-dev, 2026-08-04, during PR #98._
+      _(2026-08-07, team/2026-08-07-gate-and-doc-truth, PR #116 — awaiting Dom.
+      **Two** comments were wrong, not just the one the item named: the file-header
+      block above the `provenanceArtifact` glob, and a second "generator-written
+      and gitignored" assertion in the JSDoc on the Zod-rejection branch ~50
+      lines further down. Both now say the artifact is COMMITTED as of the
+      2026-07-27 reversal, cite `.gitignore` and `docs/provenance-model.md`
+      §5.2/§5.3, and give the reason (Vercel's shallow-clone deploy build cannot
+      regenerate it from history, so the committed copy is the fallback, kept
+      honest by CI's drift gate) — dated, so the next reader can check the claim
+      rather than inherit it. Comments only; no behaviour change.)_
 - [ ] **LOW — Bookkeeping PRs now stack three deep, and the stacking is
       load-bearing but undocumented.** Today's chain is #87 → #92 → the
       recovered 2026-08-03 branch → #99, because every backlog-and-report PR
@@ -2143,6 +2215,27 @@ nothing compares a report's claims against its own diff.
       `check-stranded-branches.mjs`'s own header: a brand-new check with no
       track record must not block merges on day one. Promote to required
       once it has run green for a while, same path `validate:content` took.)_
+      _(**CHECKED OFF 2026-08-11** — the note above says "awaiting Dom, left
+      unchecked", and that was correct while PR #110 was open. **PR #110 merged
+      2026-08-07** (`a98ec4a`; `scripts/check-backlog-checkoffs.mjs` is on
+      `main` and its `backlog-checkoffs` job runs on every PR in the current
+      queue), so the box has been owed for four days. **This is the sixth
+      instance of the exact lag this item is about, on this item.** The
+      2026-08-10 run found it, verified it against `main`'s own history, set the
+      Notion row to Done and — per the mirror's "flag, don't silently fix" rule
+      — flagged rather than edited the backlog; the flag is the record, and this
+      is the edit it was waiting for. Worth stating what that sequence means for
+      the item's own thesis: the gate it shipped **cannot** catch this, because
+      the gate only fails when a merged branch is cited nowhere in `BACKLOG.md`,
+      and this branch was cited — inside its own still-`[ ]` bullet. That is the
+      "softer shape" the note above already predicted and deliberately declined
+      to fail on. Declining was defensible; the cost is now measured at four
+      days on the item that exists to measure it. Whether that second shape
+      should become a failure — "a merged branch cited ONLY inside an unchecked
+      item" — is a real design question and is deliberately NOT actioned here,
+      because the note's own reasoning (it is structurally indistinguishable
+      from a legitimate multi-PR epic, of which this repo currently has two) has
+      not changed.)_
 - [ ] **LOW — Two small pieces of genuinely stranded work, found by the new
       stranded-branch check.** Both verified absent from `main`, both needing a
       one-line Dom decision rather than work: (a) `claude/first-backlog-item-agvn1h`
@@ -2262,6 +2355,11 @@ nothing compares a report's claims against its own diff.
       it. Cheap either way; the point is that the boundary should be a
       decision, not an accident. _Source: qa-tester, 2026-08-06 timeline-overlap
       lane — flagged as an inherited scope decision rather than one it made._
+      _(**Second source, 2026-08-13:** the 2026-08-07 pre-launch review reached
+      the same conclusion — its Notion row reads "Whether the e2e lane should
+      cover Firefox/WebKit is an unmade cost decision". Deduped into this item
+      rather than added twice. Two independent reviewers landing on "this is an
+      unmade decision, not a gap" is itself the argument for writing it down.)_
 - [x] **LOW — Five `undici` advisories fixed on 2026-08-04 were never
       referenced by branch name in `BACKLOG.md`.** `team/2026-08-04-undici-
       advisories` (PR #101, merged same day) bumped `undici` past the
@@ -2278,6 +2376,568 @@ nothing compares a report's claims against its own diff.
       advisories published against `undici < 7.29.0`, reached via
       `jsdom@29.1.1 → undici`, turned `main`'s audit gate red; fixed via a
       version override, no code change.)_
+
+### Added 2026-08-07 (impact-ranked; slot above "Pre-launch review")
+
+- [x] **HIGH — `main` went red on its own audit gate, and nothing outside a PR
+      would have noticed.** `npm run audit` (`audit-ci --config
+      ./audit-ci.jsonc`; run in CI at `.github/workflows/ci.yml:56`, inside the
+      required-candidate `build` job) failed on a clean `main` with
+      **`GHSA-5p4m-2wfm-xmqj|js-yaml`** — CVE-2026-59870, quadratic CPU
+      consumption in `!!omap` key resolution, CVSS **7.5**, affected range
+      `>=4.0.0 <4.3.1`; this repo was on 4.3.0. **Fixed the same run** by
+      PR #114 (`js-yaml` 4.3.0 → 4.3.1, `package.json` range `^4.1.0` → `^4.3.1`
+      so the lockfile floor moves too), which is why this is checked off — the
+      breakage is closed. **It is logged HIGH for the residue, not the fix:** a
+      newly-published advisory against an already-installed dependency turns
+      **every open PR red simultaneously**, on a gate whose only trigger is a
+      PR. Nobody opening a PR that day means nobody learns. This is the
+      concrete, second-in-four-days case for the P2 batch's "scheduled `npm
+      audit`" (the 2026-08-04 `undici` advisories, PR #101, were the first) —
+      the fix for *this* item is scheduling that gate, and it lives there.
+      Worth recording precisely because it is the **inverse** of the documented
+      raw-`npm audit`-vs-`npm run audit` false alarm this project has already
+      logged: that trap is a raw command crying wolf while the real gate passes.
+      Here the real gate was genuinely red — and the allowlisted `react-router`
+      advisory passing correctly through `audit-ci.jsonc` alongside it is the
+      evidence that the allowlist still discriminates rather than having decayed
+      into a blanket mute. _Source: 2026-08-07 run, found by running the one
+      command the security audit had explicitly flagged that it could not run._
+      _(**CORRECTED 2026-08-08 — "the breakage is closed" was measured and was
+      false.** PR #114 was verified green on 08-07 and `main` was red again on
+      08-08 with **nobody having touched the repo**: `GHSA-2v37-7h3g-55p8|nanoid`
+      (predictable results with non-integer input, affected `<3.3.17`) published
+      in between, and the tree resolved 3.3.16 via `vite → postcss → nanoid`.
+      Installing PR #114's branch in isolation and re-running the real gate still
+      exited red on that one advisory — so the PR that told Dom "merge this first,
+      it unblocks the queue" would **not** have unblocked it. Fixed on the same
+      branch (lockfile-only: `postcss` 8.5.19 → 8.5.26 and `nanoid` 3.3.16 →
+      3.3.18, both already in range, so no new `overrides` and no new allowlist
+      entry); `build` now passes on #114. This item stays checked because the
+      breakage is now genuinely closed — but the check-off was **premature when
+      written**, which is the fifth time this file has misreported its own state
+      and the first time it did so by believing a verification that had expired
+      rather than by forgetting to tick a box. **It also raises the residue from
+      HIGH-with-a-home to its own item:** three newly-published advisories in
+      five days (`undici` 08-04, `js-yaml` 08-07, `nanoid` 08-08) is not a
+      streak, it is the base rate, and "the fix lives in the P2 batch" is no
+      longer a proportionate answer — see the promoted item below. **Standing
+      lesson, the verification-side twin of the one in `audit-ci.jsonc`:** a
+      green audit result is a measurement with a timestamp, not a property of the
+      branch. Re-run it at merge time, not once at authoring time.)_
+      _(Both fixes above shipped on one branch: `team/2026-08-07-jsyaml-advisory`,
+      merged as PR #114 — the `js-yaml` bump on 2026-08-07 and the `nanoid` /
+      `postcss` lockfile correction on 2026-08-08, the second pushed to the
+      existing branch rather than opening a new PR. Named here because this item
+      cited only the PR number, and `check-backlog-checkoffs` matches on the
+      **branch** — so a genuinely closed, genuinely `[x]` lane still counted as
+      unreferenced. See `reports/2026-08-07.md` and `reports/2026-08-08.md`.)_
+- [ ] **MEDIUM — `*.test.ts`/`*.test.tsx` sit in the `safe-auto` allowlist as
+      "non-code", and they are code the required `build` job executes.**
+      `.github/workflows/auto-merge.yml` treats any `*.test.ts` / `*.test.tsx`
+      as safe, and `.github/AUTO-MERGE-SETUP.md` describes the label as a claim
+      that a PR touches "low-risk, **non-code** paths (blog/content posts, docs,
+      test-only changes, reports)". A test file is not a non-code path: `npm
+      test` runs it inside the required `build` job, so a PR consisting only of
+      test files can execute arbitrary code in CI and then auto-merge **with no
+      human ever reading it**. This is **not an outsider threat** and should not
+      be written up as one — the repo is public but `contents: read`, and every
+      author is one of Dom's own agents; the finding is narrower and more
+      useful: **the gate's own description overstates its safety**, and that
+      description is what a future run will reason from. Two honest fixes, pick
+      one: drop `*.test.ts`/`*.test.tsx` from the allowlist, or relabel the
+      allowlist as "low-review-cost" rather than "non-code" and say plainly that
+      it includes executable test code. Also note the pattern is **unanchored**
+      (a shell `case` glob), so it matches `scripts/anything.test.ts` and any
+      other path ending in those suffixes, not just files under `src/`. Already
+      named in the P2 batch as "drop `*.test.*` from the auto-merge allowlist"
+      — this item is the reasoning that batch entry never carried. _Source:
+      security-auditor, 2026-08-07 pre-launch review._
+- [ ] **MEDIUM — Nothing verifies the LIVE site serves any security header.**
+      Both CSP gates are source-side: they compare `dist/index.html` against a
+      string in `vercel.json`. That proves the two files agree — it proves
+      nothing about what Vercel actually sends. `scripts/check-deployed-
+      routes.mjs`, the only thing that talks to the deployed site at all,
+      asserts exactly two properties per route (status 200, body contains
+      `id="root"`) and never touches `response.headers`. So a misconfigured
+      Vercel project, a dropped `headers` block, or a platform-side override
+      would be **completely invisible to every gate here**, all green. And the
+      script only runs when `SMOKE_URL` is set, which it is not. Fix, both
+      halves or neither: assert the six headers `vercel.json` declares (CSP,
+      `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+      `Strict-Transport-Security`, `Permissions-Policy`) in that script,
+      **reusing the existing `extractCspHashes` rather than reimplementing hash
+      parsing a third time**, and set the variable. (Costing note, so whoever
+      takes this is not surprised: that helper lives in
+      `src/lib/csp/inlineScriptHash.ts` — TypeScript under `src/` — while
+      `check-deployed-routes.mjs` is deliberately dependency-free plain `.mjs`.
+      Reuse is the right call, but it means deciding how the script consumes it,
+      not a one-line import. That decision is part of the work, not a reason to
+      copy the parser.) **See the existing HIGH item
+      "Set the `SMOKE_URL` repo variable so `deployed-smoke` checks something"
+      above — this is not a duplicate of it, it is what that variable would
+      unlock.** Today that item's payoff is two assertions per route; with this,
+      it becomes the only thing in the project that can see production.
+      **Recorded decision:** the lead **dropped** the auditor's suggestion to
+      add COOP/CORP headers from PR #115 for exactly this reason. Adding
+      unverifiable headers to a live site *before* the verification exists is
+      the pattern that keeps costing this project (a config that claims a
+      property, a green check that never looks). They should ship together, in
+      that order. _Source: security-auditor, 2026-08-07._
+- [ ] **MEDIUM — Three visual questions cannot be answered from source, and
+      they gate Dom's design sign-off.** The designer's critique was read-only
+      and it **declined to guess** on three points rather than asserting them,
+      which is the right call and also means they stay open until someone looks
+      at a rendered page: (a) **is the paper-grain layer perceptible at all** at
+      its shipped 0.03 / 0.025 opacities — if it is invisible, then the
+      "warmth" half of the "machine faking paper" direction is carried entirely
+      by the analog marks and the grain is dead weight; (b) **does Fraunces'
+      optical-size axis actually do its job** — read characterful at H1 and calm
+      at body size, or is the difference imperceptible outside a type specimen;
+      (c) **does `MediaGallery`'s scatter composition land as scrapbook or as
+      SaaS** — `docs/project-page-v2.md` §4.2 flags this itself as the spec's
+      "higher-risk, higher-reward" taste call and explicitly routes it to Dom,
+      with the standing advice to build scatter first and pull back if it fights
+      the ~6/10 analog dial. All three are cheap to settle and
+      impossible to settle by reading code. Ask: a **visual-media browser pass
+      over `/` in both light and dark, plus one project detail page**, captured
+      so Dom can judge rather than re-derive. _Source: designer, 2026-08-07
+      pre-launch critique._
+- [ ] **LOW — Draft posts ship inside the production bundle.** `src/content/
+      loader.ts` eagerly `import.meta.glob`s every `content/posts/*.md` as raw
+      text and filters `draft` **at runtime** (`isProd ? items.filter(...)`), so
+      every draft's full body is in the shipped JS whether or not it renders.
+      **Nothing is exposed today** and this should not be dressed up as an
+      incident: all 22 posts are `draft: false`, and the repo is public, so the
+      same text is a click away on GitHub regardless. The real finding is a
+      contract that over-claims: the `draft` field is documented as "preview in
+      `npm run dev` but never ship", and what the code delivers is "does not
+      render". The moment someone drafts a genuinely unpublished post — an
+      unannounced project, a post naming a client — the field will be trusted to
+      do something it has never done. Fixes range from a build-time filter in
+      the loader to simply not shipping drafts in the repo. **Declining is
+      entirely legitimate** given the public repo — but decline it *in writing*
+      here, rather than leaving the documented contract promising more than the
+      code does. _Source: security-auditor, 2026-08-07._
+- [ ] **LOW — `img-src 'self'` directly contradicts what the content schema
+      permits.** `vercel.json`'s CSP pins `img-src 'self'`, while
+      `src/content/validate-content.test.ts` (~line 243) deliberately leaves
+      absolute `http(s)://` cover values unchecked, in a comment that says why:
+      "some future post cover could legitimately point at an externally-hosted
+      image". `schemas.ts` leaves `cover` unconstrained too. So the schema
+      explicitly anticipates a case the CSP explicitly forbids, and the first
+      person to use one gets a **silently blocked image and a fully green
+      suite** — no validation error, no build failure, nothing until someone
+      opens the page. Pick a side and make the other one enforce it: either
+      constrain `cover`/`media[].src` to local paths in the schema (and say the
+      CSP is the reason), or widen `img-src` to the specific host that is
+      actually wanted. What must not persist is two files documenting opposite
+      intentions. _Source: security-auditor, 2026-08-07._
+- [ ] **LOW — The auto-merge guard's completeness rests on one unverified
+      assumption.** The entire allowlist decision — "does this PR touch anything
+      outside the safe set" — depends on `gh pr diff --name-only` returning the
+      **complete** file list. GitHub's compare APIs truncate very large diffs,
+      and if that truncation applies here, a sufficiently large PR could have
+      its unsafe files fall off the end of the list and auto-merge. **This is a
+      hypothesis with a named verification, not a conclusion** — it is unproven
+      in both directions and is filed that way on purpose. Settle it by running
+      the guard's own command against a >300-file PR, or sidestep it entirely by
+      switching to the explicitly paginated `gh api
+      repos/:owner/:repo/pulls/N/files --paginate --jq '.[].filename'`.
+      Likelihood at this repo's actual PR sizes is low, which is why it is LOW
+      and not higher. _Source: security-auditor, 2026-08-07._
+- [ ] **LOW — Whether the `e2e` lane should cover Firefox/WebKit is still an
+      unmade cost decision.** PR #116 closed the *honesty* half of the 2026-08-06
+      item by stating the Chromium-only boundary in `README.md`, where a reader
+      of a green `e2e` check will see it. It did not decide the boundary. The
+      open question is a straight trade with no evidence yet on either side:
+      every browser bug this project has actually measured was found in
+      Chromium, and adding two more projects multiplies CI minutes on the
+      slowest lane — against the fact that nobody has ever looked, so "no
+      WebKit bugs found" is not a finding. Cheapest honest middle: add the other
+      engines to the layout-measuring specs only (contrast, overflow,
+      reading-order, timeline-overlap), not the whole lane. _Source: devops,
+      2026-08-07._
+
+### Added 2026-08-08 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Promote "scheduled `npm audit`" out of the P2 batch: three
+      newly-published advisories in five days is the base rate, not a streak.**
+      The P2 batch has carried a one-line "scheduled `npm audit`" entry since
+      2026-07-21, and the 08-07 item above concluded "the fix for *this* item is
+      scheduling that gate, and it lives there." One day later that answer stopped
+      being proportionate. The measured record: **`undici` 2026-08-04** (PR #101),
+      **`js-yaml` 2026-08-07** (PR #114), **`nanoid` 2026-08-08** (this run) —
+      three separate advisories published against dependencies that were already
+      installed and unchanged, turning `main`'s required gate red three times in
+      five days without a single commit touching the repo. The gate's only
+      trigger is a PR, so each time, the queue went red and the *reason* was
+      invisible until somebody happened to run the command by hand. All three
+      times, somebody did — which is luck, not a control. **What makes this HIGH
+      rather than housekeeping is the compounding failure it already caused
+      once:** PR #114 verified green on 08-07 and was silently stale by 08-08,
+      so the PR whose entire job was to unblock the queue would have merged and
+      left `main` red. A scheduled run makes that visible within a day instead of
+      within a run. Right-sized scope, deliberately small: a `schedule:` cron in
+      a workflow that runs `npm ci && npm run audit` against `main` and opens (or
+      updates) a single issue on failure — no new dependency, no change to the
+      `build` job, and explicitly **not** an auto-bumping bot, which would push
+      lockfile changes past the review this project has repeatedly shown it needs.
+      Also fold in the verification-side lesson from the corrected item above:
+      whatever runs this should be the thing an "unblocker" PR is re-checked
+      against at merge time. _Source: 2026-08-08 run — measured, and the third
+      instance in five days; supersedes the P2 batch's one-line entry, which
+      should be struck when this lands._
+- [ ] **MEDIUM — The Notion reconciliation rule assumes the previous run's
+      bookkeeping PR has merged, and with a full queue it corrupts the mirror.**
+      The scheduled task says to reconcile every Notion row against "the freshly-
+      synced `BACKLOG.md`" on `main`. That is correct only when the last run's
+      bookkeeping PR has landed. On 2026-08-08 it had not — seven PRs were open,
+      the oldest from 08-06 — and following the rule literally would have done
+      real damage: **8 rows correctly marked "In progress" would have been reset
+      to "Not started"**, and 8 further rows describing findings that exist only
+      on `team/2026-08-07-backlog-and-report` (PR #117) had no counterpart on
+      `main` to reconcile against at all. Every one of those apparent
+      discrepancies was verified this run to be the mirror tracking the unmerged
+      branch **correctly** — zero genuine drift — so the rule would have
+      manufactured the drift it exists to heal. Note this is the *inverse* of the
+      2026-08-05 finding (an item in `BACKLOG.md` with no Notion row) and of the
+      2026-07-31 one (findings only in Notion): the mirror has now been observed
+      out of step in three distinct directions, and in this third case the mirror
+      was right and the rule was wrong. Fix: reconcile against `main` **plus the
+      tips of any open bookkeeping PRs**, and treat a row marked "In progress"
+      whose branch has an open PR as authoritative rather than as drift. Cheap
+      and mechanical — the branch names are already in the `Branch` column.
+      _Source: Project Lead, 2026-08-08 Notion reconciliation — observed, and the
+      reason this run deliberately changed **no** Notion statuses._
+
+- [ ] **HIGH — CI does not run on stacked PRs at all, so the documented
+      bookkeeping-stacking convention produces PRs with zero gates.**
+      `.github/workflows/ci.yml` triggers on `pull_request:` filtered to
+      `branches: [main]`. A stacked PR — one whose **base** is another `team/*`
+      branch rather than `main` — therefore matches no trigger and runs **no
+      `build`, no `e2e`, no `backlog-checkoffs`, no `deployed-smoke`**. Only the
+      two Vercel checks report, and both are green regardless of whether the code
+      compiles. Confirmed on PR #119 this run: `gh pr checks 119` lists exactly
+      two Vercel rows and nothing else. This is not a hypothetical or a
+      one-off — the stacking convention is **already documented as load-bearing**
+      by the LOW item above ("Bookkeeping PRs now stack three deep"), which
+      analysed the merge-order and review-in-isolation costs and never noticed
+      that the stacked PRs were also **entirely ungated**. Every stacked
+      bookkeeping PR in this repo's history ran its gates for the first time only
+      when the stack collapsed onto `main`. The exposure is exactly the class
+      this project keeps paying for: a PR that looks reviewed and checked, whose
+      checks never ran. It compounds with the throttle — the fuller the queue,
+      the more stacking happens, so gates disappear precisely when the queue is
+      least reviewable by hand. Fixes, cheapest first: (a) add
+      `branches: [main, 'team/**']` to the `pull_request` trigger, which is a
+      one-line change and makes every stacked PR run the same gates; (b) drop the
+      `branches` filter entirely and let CI run on every PR; (c) stop stacking,
+      per the `BACKLOG-INBOX.md` idea in the LOW item. Prefer (a) — it fixes the
+      gap without touching the convention or the required-check name that branch
+      protection depends on. Note the required check for branch protection is
+      still only evaluated on the final `→ main` PR, so (a) adds signal without
+      changing what gates a merge. _Source: 2026-08-08 run — found because this
+      run's own draft PR came back with two Vercel checks and nothing else; its
+      585/585, typecheck, lint and `validate:content` results are from **local**
+      runs, which is the only reason the work is verified at all._
+
+### Added 2026-08-09 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **LOW — `check-report-claims` recorded its first false positive, and the
+      shape it fires on is the one bookkeeping reports keep producing.** The gate
+      treats "a text block containing my own branch string" as a claim about my
+      own branch, and fails if a path in that block is not in the diff. On this
+      branch it fired on `reports/2026-08-08.md`, where the block was:
+      "`.github/workflows/ci.yml` triggers on `pull_request:` filtered to
+      `branches: [main]`. This PR's base is `team/2026-08-07-backlog-and-report`,
+      so it matches no trigger" — a **citation** of the workflow file explaining
+      why a stacked PR ran no gates, in a sentence that mentions the branch as a
+      PR *base*. The report never claimed to have edited `ci.yml`, and did not.
+      Fixed on 2026-08-09 by splitting that block into two paragraphs, which is
+      a real fix (the checker's unit is one paragraph, so the split makes the
+      structural signal match what the prose actually asserts) but also a fix
+      nobody would find without reading the checker's source. **This is not an
+      argument to widen the extraction** — that file's header argues at length
+      against exactly that, and the argument still holds. It is an argument that
+      the failure output should teach the reader the paragraph rule: the message
+      offers only "the report is wrong" or "the change is missing", and the
+      third and actual case — "this is a citation, and the branch name in the
+      same paragraph is what pulled it in" — is not among them. Cheapest fix is
+      a third bullet in the `Fix:` block naming the paragraph rule; nothing else
+      changes. _Source: 2026-08-09 run — hit while making PR #117 green, the
+      first time this gate has fired on a report in review rather than on a real
+      drift._
+
+### Added 2026-08-10 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — The ≤6 review throttle is enforced by one of the two tasks that
+      open PRs, so it cannot hold the queue.** `studio-site-build` checks the
+      open-PR count and declines to build when it is over ~6 — it did exactly
+      that on 2026-08-10, and in effect on 2026-08-09 too. `daily-logbook`
+      (21:30) opens a PR **every day unconditionally**: it has no view of the
+      review queue and no throttle of its own. Measured across those two runs:
+      the build task shipped **zero** new feature PRs and the queue still went
+      **6 → 7**, because #121 landed overnight. Three of the seven PRs open at
+      2026-08-10 run start were logbook posts (#118, #120, #121). A throttle on
+      one producer is not a throttle on the system; the current design lets the
+      disciplined task starve itself while the undisciplined one sets the queue
+      depth. Options, cheapest first: (a) `daily-logbook` checks the open-PR
+      count and, when over throttle, appends the post to the existing logbook
+      branch instead of opening a new PR — same content, one PR per batch
+      rather than per day; (b) logbook posts get the `safe-auto` label so they
+      never consume a review slot (depends on the auto-merge question above);
+      (c) logbook PRs are excluded from the throttle count on the grounds that
+      reviewing a blog post is not the same cost as reviewing a diff — which is
+      arguably true and would want Dom to say so explicitly. **This is a
+      process change to a task Dom owns, so it is a question, not a task the
+      studio should action unilaterally** — same posture as the auto-merge item
+      above, and it should probably be answered at the same time as it, since
+      (b) collapses both into one decision. _Source: Project Lead, 2026-08-10 —
+      measured on this run's own queue state, not inferred; see
+      `reports/2026-08-10.md`._
+
+### Added 2026-08-11 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — Two PRs that are each green against `main` can merge into a
+      defect neither of them contains, and nothing checks the combination.**
+      Concrete, reproduced this run, not hypothetical. PR #117 replaced a
+      snapshot assertion in `scripts/check-backlog-checkoffs.test.ts`
+      (`expect(result.referencedButOpen).toHaveLength(1)`) with a shape-based
+      one, because the snapshot had gone red on 2026-08-08 at length 3 on
+      healthy repo growth. PR #116 independently **moved that whole block** into
+      the new `scripts/check-backlog-checkoffs.real-corpus.test.ts` as part of
+      making the default `npm test` hermetic — and carried the **pre-fix**
+      assertion across with it. The two therefore conflict, and the natural
+      resolution (take #116's side, since #116 owns the file split) silently
+      reinstates the known-red snapshot. Real transcript from the merged tree:
+      `expected [ { …(4) }, { …(4) }, { …(4) } ] to have a length of 1 but got 3`.
+      **No gate in this repo can see this.** Both PRs are based on `main`, so
+      both run full CI and both are green — this is a *different* mechanism from
+      the "stacked PRs run no CI at all" item above (that one is about PRs based
+      on other `team/*` branches matching no `ci.yml` trigger; these are based on
+      `main` and do run every check). The general shape: **when PR A *moves*
+      code that PR B *fixes*, git resolves the text and loses the intent**, and
+      the only artifact that would show it is a tree neither PR's CI ever
+      builds. Found only by merging all nine open PRs locally and running the
+      full suite — about 15 minutes by hand. Options, cheapest first: (a) a
+      queue-integration CI job that merges every open green PR and runs the full
+      suite, reporting which pair conflicts; (b) require branches to be
+      up-to-date with `main` before merge (GitHub branch-protection setting —
+      catches nothing here, because the offender is another *open* PR, not
+      `main`; noted so it is not mistaken for a fix); (c) accept it and keep
+      doing the manual pre-merge integration run whenever the queue exceeds ~3
+      PRs that touch overlapping files. **The specific instance is already
+      fixed** — the corrected assertion was ported onto #116's branch this run
+      (commit `1b7a17b`), so the queue is safe to merge in any order; this item
+      is about the class. _Source: Project Lead, 2026-08-11 — reproduced red on
+      the merged tree, then green after the port._
+- [ ] **LOW — A real-corpus assertion pinned to `BACKLOG.md` content is a
+      snapshot that ordinary backlog growth turns red.** The assertion above
+      (`referencedButOpen` having exactly length 1) was not wrong when written:
+      `referencedButOpen` is *derived from `BACKLOG.md`*, and on #116's branch,
+      which carries `main`'s backlog, the real count genuinely **is** 1 —
+      verified by running `npm run check:backlog-checkoffs` there. It becomes 3
+      only once #117's `BACKLOG.md` lands. That is worth naming as its own
+      hazard: a "real corpus" test is only as stable as the corpus, and this
+      corpus is a file every run edits. The count assertion is now shape-based,
+      so the immediate case is closed; the open question is whether any *other*
+      real-corpus assertion in `scripts/*.real-corpus.test.ts` is pinned to a
+      value that normal repo activity moves. Worth one pass over that lane
+      asking, per assertion, "what repo activity makes this red without anything
+      being wrong?" _Source: 2026-08-11 run — found while falsifying the fix
+      above, when the falsification **failed to fail** on #116's branch alone
+      and the reason turned out to be legitimate rather than a weak test._
+
+- [ ] **MEDIUM — `check-backlog-checkoffs` treats a passing *mention* of a
+      branch as a check-off, so closing one item can silently uncover another.**
+      Measured this run, as a side effect of checking off the shipped-lanes item
+      above. Before: the gate reported **3** `referencedButOpen` notes
+      (`team/2026-08-04-runs-api` #98, `team/2026-08-06-report-contract` #110,
+      `team/2026-08-06-stranded-records` #108). After one check-off: **1**. Two
+      notes disappeared, but only one item was closed. The extra one is
+      `runs-api`, whose genuine home is the still-`[ ]` "No on-site surface for
+      the run reports" epic — it stopped being reported because the item I
+      checked off happens to *discuss* `team/2026-08-04-runs-api` in its prose,
+      and `scripts/check-backlog-checkoffs.mjs` matches with
+      `block.text.includes(branch)` then `if (block.checked) return 'checked'`.
+      Any mention inside any `[x]` bullet counts, including a narrative aside in
+      a completely unrelated item. The consequence is the quiet kind: PR #98's
+      real multi-PR-epic status is now **invisible** to the gate, and it was
+      hidden by an edit that had nothing to do with it. This repo's backlog is
+      unusually prose-heavy and routinely names other branches when explaining a
+      decision, so the collision rate will only grow. Not urgent — the gate's
+      hard failure (`unreferenced`) is unaffected, and this only degrades the
+      advisory note — but the note is the half that catches the "softer shape"
+      the gate's own header says it is deliberately not failing on, so losing it
+      silently is worse than never having had it. Cheapest fix: require the
+      branch mention to sit in a bullet that also *claims* it (e.g. inside the
+      trailing `_( … )_` provenance note), or scope matching to the bullet whose
+      item the report row names, rather than any bullet in the file. _Source:
+      Project Lead, 2026-08-11 — found by diffing the gate's own output before
+      and after a one-checkbox edit, not by reading its source._
+
+### Added 2026-08-13 (impact-ranked; slot above "Pre-launch review")
+
+- [ ] **HIGH — The `react-router` allowlist entry's stated cost has expired: a
+      patch release now clears the advisory, and nothing re-checked.**
+      `audit-ci.jsonc`'s entry for GHSA-qwww-vcr4-c8h2 (written 2026-08-04)
+      justifies the deferral with "The 7.x line's latest (7.18.2) is still
+      INSIDE that range, so no patch release clears this on 7.x — only the 8.x
+      major does", and prices the fix as the ~28-file 8.x migration the
+      2026-08-03 sweep measured. **Both halves are now false against the live
+      advisory.** Verified this run: `npm audit --omit=dev --json` reports the
+      range as `>=7.12.0 <7.18.2` — it **narrowed**; the entry was written when
+      it read `<8.3.0` — `react-router@7.18.2` is published (`npm view
+      react-router versions`), `package.json` declares `react-router-dom:
+      ^7.18.1`, and npm's own output says "fix available via `npm audit fix`"
+      with no `--force`. So the remedy is an in-range patch bump, not a major
+      migration. The CI gate is green only because this entry suppresses the
+      finding. _Source: this run, reading today's CI log. It is the exact
+      failure mode `audit-ci.jsonc`'s own STANDING LESSON names — "an allowlist
+      entry justified by [a version claim] is only true against the advisory's
+      range AS IT READS TODAY" — written about a range that widened, and now
+      fired by one that narrowed, which is the case the lesson did not
+      anticipate. **Not done this run only because the PR queue was already at
+      7, over Dom's review throttle.** Top of the list: one lockfile bump, one
+      deleted allowlist entry, one test pass._
+
+- [ ] **HIGH — Two of the studio's own PRs sat red for six days and no run
+      noticed.** #116 (typecheck) and #117 (`check:report-claims`) went red on
+      2026-08-07. Every scheduled run since fast-forwarded `main`, reconciled
+      Notion, planned, and opened **more** PRs — without once asking whether the
+      queue it had already built was healthy. The red was surfaced correctly at
+      the PR: `notify-on-failure` (`ci.yml:480`) comments naming the failed
+      check and the artifact command, which is the item above at line 1695
+      working as designed. Nothing reads PR comments. This is the gap one level
+      out: the run-start preflight checks the checkout, dependency drift and
+      `main`, and never looks at the studio's own open work. The cost was not
+      abstract — the queue-unjam PR was itself jammed, and the throttle stayed
+      pinned at 7 for six days, blocking every new item. Fix: a preflight step
+      running `gh pr list --json number,statusCheckRollup,mergeStateStatus` over
+      the studio's own open PRs, reporting every red one **before** planning,
+      with "repair the queue" outranking "start new items". _Source: 2026-08-13
+      run — the first thing it did was look, and it found six-day-old red._
+
+- [ ] **HIGH — `check-merge-revert` is path-granular, so an intra-file merge
+      revert walks straight past it.** Demonstrated, not argued. On
+      `team/2026-08-07-gate-and-doc-truth` the in-branch `git merge main`
+      (`ea05490`) resurrected a `describe` block the branch had deliberately
+      **moved** to another file, without its helpers — six `TS2304`/`TS2552`
+      errors, PR red for six days. Running `node scripts/check-merge-revert.mjs`
+      on that exact branch prints `OK — … 14 path(s) touched by the branch's own
+      commits, all still present`, because the *file* is still in the net diff;
+      only a hunk inside it was reverted. The gate detects "the branch's edit to
+      path P vanished" and structurally cannot detect "the branch's edit to hunk
+      H inside surviving path P vanished" — PR #81's incident class, one level
+      down. The cleanest possible control ran the same morning: the sibling
+      branch `team/2026-08-07-backlog-and-report` took the path-granular version
+      of the same bad merge and the gate **did** catch it, naming both paths and
+      the merge commit. Fix options: compare per-hunk (expensive, noisy), or
+      cheaply flag any merge commit whose resolution differs from the branch's
+      pre-merge content on a path the branch itself had edited — which is what
+      the existing walk already computes, one granularity finer. _Source:
+      2026-08-13 run; both branches diagnosed the same morning._
+
+- [ ] **HIGH — CI gate ordering let the weaker gate mask the stronger one for
+      six days.** `check:report-claims` runs at `ci.yml:178` and
+      `check:merge-revert` at `ci.yml:205`; the job stops at the first red. So
+      PR #117 announced "a new report claims a path its own branch does not
+      touch" — sending readers hunting for a lying report — while
+      `check:merge-revert` sat four steps later holding the actual diagnosis,
+      naming both silently reverted paths and the merge commit that ate them.
+      The reports were never wrong. This is not a hypothetical ordering
+      preference: it cost six days and two runs' worth of misdirection, and the
+      repo already owns the better gate. Fix: order gates by diagnostic strength
+      (root-cause gates ahead of symptom gates), or run the cheap diagnostic
+      gates unconditionally and report them together rather than short-circuiting
+      at the first failure. _Source: qa-tester, 2026-08-13 run — found by running
+      the later gate by hand on the red branch._
+
+#### Pre-launch review deferrals — Notion rows that never had a BACKLOG.md item
+
+Found 2026-08-13 during the Notion reconciliation: rows created 2026-08-07 from
+`docs/pre-launch-review-2026-08-07.md` §2 ("Deferred to Dom as decisions") exist
+in the mirror with **no counterpart in this file**. Not an oversight by that run
+— its §7 says so out loud ("No BACKLOG.md edit — … that's a call for whoever
+owns that file's edit process"), and this is that call, six days late. The known
+mirror-completeness gap is logged in the other direction (an item with no row);
+this is the direction nobody checked. Sourced below from the merged review doc,
+never from Notion. Deduped rather than re-added: the review's live-header
+bullet folds into the existing `SMOKE_URL` item, its "curated Start here rail"
+bullet into the existing blog-entry-point item, and its Firefox/WebKit bullet
+into the existing Chromium-only item.
+
+- [ ] **MEDIUM — `*.test.ts` is on the `safe-auto` allowlist, and it is the one
+      member of that list that executes.** The allowlist treats any
+      `*.test.ts`/`*.test.tsx` path anywhere in the repo as safe to auto-merge,
+      while `.github/AUTO-MERGE-SETUP.md`'s "What `safe-auto` means" describes
+      the allowlist as "non-code" paths (content, docs, tests, reports). CI runs
+      `npm test`, so a test file is arbitrary code execution inside the runner,
+      not merely "changes app behaviour". Dom's decision, tradeoff stated:
+      dropping `*.test.ts` from the allowlist makes routine QA-authored test PRs
+      no longer auto-mergeable. Narrow in practice — the runner is isolated and
+      the lane is dormant per that review's Fix 1 — but the doc should stop
+      calling it non-code either way, which is free. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §2 (security-auditor)._
+
+- [ ] **MEDIUM — `img-src 'self'` contradicts the content schema, which permits
+      an external `cover` URL.** `vercel.json`'s CSP allows no external image
+      hosts; `cover: z.string().optional()` in `schemas.ts` imposes no
+      root-relative constraint. An external `cover` would validate cleanly at the
+      content layer and silently fail to load in production — a green build
+      carrying a broken page, which is this project's recurring shape. Decide one
+      direction: tighten the schema to require root-relative paths (matches the
+      CSP; blocks hotlinking a repo's own README image) or widen `img-src` to
+      named trusted hosts. _Source: `docs/pre-launch-review-2026-08-07.md` §2._
+
+- [ ] **MEDIUM — Nothing has ever made an HTTP request to the live site.** The
+      security-auditor had read-only file tools and said so: it did not run
+      `npm audit` (that pass ran it and found a real, then-unfixed CVE), did not
+      scan git history for secrets, and made no request to
+      `doms-ai-studio.vercel.app`. The review pass did not close the last two
+      either. So the six security headers shipped in PR #42 are verified only as
+      *config text in `vercel.json`* — no one has confirmed the deployed site
+      actually serves them, and `vercel.json` headers are unverifiable on the
+      Vite dev server by construction. Two cheap, separable jobs: a `curl -I`
+      assertion per header against the deployed URL (the natural home is the
+      `deployed-smoke` lane, which needs the `SMOKE_URL` item above), and a
+      one-off git-history secret scan. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §6/§7._
+
+- [ ] **LOW — `style-src 'unsafe-inline'` (scripts are hash-pinned; styles are
+      not).** `script-src` is `'self'` + sha256 with no `unsafe-inline`;
+      `style-src` still carries `'unsafe-inline'` because Tailwind and inline
+      `style={{…}}` props are used throughout (e.g. `Badge`'s `color-mix` tints).
+      Removing it needs per-style hashing or a nonce scheme — real engineering
+      against a style-only injection surface, lower severity than script
+      injection but not zero (CSS can exfiltrate via attribute selectors in some
+      browsers). Dom's call whether it is worth doing before launch. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §2._
+
+- [ ] **LOW — Draft posts may ship in the production bundle (code shape flagged,
+      bundle never inspected).** `filterVisiblePosts` filters drafts out of the
+      rendered `posts` array in JS, *after* `import.meta.glob` has already loaded
+      every post file — so a draft's raw markdown is plausibly present in the
+      shipped chunks even though no route or link reaches it. The reviewer was
+      explicit that this is the code shape that would produce it and **not a
+      confirmed finding**: nobody has grepped `dist/assets/*.js` for draft-only
+      content. That grep is the whole first step and takes minutes; only after it
+      is there a decision to make. Kept LOW deliberately — unreachable-but-present
+      draft prose on a logbook about building in the open is embarrassing, not
+      dangerous. _Source: `docs/pre-launch-review-2026-08-07.md` §2._
+
+- [ ] **LOW — The auto-merge guard's file list rests on `gh pr diff
+      --name-only`, which can truncate.** The guard step in
+      `.github/workflows/auto-merge.yml` enumerates changed files that way; if
+      `gh` truncates on a large diff the guard under-counts and a PR touching
+      unsafe paths could read as "safe" — a fail-open on the one control
+      standing between the label and an unreviewed merge. Named by the auditor
+      as a hypothesis **with its own verification command**, never run: compare
+      `gh pr diff --name-only` against `gh pr view --json files` (or paginated
+      `gh api …/files`) on a deliberately large synthetic PR. Until someone
+      runs it, the guard's completeness is assumed rather than known. _Source:
+      `docs/pre-launch-review-2026-08-07.md` §2._
 
 Add new items to this list (bottom, or prioritized with a note) when run
 reports surface work worth doing — but never reorder Dom's edits.
