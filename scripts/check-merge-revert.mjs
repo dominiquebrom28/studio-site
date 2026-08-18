@@ -121,6 +121,85 @@
  * right fix is to extend this analysis (and its test), not to loosen the
  * "last touch wins" rule.
  *
+ * KNOWN GAP — THIS CHECK IS PATH-GRANULAR, NOT HUNK-GRANULAR (deliberate,
+ * evidenced, NOT fixed here — BACKLOG.md "check-merge-revert is
+ * path-granular, so an intra-file merge revert walks past it", added
+ * 2026-08-13):
+ *
+ *   Look again at step 3 in the CORE ALGORITHM above: `if
+ *   (netDiffPaths.has(ownPath)) continue`. A path touched by the branch's
+ *   own commits is EXEMPT from all further analysis the instant it appears
+ *   ANYWHERE in `git diff --name-status mergeBase...head`, regardless of
+ *   what a merge commit did to specific lines inside it along the way. The
+ *   "last touch wins" walk-back (the whole point of this file) only ever
+ *   runs for a path that is ABSENT from the net diff — i.e. one whose final
+ *   content happens to be byte-identical to `mergeBase`'s. A file the branch
+ *   edits more than once over its lifetime (BACKLOG.md, a run report, a test
+ *   file touched across several sessions — exactly this repo's own
+ *   heaviest-traffic paths) will almost always differ from `mergeBase` in
+ *   SOME way by the time `head` is reached, which is enough to exempt it
+ *   entirely — even if an in-between merge silently discarded one specific
+ *   edit and something else (the branch's own later commit, or main's own
+ *   unrelated change to the same file) is what's actually keeping the path
+ *   "present."
+ *
+ *   REAL, DATED EVIDENCE, not a hypothetical: `team/2026-08-07-backlog-and-
+ *   report`'s in-branch merge `1fcab9e` (2026-08-17, parents `a82a2f8`
+ *   branch / `f6e9f68` main) silently resurrected the `describe('… real
+ *   corpus …')` block this file's OWN tombstone (further down, at the
+ *   bottom of this file's test) warns about — a delete-on-one-side/
+ *   modify-on-the-other conflict inside `scripts/check-backlog-
+ *   checkoffs.test.ts` that git resolved with no conflict markers. This
+ *   check reported clean anyway:
+ *
+ *     CHECK_MERGE_REVERT_BASE_REF=f6e9f68a77d5df0a5f1994e7ec89e1dee100b74b \
+ *     CHECK_MERGE_REVERT_HEAD_REF=1fcab9e5ad5623983cbab87a5f635eca4ae3fdbc \
+ *     node scripts/check-merge-revert.mjs
+ *     [check-merge-revert] OK — walked 19 own-first-parent commit(s) ...
+ *
+ *   `scripts/check-backlog-checkoffs.test.ts` stayed "present" in the net
+ *   diff purely because the branch's OTHER own commits (`db25190`,
+ *   `dd6c2ff`, `30e19f6`, ...) also touched it — the resurrected block was
+ *   never checked at all, not "checked and misjudged."
+ *
+ *   THE COST, STATED PRECISELY (an earlier draft of this comment said "six
+ *   days red, 2026-08-07 → 2026-08-13"; that was wrong, and the real shape
+ *   is a sharper illustration than the wrong one was). Per `gh run list`
+ *   on this branch, PR #117 failed and recovered repeatedly through early
+ *   August for unrelated reasons, and was **green** at `a82a2f8`
+ *   (2026-08-13T08:14Z). Forty-three minutes later the merge `1fcab9e`
+ *   (2026-08-13T08:57Z) turned it red — and it stayed red until it was
+ *   fixed by hand on 2026-08-17, four days later. So the sequence is
+ *   green → in-branch merge → red, which is precisely the transition this
+ *   check exists to catch, and it reported clean across it.
+ *
+ *   NOT FIXED HERE, ON PURPOSE — the false-positive cost of hunk/line-level
+ *   detection is the reason, not effort: a real content-level fix needs
+ *   either a genuine 3-way diff (this repo has no diff3/merge library and
+ *   BACKLOG rule "no new npm dependencies without saying why" makes adding
+ *   one a decision bigger than this item) or a cruder line-presence
+ *   heuristic (does every line an own commit ever added still appear
+ *   somewhere in `head`'s copy of the path?), which would false-positive on
+ *   completely benign reformatting/refactor churn in a shared, high-traffic
+ *   file — exactly the BACKLOG.md / README.md shape this repo's own commit
+ *   history is full of. A gate that goes red for the wrong reason teaches
+ *   people to re-run it until it's green, which stops it being a gate at
+ *   all (this repo's own standing rule — see the `e2e` job's non-required
+ *   status in `ci.yml` for the same principle applied to flakiness instead
+ *   of false positives). This check is REQUIRED (part of the `build` job);
+ *   a noisy version of it would be worse than today's narrower, honest one.
+ *
+ *   The residual backstop for this gap is a human: reviewing the actual
+ *   diff of any merge commit a branch makes in-branch remains necessary,
+ *   same as it always was — this check narrows that burden (it still finds
+ *   the "reverted to nothing" shape unaided) but does not remove it.
+ *   `check-merge-revert.test.ts`'s "KNOWN GAP" describe block pins this
+ *   exact blind spot with a synthetic, hermetic fixture (no dependency on
+ *   any specific branch's continued existence) so that fixing it — should
+ *   `scripts/check-merge-revert.mjs` ever grow hunk-level detection — is a
+ *   deliberate test update, not an accidental behavior change nobody
+ *   notices.
+ *
  * THE SYNTHETIC-MERGE-COMMIT TRAP (why `headRef` is NOT simply `HEAD` in
  * CI) — `scripts/check-report-claims.mjs`'s header already established that
  * `actions/checkout` on a `pull_request` event leaves the checkout in

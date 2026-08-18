@@ -360,6 +360,90 @@ describe('checkMergeRevert — VIOLATION: the PR #81 shape, reproduced with a fa
 // ---------------------------------------------------------------------------
 
 /**
+ * KNOWN GAP — path granularity, not hunk granularity (BACKLOG.md
+ * "check-merge-revert is path-granular, so an intra-file merge revert walks
+ * past it", added 2026-08-13). See `check-merge-revert.mjs`'s own "KNOWN
+ * GAP" header section for the full false-positive-cost reasoning for why
+ * this is documented rather than fixed with content-level diffing.
+ *
+ * This fixture models the REAL incident's shape (not a hypothetical): the
+ * branch touches path X more than once (`own1`, `own2` — standing in for
+ * `team/2026-08-07-backlog-and-report`'s `db25190`/`dd6c2ff`/`30e19f6`, all
+ * of which touched `scripts/check-backlog-checkoffs.test.ts`), then an
+ * in-branch merge (`merge1` — standing in for the real `1fcab9e`) ALSO
+ * touches X. Because `own2`'s edit (or, in the real incident, any of the
+ * branch's several other edits to the same file) keeps X's final content
+ * different from `mergeBase`'s, X is present in `netDiff` and the
+ * `if (netDiffPaths.has(ownPath)) continue` short-circuit in
+ * `checkMergeRevert` exempts it from the "last touch wins" analysis
+ * entirely — the merge is never inspected, whether or not it silently
+ * discarded something.
+ *
+ * Deliberately: this fixture's `diffsByPair`/`netDiff` shape is
+ * indistinguishable, to this check, from the "healthy" `is clean when a
+ * touched path survives an in-branch merge (main and branch touched
+ * different regions — the common shape)` test above — same inputs, opposite
+ * real-world story (one is a clean auto-merge of disjoint regions, the
+ * other is exactly PR #117's silent, no-conflict-markers revert). That
+ * indistinguishability, at path-level granularity, IS the gap. Real,
+ * reproduced command + output (captured verbatim in this task's own
+ * report):
+ *
+ *   CHECK_MERGE_REVERT_BASE_REF=f6e9f68a77d5df0a5f1994e7ec89e1dee100b74b \
+ *   CHECK_MERGE_REVERT_HEAD_REF=1fcab9e5ad5623983cbab87a5f635eca4ae3fdbc \
+ *   node scripts/check-merge-revert.mjs
+ *   [check-merge-revert] OK — walked 19 own-first-parent commit(s) from
+ *   f6e9f68a77d5df0a5f1994e7ec89e1dee100b74b to 1fcab9e, 10 path(s) touched
+ *   by the branch's own commits, all still present in `git diff --name-only
+ *   f6e9f68a77d5df0a5f1994e7ec89e1dee100b74b...1fcab9e` (or explained by
+ *   the branch's own later commit — 0 such case(s)).
+ *
+ * This test asserts the CURRENT behavior (`clean`, i.e. NOT flagged) as a
+ * pin, not an endorsement: if this ever starts reporting `violation`,
+ * that's a sign hunk-level (or otherwise content-aware) detection has been
+ * added to `checkMergeRevert` — update this test's expectation and
+ * `check-merge-revert.mjs`'s "KNOWN GAP" header note together, deliberately,
+ * rather than letting a behavior change go unnoticed. Uses the fake
+ * `gitRunner` (not a reference to the real, still-open, unmerged
+ * `team/2026-08-07-backlog-and-report` branch) so this test stays hermetic
+ * and does not depend on that branch continuing to exist in every future
+ * checkout — the real command/output above is this gap's falsification
+ * evidence, not this test's mechanism.
+ */
+describe('checkMergeRevert — KNOWN GAP: path presence masks a within-file content revert', () => {
+  it('does NOT flag a merge that alters a path the branch touched multiple times, as long as SOME own edit keeps the path present in the net diff', () => {
+    const gitRunner = makeGitRunner({
+      mergeBase: 'BASE',
+      firstParentChain: [
+        chainLine('own1', ['BASE'], "delete the real-corpus describe block (branch's own work, later silently undone)"),
+        chainLine('own2', ['own1'], 'an unrelated later edit to the same file'),
+        chainLine('merge1', ['own2', 'MAIN2'], "Merge branch 'main' into team/x (no conflict markers reported)"),
+      ].join('\n') + '\n',
+      diffsByPair: {
+        'BASE..own1': 'M\tscripts/check-backlog-checkoffs.test.ts\n',
+        'own1..own2': 'M\tscripts/check-backlog-checkoffs.test.ts\n',
+        // The merge's resolution changes the path relative to own2 (parent[0])
+        // — in the real incident this is where the deleted block came back —
+        // but the path was ALREADY going to be in netDiff because of own1/own2,
+        // so nothing distinguishes "auto-merged cleanly" from "silently reverted
+        // part of what own1/own2 did" at this granularity.
+        'own2..merge1': 'M\tscripts/check-backlog-checkoffs.test.ts\n',
+      },
+      netDiff: 'M\tscripts/check-backlog-checkoffs.test.ts\n',
+    });
+
+    const result = checkMergeRevert({ repoRoot: '/repo', gitRunner, baseRefCandidates: ['origin/main'], headRefResolution: { headRef: 'merge1', source: 'test' } });
+
+    // Pinned, not endorsed — see this block's own header comment.
+    expect(result.status).toBe('clean');
+    expect(result.violations).toEqual([]);
+    expect(result.touchedByOwnCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
  * Real-history verification — REAL `git` against this repo's actual
  * history, not the fake gitRunner above. Reproduces the exact incident this
  * check exists for, plus a sample of the healthy corpus. `resolveMergeBase`
