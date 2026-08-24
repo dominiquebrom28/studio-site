@@ -401,8 +401,14 @@ No commits since the last sweep; assessed cheaply and skipped, per the sweep rul
    bump is sitting on `team/maintenance-2026-08-24` in mensApp (commit `250de12`,
    local, unpushed). Until it lands, 640 tests are decoration. Then do for mensApp
    what studio-site already did: require `build` on `main` via a ruleset, so a
-   feature week cannot land red and PR-less again. This is the cheapest item on
-   the list and it unlocks the value of everything the team built last week.
+   feature week cannot land red and PR-less again. I checked rather than assumed,
+   using the endpoint this studio learned the hard way to trust:
+   `gh api repos/dominiquebrom28/mensapp/rules/branches/main` returns `[]` —
+   **no rules at all** on mensApp's `main`. No required check, no force-push
+   guard, no deletion guard. (studio-site's returns `deletion`,
+   `non_fast_forward`, `required_status_checks: build`.) This is the cheapest
+   item on the list and it unlocks the value of everything the team built last
+   week.
 
 2. **Do the mensApp auth rework — it is now blocking, not deferred.** Supabase
    Auth plus `auth.uid()`-scoped RLS is one piece of work that closes the PIN
