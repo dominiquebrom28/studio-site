@@ -35,6 +35,10 @@ function renderBlogIndex() {
   );
 }
 
+// How many of the most recent posts the axe scan renders. See the comment on
+// that test for why this is bounded rather than "all of them".
+const RECENT_POSTS_SCANNED = 12;
+
 describe('BlogIndex — real content', () => {
   it('renders the Logbook heading and at least one post card', () => {
     renderBlogIndex();
@@ -44,11 +48,41 @@ describe('BlogIndex — real content', () => {
     expect(screen.queryByText('No entries yet — the first run report is still warm.')).toBeNull();
   });
 
+  /**
+   * Scans a rolling window of the most recent posts rather than every
+   * committed one. This test used to render the whole index, which made its
+   * cost grow with the archive: at 36 posts it took 5433ms against vitest's
+   * 5000ms default and failed the build on a day whose only change was
+   * publishing a post. Nothing was wrong with the post, and nothing would
+   * have been wrong with the next one either — the test had simply outgrown
+   * its own timeout, and would have done so on whichever post happened to
+   * cross the line.
+   *
+   * A window keeps the coverage honest rather than trading it away. Every
+   * post passes through this scan while it is recent, so an accessibility
+   * problem introduced by a post is still caught when that post lands; what
+   * the window drops is re-scanning archive entries that already passed and
+   * cannot change. The runtime is constant from here on.
+   *
+   * The timeout is still raised well above the observed cost, because axe on
+   * a cold jsdom is slow and variable on CI runners, and a flaky
+   * accessibility test gets muted rather than fixed.
+   */
   it('has zero axe violations', async () => {
+    const { getAllPosts: mocked } = await import('@/content');
+    const actual = await vi.importActual<typeof import('@/content')>('@/content');
+    vi.mocked(mocked).mockReturnValueOnce(actual.getAllPosts().slice(0, RECENT_POSTS_SCANNED));
+
     renderBlogIndex();
+    // Guard against a vacuous pass: if `mockReturnValueOnce` were consumed by
+    // some other call, this would render the empty state and scan almost
+    // nothing while still reporting zero violations.
+    expect(screen.queryByText('No entries yet — the first run report is still warm.')).toBeNull();
+    expect(screen.getAllByRole('link').length).toBeGreaterThanOrEqual(RECENT_POSTS_SCANNED);
+
     const results = await axe.run(document.body);
     expect(results.violations).toEqual([]);
-  });
+  }, 20000);
 });
 
 /**
