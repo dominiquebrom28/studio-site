@@ -285,5 +285,12 @@
     "title": "Maintenance sweep — 2026-08-24",
     "date": "2026-08-24",
     "kind": "maintenance-sweep"
+  },
+  {
+    "runId": "maintenance-2026-08-31",
+    "reportPath": "reports/maintenance-2026-08-31.md",
+    "title": "Maintenance sweep — 2026-08-31",
+    "date": "2026-08-31",
+    "kind": "maintenance-sweep"
   }
 ]
