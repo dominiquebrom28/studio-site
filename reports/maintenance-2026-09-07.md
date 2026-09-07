@@ -33,7 +33,7 @@ survives, but not in the shape it arrived in.
 | Repo | Build | Tests | Lint | Audit | CI |
 |---|---|---|---|---|---|
 | mensApp | ✅ | ✅ 1085 / 104 files | ✅ 0 problems | ✅ 0 prod vulns | ✅ green, 4/4 pushes |
-| studio-site | ✅ | ✅ 607 / 27 files | ✅ 0 errors, 12 known warnings | ❌ → ✅ **fixed here** | ❌ red since 09-01 |
+| studio-site | ✅ | ✅ 607 / 27 files | ✅ 0 errors, 12 known warnings | ❌ → ✅ **fixed here** | ❌ red since 09-01 → ✅ green on this PR |
 
 studio-site self-checks: `check:deps`, `check:report-claims`, `check:merge-revert`
 all OK. `check:backlog-checkoffs` reports the same 4 multi-PR epics as last week
@@ -93,6 +93,10 @@ evidence that nothing user-facing moved.
 Deliberately **not** allowlisted. A real fix exists inside the current major, and
 `audit-ci.jsonc`'s own standing lesson is that an exception must be a reviewed
 deferral with a known cost, not a way to get a gate green.
+
+**Confirmed in CI, not just locally.** This report's own PR ran the real gate on
+GitHub and `build` passed in 1m15s — the first green `build` in this repo since
+2026-09-01. `e2e` also ran and passed, having been `SKIPPED` on all six blocked PRs.
 
 **One operational detail that matters, and is easy to get wrong:** merging this
 does **not** turn the other six PRs green on its own. `strict_required_status_checks_policy`
