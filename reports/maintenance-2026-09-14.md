@@ -149,6 +149,12 @@ dev-only, byte-identical output — react-router is shipped runtime code and the
 emitted bundles **did** change (`index` grew ~1.4 kB). "Lockfile only" is not
 "nothing shipped", so the routing suite is the evidence, not the bundle hashes.
 
+**Confirmed in CI, not just locally.** This report's own PR ran the real gate on
+GitHub: `build` — the single required status check on `main` — passed in 1m00s
+**with the allowlist empty**, and `e2e` passed in 1m55s, alongside
+`backlog-checkoffs`, `deployed-smoke` and the Vercel deployment. The suppression
+is gone and the gate is green on its own merits.
+
 Two things this deliberately does **not** claim. It does not make the 8.x
 migration unnecessary — it removes the security argument for rushing it, and that
 migration keeps its own backlog item (now with a minimum target). And it does not
