@@ -8,37 +8,69 @@
   "critical": true,
   "report-type": "important",
   "allowlist": [
-    // GHSA-qwww-vcr4-c8h2 — react-router "RSC Mode CSRF Bypass".
-    // NOT EXPLOITABLE HERE: this is a client-only Vite SPA that does not use
-    // React Router's RSC/server mode (no createStaticHandler, no server data
-    // routers) — the vulnerable code path is never mounted.
-    // FIX NOW AVAILABLE — trigger 1 below HAS FIRED. This entry is retained
-    // deliberately, not for lack of an alternative. Corrected 2026-08-04; the
-    // previous text read "NO FIX AVAILABLE: as of 2026-07-25 ... 7.18.1 (our
-    // version) is the latest published release", which stopped being true when
-    // react-router 8.3.0 shipped. Verified 2026-08-04: `npm view react-router
-    // version` = 8.3.0, above the vulnerable `>=7.12.0 <8.3.0` range. The 7.x
+    // Empty on purpose. Two entries have lived here; both were REMOVED by fixing
+    // the advisory rather than by re-justifying the exception. Their history is
+    // kept, because the STANDING LESSON at the bottom is what both of them cost.
+
+    // GHSA-qwww-vcr4-c8h2 (react-router "RSC Mode CSRF Bypass") WAS allowlisted
+    // here and was REMOVED 2026-09-14, because the DEFERRAL'S PREMISE EXPIRED.
+    //
+    // What it claimed, and what was verified and correct when written on
+    // 2026-08-04: that the advisory range was `>=7.12.0 <8.3.0`, that "the 7.x
     // line's latest (7.18.2) is still INSIDE that range, so no patch release
-    // clears this on 7.x — only the 8.x major does.
-    // WHY IT STAYS FOR NOW: still not exploitable here (see above — no RSC/server
-    // mode is mounted), and the upgrade is a major-version migration measured at
-    // ~28 files by the 2026-08-03 maintenance sweep. That is reviewed work with
-    // its own backlog item, not something to slip into an unrelated PR. This
-    // comment records that the exception is now a DEFERRAL WITH A KNOWN COST
-    // rather than an absence of options — which is exactly what the STANDING
-    // LESSON at the bottom of this file demands, and what this entry had already
-    // quietly stopped doing.
-    // REVISIT — remove this entry (and re-evaluate as a real risk) on EITHER
-    // trigger, whichever comes first:
-    //   1. FIRED 2026-08-04 — react-router 8.3.0 is published and clears the
-    //      range. Drop this entry as PART OF the 8.x migration; dropping it
-    //      before the migration lands just turns CI red with no fix staged.
-    //   2. this app stops being a static client-only SPA — i.e. it adds React
-    //      Router RSC/server mode, ANY route `action`/`loader` that mutates, or
-    //      an authenticated/mutating server endpoint. That is the change that
-    //      makes this advisory actually exploitable, so it must re-open the
-    //      review immediately, NOT wait for a patched release.
-    "GHSA-qwww-vcr4-c8h2"
+    // clears this on 7.x — only the 8.x major does", and that the entry was
+    // therefore a deferral with a known cost: an 8.x major migration measured at
+    // ~28 files by the 2026-08-03 maintenance sweep.
+    //
+    // That stopped being accurate on 2026-08-07, when the advisory was updated
+    // and stopped carrying ONE range. It carries TWO, non-contiguous:
+    //
+    //     >= 7.12.0, < 7.18.2   -> first patched 7.18.2
+    //     >= 8.0.0,  < 8.3.0    -> first patched 8.3.0
+    //
+    // The old `<8.3.0` was npm FLATTENING those two into a single span — the
+    // identical artifact described in the brace-expansion entry below, hit from
+    // the other direction. So the 2026-08-04 comment was not wrong about what it
+    // was shown; it was reading a flattened view that hid a published 7.x fix.
+    // The exact version it named as vulnerable is the version carrying the fix.
+    //
+    // CONSEQUENCE FOR THE OPEN 8.x MIGRATION, and the reason this correction is
+    // worth its length: the 8.x line is NOT uniformly safe. Migrating onto
+    // 8.0-8.2 REINTRODUCES this advisory. The migration must target >= 8.3.0.
+    // (With this allowlist empty, CI would now catch that — but after a day of
+    // confused work, so it is written down here instead.)
+    //
+    // The cost of clearing the advisory therefore dropped from a 28-file major
+    // migration to a lockfile-only patch bump, and the recorded reason for
+    // deferring — "no patch release clears this on 7.x" — became false. Nothing
+    // failed when it did. The gate stayed green, because a green gate is
+    // precisely what an allowlist entry buys.
+    //
+    // It did not go unnoticed, which is the part worth keeping: the
+    // 2026-08-10 sweep verified the split live against the GitHub advisory API
+    // and wrote it up, and BACKLOG.md carried it as an open HIGH from
+    // 2026-08-13 naming the exact remedy — "one lockfile bump, one deleted
+    // allowlist entry, one test pass". It then sat open for 32 days across four
+    // sweeps. The detection worked. The queue is where it died.
+    //
+    // Fixed properly instead of re-allowlisted: `npm update react-router-dom`
+    // moved react-router / react-router-dom 7.18.1 -> 7.18.3 in the lockfile
+    // ONLY (`package.json` still declares `^7.18.1`, untouched). After the bump,
+    // `npm audit --omit=dev` reports 0 vulnerabilities, `npm run audit` passes
+    // with this entry ABSENT, and audit-ci itself reports "Consider not
+    // allowlisting advisory: GHSA-qwww-vcr4-c8h2". Verified on the bumped tree:
+    // 607 unit tests across 27 files, 64 Playwright e2e tests (route discovery
+    // and navigation included), lint unchanged at 0 errors / 12 known warnings.
+    //
+    // This does NOT make the 8.x migration unnecessary — it removes the security
+    // argument for rushing it. That migration keeps its own backlog item.
+    //
+    // Trigger 2 of the removed entry still stands as a rule for this repo even
+    // with the entry gone: if this app stops being a static client-only SPA —
+    // i.e. it adds React Router RSC/server mode, ANY route `action`/`loader`
+    // that mutates, or an authenticated/mutating server endpoint — re-open this
+    // review immediately, because that is the change that would have made the
+    // advisory exploitable here.
 
     // GHSA-mh99-v99m-4gvg (brace-expansion DoS) WAS allowlisted here and was
     // REMOVED 2026-08-03, because the entry had quietly stopped being true.
@@ -66,10 +98,13 @@
     // entry absent, and audit-ci itself reports "Consider not allowlisting
     // advisory: GHSA-mh99-v99m-4gvg".
     //
-    // STANDING LESSON for anything added above: an allowlist entry justified by
-    // "the installed version is already patched" is only true against the
-    // advisory's range AS IT READS TODAY. Advisory ranges get widened. Such an
-    // entry must be re-checked against the live range, not trusted because it
+    // STANDING LESSON for anything added above: an allowlist entry's
+    // justification is only true against the advisory's range AS IT READS TODAY.
+    // Ranges get WIDENED (brace-expansion: a version documented as safe became
+    // vulnerable) and they get NARROWED (react-router: a fix documented as
+    // unreachable became a patch bump). Both directions silently invalidate the
+    // reasoning underneath the entry, and NEITHER one fails the gate to tell you.
+    // Re-check such an entry against the live range; never trust it because it
     // was reviewed once.
   ]
 }

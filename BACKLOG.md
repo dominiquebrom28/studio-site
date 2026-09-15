@@ -2851,7 +2851,7 @@ nothing compares a report's claims against its own diff.
 
 ### Added 2026-08-13 (impact-ranked; slot above "Pre-launch review")
 
-- [ ] **HIGH — The `react-router` allowlist entry's stated cost has expired: a
+- [x] **HIGH — The `react-router` allowlist entry's stated cost has expired: a
       patch release now clears the advisory, and nothing re-checked.**
       `audit-ci.jsonc`'s entry for GHSA-qwww-vcr4-c8h2 (written 2026-08-04)
       justifies the deferral with "The 7.x line's latest (7.18.2) is still
@@ -2873,6 +2873,17 @@ nothing compares a report's claims against its own diff.
       anticipate. **Not done this run only because the PR queue was already at
       7, over Dom's review throttle.** Top of the list: one lockfile bump, one
       deleted allowlist entry, one test pass._
+      _(DONE 2026-09-14, team/maintenance-2026-09-14 — exactly the three steps
+      this item predicted, 32 days and four sweeps after it was written. One
+      correction to the item's own wording: the range did not "narrow", the
+      advisory SPLIT on 2026-08-07 into `>=7.12.0 <7.18.2` and `>=8.0.0
+      <8.3.0`, and the old `<8.3.0` was npm flattening two non-contiguous
+      ranges — the same artifact the brace-expansion entry describes. That
+      matters for the still-open 8.x migration, which must target **>= 8.3.0**
+      or it reintroduces this advisory; recorded in `audit-ci.jsonc`. Verified:
+      `npm audit --omit=dev` 0 vulns, gate passes with the allowlist EMPTY,
+      607 unit + 64 e2e tests pass. Declared floors also raised — this item
+      noted `package.json` still declared `^7.18.1`, a now-vulnerable floor.)_
 
 - [ ] **HIGH — Two of the studio's own PRs sat red for six days and no run
       noticed.** #116 (typecheck) and #117 (`check:report-claims`) went red on
