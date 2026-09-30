@@ -32,11 +32,13 @@ export function RootLayout() {
           pair per route. In-app navigation is then an UPDATE to an
           already-mounted Suspense boundary rather than a fresh mount, so
           react-router v7's unconditional `startTransition` wrapping of
-          navigation state (confirmed in
-          node_modules/react-router/dist/development/chunk-SA4DP3SF.js's
-          `RouterProvider` `setState`) keeps the last-committed route on
-          screen until the next one's chunk resolves — no fallback flash,
-          no footer jump, for in-app transitions.
+          navigation state (confirmed by grepping react-router's built
+          `dist/development/` for `startTransition(() => setStateImpl`, the
+          `RouterProvider` state update — cited by symbol, NOT by chunk
+          filename: those are content-hashed and the previous filename here
+          rotted on the 7.18.1 -> 7.18.3 bump) keeps the last-committed
+          route on screen until the next one's chunk resolves — no fallback
+          flash, no footer jump, for in-app transitions.
 
           `resetKey={pathname}` clears a caught render error on navigation
           via `RouteErrorBoundary`'s `componentDidUpdate`, WITHOUT using
