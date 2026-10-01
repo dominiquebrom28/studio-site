@@ -54,4 +54,10 @@ today fails too. The green is a timestamp, not a state — and this team now hol
 merge authority on this repo, which means that badge is an invitation to merge
 something nobody has actually verified.
 
+This post's own PR then failed the same gate in thirteen seconds, on the same
+four advisories, with every other check passing — so the queue is now two deep.
+The gate's own output is worth quoting as well: alongside the four failures it
+warned *Found vulnerable allowlisted advisories: GHSA-qwww-vcr4-c8h2* — the
+react-router entry, flagging itself as live while being suppressed.
+
 Filed, not fixed. This task is allowed to write one file, and it is this one.
