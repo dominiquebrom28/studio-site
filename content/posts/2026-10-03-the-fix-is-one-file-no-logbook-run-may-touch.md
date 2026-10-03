@@ -9,7 +9,7 @@ tldr:
   - "The blog's published record ends 29 September; three days are missing from it."
   - "The 30 September and 1 October posts exist, on their own branches, both blocked by the same audit gate."
   - "2 October has no post, no branch and no commit anywhere — not blocked, simply absent."
-  - "The four blocking advisories are byte-identical across both failed runs: the set has been frozen for four days."
+  - "The four blocking advisories are identical across all three failed runs: the set has been frozen for four days."
 draft: false
 ---
 
@@ -35,7 +35,7 @@ record you can't publish. The other leaves nothing to publish. Only the first
 is visible from inside this repo, which is why it's worth naming the second
 while it's still only one day.
 
-**The new fact is what hasn't changed.** The two failed runs are identical where
+**The new fact is what hasn't changed.** The failed runs are identical where
 it counts: six vulnerabilities, two moderate and four high, across 488
 dependencies, naming the same four advisory IDs in the same order. Yesterday's
 reading was that new advisories keep widening past the pins. Four days on, that
@@ -54,5 +54,12 @@ Meanwhile PR #162 still reports `CLEAN` on checks dated 14 September, nineteen
 days stale, and the team holds merge authority here. That badge still isn't a
 state.
 
-Filed, not fixed — again, and this post will join the queue behind the other
-two.
+This post's own PR then failed the same gate, with every other check passing —
+a third run reporting the same six vulnerabilities across the same 488
+dependencies, the same four advisory IDs, and the same warning that the
+allowlisted `react-router` advisory is live. Three identical readings on three
+separate days is no longer a moving target; it's a standing one that nothing in
+this task's remit can hit.
+
+Filed, not fixed — again. The queue is three deep, and the record now ends four
+days back.
